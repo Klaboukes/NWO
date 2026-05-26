@@ -49,17 +49,22 @@ public partial class WorldMap : Node2D
     private float           _animT;
     private Vector2         _animPos;
     private Vector2I        _animCurrentTile;
+    private float           _postAnimCenterDelay;
+    private Vector2?        _deferredCenterPos;
+    private const float     PostAnimCenterDelay = 0.5f;
 
     // ── Pending move preview ──────────────────────────────────────────────────
 
     private Vector2I?        _pendingDestination;
     private List<Vector2I>?  _pendingPathPreview;
 
-    // ── Map panning ───────────────────────────────────────────────────────────
+    // ── Map panning / centering ───────────────────────────────────────────────
 
-    private bool    _isPanning;
-    private Vector2 _panStartMousePos;
-    private Vector2 _panStartCameraPos;
+    private bool     _isPanning;
+    private Vector2  _panStartMousePos;
+    private Vector2  _panStartCameraPos;
+    private Vector2? _cameraTarget;
+    private const float CameraLerpSpeed = 8f;
 
     // ── UI nodes (created programmatically in SetupUI) ────────────────────
 
@@ -101,6 +106,7 @@ public partial class WorldMap : Node2D
         UpdateFogOfWar();
         UpdateTurnLabel();
         QueueRedraw();
+        BuildAndStartEndTurnQueue();
     }
 
     private void SetupUI()
@@ -266,10 +272,38 @@ public partial class WorldMap : Node2D
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))  dir.X -= 1;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) dir.X += 1;
         if (dir != Vector2.Zero)
+        {
+            _cameraTarget = null;
             _camera.Position += dir.Normalized() * PanSpeed * (float)delta / _camera.Zoom.X;
+        }
 
         if (_animUnit != null)
             TickAnimation((float)delta);
+
+        if (_postAnimCenterDelay > 0f)
+        {
+            _postAnimCenterDelay -= (float)delta;
+            if (_postAnimCenterDelay <= 0f)
+            {
+                _postAnimCenterDelay = 0f;
+                if (_deferredCenterPos.HasValue)
+                {
+                    CenterOnWorld(_deferredCenterPos.Value);
+                    _deferredCenterPos = null;
+                }
+            }
+        }
+
+        if (_cameraTarget.HasValue)
+        {
+            float t = 1f - Mathf.Exp(-CameraLerpSpeed * (float)delta);
+            _camera.Position = _camera.Position.Lerp(_cameraTarget.Value, t);
+            if (_camera.Position.DistanceTo(_cameraTarget.Value) < 0.5f)
+            {
+                _camera.Position = _cameraTarget.Value;
+                _cameraTarget    = null;
+            }
+        }
 
         if (_notifSecondsLeft > 0 && !_notifPersistentActive)
         {
@@ -306,6 +340,7 @@ public partial class WorldMap : Node2D
 
         if (@event is InputEventMouseMotion panMotion && _isPanning)
         {
+            _cameraTarget     = null;
             _camera.Position -= panMotion.Relative / _camera.Zoom.X;
             return;
         }
@@ -395,12 +430,14 @@ public partial class WorldMap : Node2D
             _reachableTiles = HexGrid.GetReachableTiles(
                 clickedUnit.Position, clickedUnit.MovementRemaining, MovementCost).ToHashSet();
             _foundCityButton.Visible = clickedUnit.Data.Special == "found_city";
+            CenterOnWorld(AxialToWorld(clickedUnit.Position));
             QueueRedraw();
         }
         else if (clickedCity != null)
         {
             Deselect();
             SelectCity(clickedCity);
+            CenterOnWorld(AxialToWorld(clickedCity.Position));
         }
         else
         {
@@ -427,6 +464,16 @@ public partial class WorldMap : Node2D
         _pendingDestination = null;
         _pendingPathPreview = null;
         Deselect();
+    }
+
+    private void CenterOnWorld(Vector2 worldPos) => _cameraTarget = worldPos;
+
+    private void DeferOrCenter(Vector2 worldPos)
+    {
+        if (_postAnimCenterDelay > 0f)
+            _deferredCenterPos = worldPos;
+        else
+            CenterOnWorld(worldPos);
     }
 
     private void Deselect()
@@ -474,11 +521,13 @@ public partial class WorldMap : Node2D
             {
                 _animPos         = AxialToWorld(_animPath[^1]);
                 _animCurrentTile = _animPath[^1];
+                _cameraTarget    = _animPos;
                 _animUnit        = null;
                 _animPath        = null;
                 UpdateFogOfWar();
                 QueueRedraw();
-                if (_endTurnQueue.Count > 0) PruneAndShowEndTurnQueue();
+                _postAnimCenterDelay = PostAnimCenterDelay;
+                PruneAndShowEndTurnQueue();
                 return;
             }
             _animCurrentTile = _animPath[_animIndex];
@@ -487,6 +536,7 @@ public partial class WorldMap : Node2D
 
         _animPos = AxialToWorld(_animPath![_animIndex])
             .Lerp(AxialToWorld(_animPath[_animIndex + 1]), _animT);
+        _cameraTarget = _animPos;
         QueueRedraw();
     }
 
@@ -583,7 +633,10 @@ public partial class WorldMap : Node2D
     private void OnEndTurnPressed()
     {
         if (_animUnit != null) return;
-        BuildAndStartEndTurnQueue();
+        _postAnimCenterDelay = 0f;
+        _deferredCenterPos   = null;
+        _endTurnQueue.Clear();
+        ProcessTurn();
     }
 
     private void BuildAndStartEndTurnQueue()
@@ -597,14 +650,14 @@ public partial class WorldMap : Node2D
                 _endTurnQueue.Add(city);
         // Research prompt would go here once implemented
 
-        if (_endTurnQueue.Count == 0)
-            ProcessTurn();
-        else
+        if (_endTurnQueue.Count > 0)
             ShowNextEndTurnItem();
     }
 
     private void AdvanceEndTurnQueue()
     {
+        _postAnimCenterDelay = 0f;
+        _deferredCenterPos   = null;
         if (_endTurnQueue.Count > 0) _endTurnQueue.RemoveAt(0);
         PruneAndShowEndTurnQueue();
     }
@@ -624,10 +677,7 @@ public partial class WorldMap : Node2D
         }
 
         if (_endTurnQueue.Count == 0)
-        {
             HidePersistentNotif();
-            ProcessTurn();
-        }
         else
             ShowNextEndTurnItem();
     }
@@ -643,12 +693,13 @@ public partial class WorldMap : Node2D
             _reachableTiles          = HexGrid.GetReachableTiles(unit.Position, unit.MovementRemaining, MovementCost).ToHashSet();
             _foundCityButton.Visible = unit.Data.Special == "found_city";
             ShowNotification($"{unit.Data.Name} has moves — [Space] Skip  [F] Fortify", persistent: true);
-            _camera.Position         = AxialToWorld(unit.Position);
+            DeferOrCenter(AxialToWorld(unit.Position));
         }
         else if (item is City city)
         {
             SelectCity(city);
             ShowNotification($"{city.Name} needs production — [Space] Skip", persistent: true);
+            DeferOrCenter(AxialToWorld(city.Position));
         }
         QueueRedraw();
     }
@@ -696,6 +747,7 @@ public partial class WorldMap : Node2D
             ShowNotification(string.Join("  |  ", notifications));
 
         QueueRedraw();
+        BuildAndStartEndTurnQueue();
     }
 
     private void CompleteProduction(City city, string item)
