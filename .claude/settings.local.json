@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git clone https://github.com/Klaboukes/NWO.git \"c:\\\\source\\\\NWO\" 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" build \"c:\\\\source\\\\NWO\\\\NWO.csproj\" --nologo -v quiet 2>&1)",
+      "PowerShell(\\(Get-Command git -ErrorAction SilentlyContinue\\).Source; \\(Get-Command \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" -ErrorAction SilentlyContinue\\).Source)"
+    ]
+  }
+}

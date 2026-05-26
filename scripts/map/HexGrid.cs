@@ -62,9 +62,9 @@ public static class HexGrid
     // All tiles within radius steps (filled disc) — used for sight and area effects
     public static List<Vector2I> GetRange(Vector2I center, int radius)
     {
-        var results = new List<Vector2I>();
-        for (int r = 0; r <= radius; r++)
-            results.AddRange(r == 0 ? new[] { center } : GetRing(center, r));
+        var results = new List<Vector2I>(1 + 3 * radius * (radius + 1)) { center };
+        for (int r = 1; r <= radius; r++)
+            results.AddRange(GetRing(center, r));
         return results;
     }
 
@@ -145,12 +145,14 @@ public static class HexGrid
 
     private static List<Vector2I> ReconstructPath(Dictionary<Vector2I, Vector2I> cameFrom, Vector2I current)
     {
-        var path = new List<Vector2I> { current };
+        var path = new List<Vector2I>();
         while (cameFrom.TryGetValue(current, out var prev))
         {
-            path.Insert(0, prev);
+            path.Add(current);
             current = prev;
         }
+        path.Add(current);
+        path.Reverse();
         return path;
     }
 }

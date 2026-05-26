@@ -8,7 +8,7 @@ public static class MapGenerator
     // A radial falloff pushes edges toward ocean, producing island-like continents.
     public static MapData Generate(int width, int height, int seed = 0)
     {
-        var data = new MapData { Width = width, Height = height };
+        var data = new MapData(width, height);
 
         // Base continental shape
         var baseNoise = new FastNoiseLite();

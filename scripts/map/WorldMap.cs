@@ -23,8 +23,8 @@ public partial class WorldMap : Node2D
 
     // ── State ────────────────────────────────────────────────────────────────
 
-    private MapData  _mapData;
-    private Camera2D _camera;
+    private MapData  _mapData = null!;
+    private Camera2D _camera  = null!;
 
     private List<UnitData>     _unitDefs     = new();
     private List<BuildingData> _buildingDefs = new();
@@ -61,8 +61,6 @@ public partial class WorldMap : Node2D
     // ── Map panning / centering ───────────────────────────────────────────────
 
     private bool     _isPanning;
-    private Vector2  _panStartMousePos;
-    private Vector2  _panStartCameraPos;
     private Vector2? _cameraTarget;
     private const float CameraLerpSpeed = 8f;
 
@@ -91,10 +89,7 @@ public partial class WorldMap : Node2D
         _mapData = MapGenerator.Generate(MapWidth, MapHeight, seed);
         _camera  = GetNode<Camera2D>("Camera2D");
 
-        var sum = Vector2.Zero;
-        foreach (var axial in _mapData.Tiles.Keys)
-            sum += AxialToWorld(axial);
-        _camera.Position = sum / _mapData.Tiles.Count;
+        _camera.Position = AxialToWorld(MapCenterAxial());
 
         var warriorDef = _unitDefs.First(u => u.Id == "warrior");
         var settlerDef = _unitDefs.First(u => u.Id == "settler");
@@ -442,9 +437,7 @@ public partial class WorldMap : Node2D
         else
         {
             Deselect();
-            _isPanning         = true;
-            _panStartMousePos  = GetViewport().GetMousePosition();
-            _panStartCameraPos = _camera.Position;
+            _isPanning = true;
         }
     }
 
@@ -594,21 +587,19 @@ public partial class WorldMap : Node2D
 
         foreach (var u in _unitDefs.Where(u => u.RequiredTech == null))
         {
-            var u2 = u; // capture for lambda
-            var btn = new Button { Text = $"{u2.Name} ({u2.ProductionCost} prod)" };
-            if (city.ProductionItem == $"unit:{u2.Id}")
+            var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)" };
+            if (city.ProductionItem == $"unit:{u.Id}")
                 btn.Text += "  ◀";
-            btn.Pressed += () => { SetProduction(city, $"unit:{u2.Id}"); };
+            btn.Pressed += () => { SetProduction(city, $"unit:{u.Id}"); };
             _buildList.AddChild(btn);
         }
 
         foreach (var b in _buildingDefs.Where(b => b.RequiredTech == null && !city.Buildings.Contains(b.Id)))
         {
-            var b2 = b;
-            var btn = new Button { Text = $"{b2.Name} ({b2.ProductionCost} prod)" };
-            if (city.ProductionItem == $"building:{b2.Id}")
+            var btn = new Button { Text = $"{b.Name} ({b.ProductionCost} prod)" };
+            if (city.ProductionItem == $"building:{b.Id}")
                 btn.Text += "  ◀";
-            btn.Pressed += () => { SetProduction(city, $"building:{b2.Id}"); };
+            btn.Pressed += () => { SetProduction(city, $"building:{b.Id}"); };
             _buildList.AddChild(btn);
         }
     }
@@ -752,20 +743,24 @@ public partial class WorldMap : Node2D
 
     private void CompleteProduction(City city, string item)
     {
-        if (item.StartsWith("unit:"))
+        var (kind, id) = SplitItem(item);
+        switch (kind)
         {
-            var id  = item["unit:".Length..];
-            var def = _unitDefs.FirstOrDefault(u => u.Id == id);
-            if (def != null) _units.Add(new Unit(def, city.Position));
-        }
-        else if (item.StartsWith("building:"))
-        {
-            var id  = item["building:".Length..];
-            var def = _buildingDefs.FirstOrDefault(b => b.Id == id);
-            if (def == null) return;
-            city.Buildings.Add(id);
-            city.FoodYield       += def.Yields.Food;
-            city.ProductionYield += def.Yields.Production;
+            case "unit":
+            {
+                var def = _unitDefs.FirstOrDefault(u => u.Id == id);
+                if (def != null) _units.Add(new Unit(def, city.Position));
+                break;
+            }
+            case "building":
+            {
+                var def = _buildingDefs.FirstOrDefault(b => b.Id == id);
+                if (def == null) return;
+                city.Buildings.Add(id);
+                city.FoodYield       += def.Yields.Food;
+                city.ProductionYield += def.Yields.Production;
+                break;
+            }
         }
     }
 
@@ -774,23 +769,21 @@ public partial class WorldMap : Node2D
     private void UpdateFogOfWar()
     {
         _visibleTiles.Clear();
-        foreach (var unit in _units)
+
+        void RevealAround(Vector2I origin, int radius)
         {
-            var origin = (unit == _animUnit) ? _animCurrentTile : unit.Position;
-            foreach (var tile in HexGrid.GetRange(origin, unit.Data.Sight))
+            foreach (var tile in HexGrid.GetRange(origin, radius))
             {
                 if (!_mapData.Tiles.ContainsKey(tile)) continue;
                 _visibleTiles.Add(tile);
                 _discoveredTiles.Add(tile);
             }
         }
+
+        foreach (var unit in _units)
+            RevealAround(unit == _animUnit ? _animCurrentTile : unit.Position, unit.Data.Sight);
         foreach (var city in _cities)
-            foreach (var tile in HexGrid.GetRange(city.Position, CitySightRadius))
-            {
-                if (!_mapData.Tiles.ContainsKey(tile)) continue;
-                _visibleTiles.Add(tile);
-                _discoveredTiles.Add(tile);
-            }
+            RevealAround(city.Position, CitySightRadius);
     }
 
     // ── Gameplay helpers ─────────────────────────────────────────────────────
@@ -840,34 +833,32 @@ public partial class WorldMap : Node2D
         _notifLabel.Visible    = false;
     }
 
+    private static (string Kind, string Id) SplitItem(string item)
+    {
+        int sep = item.IndexOf(':');
+        return sep < 0 ? ("", item) : (item[..sep], item[(sep + 1)..]);
+    }
+
     private int GetItemCost(string item)
     {
-        if (item.StartsWith("unit:"))
+        var (kind, id) = SplitItem(item);
+        return kind switch
         {
-            var id = item["unit:".Length..];
-            return _unitDefs.FirstOrDefault(u => u.Id == id)?.ProductionCost ?? 9999;
-        }
-        if (item.StartsWith("building:"))
-        {
-            var id = item["building:".Length..];
-            return _buildingDefs.FirstOrDefault(b => b.Id == id)?.ProductionCost ?? 9999;
-        }
-        return 9999;
+            "unit"     => _unitDefs.FirstOrDefault(u => u.Id == id)?.ProductionCost ?? 9999,
+            "building" => _buildingDefs.FirstOrDefault(b => b.Id == id)?.ProductionCost ?? 9999,
+            _          => 9999,
+        };
     }
 
     private string GetItemName(string item)
     {
-        if (item.StartsWith("unit:"))
+        var (kind, id) = SplitItem(item);
+        return kind switch
         {
-            var id = item["unit:".Length..];
-            return _unitDefs.FirstOrDefault(u => u.Id == id)?.Name ?? id;
-        }
-        if (item.StartsWith("building:"))
-        {
-            var id = item["building:".Length..];
-            return _buildingDefs.FirstOrDefault(b => b.Id == id)?.Name ?? id;
-        }
-        return item;
+            "unit"     => _unitDefs.FirstOrDefault(u => u.Id == id)?.Name ?? id,
+            "building" => _buildingDefs.FirstOrDefault(b => b.Id == id)?.Name ?? id,
+            _          => item,
+        };
     }
 
     private Vector2I FindWalkableTileNear(Vector2I origin)
@@ -895,16 +886,14 @@ public partial class WorldMap : Node2D
         return new Vector2I(col, row - (col - (col & 1)) / 2);
     }
 
-    private string NextCityName()
+    private static readonly string[] CityNames =
     {
-        var names = new[]
-        {
-            "Rome", "Athens", "Babylon", "Cairo", "Paris", "London",
-            "Moscow", "Beijing", "Delhi", "Tokyo", "Istanbul", "Berlin",
-            "Madrid", "Lisbon", "Amsterdam", "Vienna", "Warsaw", "Prague",
-        };
-        return names[_nextCityName++ % names.Length];
-    }
+        "Rome", "Athens", "Babylon", "Cairo", "Paris", "London",
+        "Moscow", "Beijing", "Delhi", "Tokyo", "Istanbul", "Berlin",
+        "Madrid", "Lisbon", "Amsterdam", "Vienna", "Warsaw", "Prague",
+    };
+
+    private string NextCityName() => CityNames[_nextCityName++ % CityNames.Length];
 
     // ── Terrain yields ───────────────────────────────────────────────────────
 
