@@ -91,37 +91,16 @@ public partial class WorldMap : Node2D
     {
         if (@event is InputEventKey { Pressed: true } key)
         {
-            switch (key.Keycode)
-            {
-                case Key.Space when _endTurnQueue.Count > 0:
-                    AdvanceEndTurnQueue();
-                    break;
-                case Key.F when _selection.Unit?.Data.Special == "found_city":
-                    TryFoundCity(_selection.Unit);
-                    break;
-                case Key.F when _selection.Unit != null:
-                    FortifySelectedUnit();
-                    break;
-                case Key.Escape:
-                    _cameraController.IsPanning = false;
-                    _endTurnQueue.Clear();
-                    _ui.HidePersistentNotification();
-                    Deselect();
-                    break;
-            }
+            HandleKeyPress(key.Keycode);
             return;
         }
 
-        if (@event is InputEventMouseMotion panMotion && _cameraController.IsPanning)
+        if (@event is InputEventMouseMotion motion)
         {
-            _cameraController.ApplyMousePan(panMotion.Relative);
-            return;
-        }
-
-        if (@event is InputEventMouseMotion && _selection.Unit != null
-            && Input.IsMouseButtonPressed(MouseButton.Left) && !_animator.IsAnimating)
-        {
-            UpdatePathPreview(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+            if (_cameraController.IsPanning)
+                _cameraController.ApplyMousePan(motion.Relative);
+            else if (_selection.Unit != null && !_animator.IsAnimating)
+                UpdatePathPreview(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
             return;
         }
 
@@ -135,16 +114,51 @@ public partial class WorldMap : Node2D
                 case MouseButton.Left when !_animator.IsAnimating:
                     HandleLeftPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
                     break;
-                case MouseButton.Right:
-                    _selection.PendingDestination = null;
-                    _selection.PendingPathPreview = null;
-                    Deselect();
+                case MouseButton.Right when !_animator.IsAnimating:
+                    HandleRightPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+                    break;
+                case MouseButton.Middle:
+                    _cameraController.IsPanning = true;
                     break;
             }
         }
-        else if (mb.ButtonIndex == MouseButton.Left && !_animator.IsAnimating)
+        else if (mb.ButtonIndex == MouseButton.Middle)
         {
-            HandleLeftRelease();
+            _cameraController.IsPanning = false;
+        }
+    }
+
+    private void HandleKeyPress(Key keycode)
+    {
+        switch (keycode)
+        {
+            case Key.Tab:
+                CycleToNextUnitNeedingAttention();
+                break;
+            case Key.Enter:
+            case Key.KpEnter:
+                if (_animator.IsAnimating) break;
+                if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
+                else                         OnEndTurnPressed();
+                break;
+            case Key.Space when _endTurnQueue.Count > 0:
+                AdvanceEndTurnQueue();
+                break;
+            case Key.B when _selection.Unit?.Data.Special == "found_city":
+                TryFoundCity(_selection.Unit);
+                break;
+            case Key.F when _selection.Unit?.Data.Special == "found_city":
+                TryFoundCity(_selection.Unit);
+                break;
+            case Key.F when _selection.Unit != null:
+                FortifySelectedUnit();
+                break;
+            case Key.Escape:
+                _cameraController.IsPanning = false;
+                _endTurnQueue.Clear();
+                _ui.HidePersistentNotification();
+                Deselect();
+                break;
         }
     }
 
@@ -157,11 +171,7 @@ public partial class WorldMap : Node2D
         var clickedUnit = _state.Units.Find(u => u.Position == axial && u.Owner == _viewerPlayer);
         var clickedCity = _state.Cities.Find(c => c.Position == axial);
 
-        if (_selection.Unit != null && _selection.ReachableTiles.Contains(axial))
-        {
-            UpdatePathPreview(axial);
-        }
-        else if (clickedUnit != null && (clickedUnit.MovementRemaining > 0 || clickedUnit.Fortified))
+        if (clickedUnit != null && (clickedUnit.MovementRemaining > 0 || clickedUnit.Fortified))
         {
             if (clickedUnit.Fortified)
             {
@@ -179,8 +189,19 @@ public partial class WorldMap : Node2D
         else
         {
             Deselect();
-            _cameraController.IsPanning = true;
         }
+    }
+
+    private void HandleRightPress(Vector2I axial)
+    {
+        if (_selection.Unit == null) return;
+        if (!_selection.ReachableTiles.Contains(axial)) return;
+
+        var path = HexGrid.FindPath(_selection.Unit.Position, axial, _state.MovementCost);
+        if (path.Count < 2) return;
+
+        StartMove(_selection.Unit, path);
+        Deselect();
     }
 
     private void UpdatePathPreview(Vector2I axial)
@@ -196,7 +217,7 @@ public partial class WorldMap : Node2D
                 _renderer.QueueRedraw();
             }
         }
-        else
+        else if (_selection.PendingDestination != null)
         {
             _selection.PendingDestination = null;
             _selection.PendingPathPreview = null;
@@ -204,14 +225,18 @@ public partial class WorldMap : Node2D
         }
     }
 
-    private void HandleLeftRelease()
+    private void CycleToNextUnitNeedingAttention()
     {
-        _cameraController.IsPanning = false;
-        if (_selection.PendingDestination == null || _selection.Unit == null
-            || _selection.PendingPathPreview == null) return;
+        var candidates = _state.Units
+            .Where(u => u.Owner == _viewerPlayer && u.NeedsAttention)
+            .ToList();
+        if (candidates.Count == 0) return;
 
-        StartMove(_selection.Unit, _selection.PendingPathPreview);
-        Deselect();
+        int currentIdx = _selection.Unit != null ? candidates.IndexOf(_selection.Unit) : -1;
+        var next = candidates[(currentIdx + 1) % candidates.Count];
+
+        SelectUnit(next);
+        _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
     }
 
     private void StartMove(Unit unit, System.Collections.Generic.List<Vector2I> path)

@@ -7,6 +7,27 @@
 - Use the git identity already configured in this repo (`Klaboukes` / `barthoukes@gmail.com`).
 - Follow the standard commit format: concise subject line, blank line, short body if needed, trailing `Co-Authored-By` line.
 
+## UI/UX — Civ 5 inspired controls
+
+The game is loosely modeled on Civilization V. Players coming from Civ 5 must find the controls (mouse, keyboard, unit actions) intuitively familiar. When adding or changing UI/UX, match Civ 5 conventions before inventing new ones.
+
+### Mouse
+- **Left-click** on own unit or city: select it (centers camera smoothly).
+- **Left-click** on an empty/unselectable tile: deselect.
+- **Right-click** on a reachable tile while a unit is selected: execute the move.
+- **Middle-mouse drag**: pan the camera.
+- **Mouse hover** while a unit is selected: shows the path preview to the hovered tile — no button held.
+- **Scroll wheel**: zoom.
+
+### Keyboard
+- **WASD / arrow keys**: pan camera.
+- **Enter**: end turn (or advance the end-turn queue if a prompt is active).
+- **Tab**: cycle to next unit needing attention.
+- **Space**: skip the current end-turn-queue item.
+- **B**: Build city (when a settler is selected).
+- **F**: Fortify selected unit (Found city if the unit is a settler — `B` is preferred).
+- **Esc**: cancel / deselect / clear notification.
+
 ## UI/UX — Camera & Game Progression Flow
 
 These rules govern how the camera behaves and how the end-turn queue advances. All future edits must respect this flow.

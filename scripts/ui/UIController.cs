@@ -110,14 +110,14 @@ public partial class UIController : CanvasLayer
 
         foreach (var u in catalog.Units.Where(u => u.RequiredTech == null))
         {
-            var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)" };
+            var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"unit:{u.Id}") btn.Text += "  ◀";
             btn.Pressed += () => onSetProduction($"unit:{u.Id}");
             _buildList.AddChild(btn);
         }
         foreach (var b in catalog.Buildings.Where(b => b.RequiredTech == null && !city.Buildings.Contains(b.Id)))
         {
-            var btn = new Button { Text = $"{b.Name} ({b.ProductionCost} prod)" };
+            var btn = new Button { Text = $"{b.Name} ({b.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"building:{b.Id}") btn.Text += "  ◀";
             btn.Pressed += () => onSetProduction($"building:{b.Id}");
             _buildList.AddChild(btn);
