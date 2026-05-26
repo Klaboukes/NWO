@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using Godot;
+using NWO.Core;
 
 namespace NWO.Entities;
 
-public class City
+public class City : IEndTurnItem
 {
     public string         Name               { get; set; }
+    public Player         Owner              { get; set; }
     public Vector2I       Position           { get; set; }
     public int            Population         { get; set; } = 1;
     public float          FoodAccumulated    { get; set; }
@@ -17,9 +19,10 @@ public class City
 
     public int GrowthThreshold => 15 + 6 * Population;
 
-    public City(string name, Vector2I position)
+    public City(string name, Player owner, Vector2I position)
     {
         Name     = name;
+        Owner    = owner;
         Position = position;
     }
 
@@ -45,4 +48,10 @@ public class City
         ProductionItem = null;
         return done;
     }
+
+    // ── IEndTurnItem ─────────────────────────────────────────────────────────
+
+    public bool     NeedsAttention => ProductionItem == null;
+    public string   PromptText     => $"{Name} needs production — [Space] Skip";
+    public Vector2I FocusPosition  => Position;
 }

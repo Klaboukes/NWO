@@ -105,6 +105,12 @@ public static class HexGrid
 
     // A* pathfinding. Returns full path including from and to, or empty list if no path exists.
     // movementCost delegate: return cost to enter a tile, or int.MaxValue if impassable.
+    //
+    // MaxExpansions is a defensive ceiling: a cost function that's passable in every
+    // direction (e.g. a missing map-bounds check) would otherwise explore the infinite
+    // hex plane forever when no path exists. 50k tiles covers any realistic map.
+    private const int MaxExpansions = 50_000;
+
     public static List<Vector2I> FindPath(
         Vector2I from,
         Vector2I to,
@@ -118,7 +124,8 @@ public static class HexGrid
         var openSet = new PriorityQueue<Vector2I, int>();
         openSet.Enqueue(from, Distance(from, to));
 
-        while (openSet.Count > 0)
+        int expansions = 0;
+        while (openSet.Count > 0 && expansions++ < MaxExpansions)
         {
             var current = openSet.Dequeue();
 
@@ -140,7 +147,7 @@ public static class HexGrid
             }
         }
 
-        return new List<Vector2I>(); // no path found
+        return new List<Vector2I>(); // no path found or expansion budget exhausted
     }
 
     private static List<Vector2I> ReconstructPath(Dictionary<Vector2I, Vector2I> cameFrom, Vector2I current)

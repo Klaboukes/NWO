@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="NWO.Tests/**" />
+    <None Remove="NWO.Tests/**" />
+  </ItemGroup>
 </Project>

@@ -1,6 +1,8 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NWO", "NWO.csproj", "{7184E600-A4E0-4209-9744-5347DC21BCB4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NWO.Tests", "NWO.Tests\NWO.Tests.csproj", "{A8D4C5B0-1E2F-4A7B-9C3D-8E5F6A1B2C4D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,5 +17,9 @@ Global
 		{7184E600-A4E0-4209-9744-5347DC21BCB4}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{7184E600-A4E0-4209-9744-5347DC21BCB4}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
 		{7184E600-A4E0-4209-9744-5347DC21BCB4}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{A8D4C5B0-1E2F-4A7B-9C3D-8E5F6A1B2C4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8D4C5B0-1E2F-4A7B-9C3D-8E5F6A1B2C4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8D4C5B0-1E2F-4A7B-9C3D-8E5F6A1B2C4D}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8D4C5B0-1E2F-4A7B-9C3D-8E5F6A1B2C4D}.ExportRelease|Any CPU.ActiveCfg = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

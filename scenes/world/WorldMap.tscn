@@ -1,8 +1,15 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/map/WorldMap.cs" id="1_worldmap"]
+[ext_resource type="Script" path="res://scripts/map/WorldRenderer.cs" id="2_renderer"]
+[ext_resource type="PackedScene" path="res://scenes/ui/UI.tscn" id="3_ui"]
 
 [node name="WorldMap" type="Node2D"]
 script = ExtResource("1_worldmap")
 
 [node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="WorldRenderer" type="Node2D" parent="."]
+script = ExtResource("2_renderer")
+
+[node name="UI" parent="." instance=ExtResource("3_ui")]

@@ -1,3 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Claude scheduled-task internals
+.claude/scheduled_tasks.lock
