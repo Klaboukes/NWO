@@ -1,0 +1,66 @@
+{
+  "techs": [
+    {
+      "id": "pottery",
+      "name": "Pottery",
+      "scienceCost": 35,
+      "prerequisites": [],
+      "unlocks": { "buildings": ["granary"] }
+    },
+    {
+      "id": "writing",
+      "name": "Writing",
+      "scienceCost": 55,
+      "prerequisites": ["pottery"],
+      "unlocks": { "buildings": ["library"] }
+    },
+    {
+      "id": "philosophy",
+      "name": "Philosophy",
+      "scienceCost": 80,
+      "prerequisites": ["writing"],
+      "unlocks": { "buildings": ["monument"] }
+    },
+    {
+      "id": "animal_husbandry",
+      "name": "Animal Husbandry",
+      "scienceCost": 35,
+      "prerequisites": ["pottery"],
+      "unlocks": {
+        "improvements": ["pasture"],
+        "revealedResources": ["horses"]
+      }
+    },
+    {
+      "id": "horseback_riding",
+      "name": "Horseback Riding",
+      "scienceCost": 100,
+      "prerequisites": ["animal_husbandry"],
+      "unlocks": { "units": ["horseman"] }
+    },
+    {
+      "id": "mining",
+      "name": "Mining",
+      "scienceCost": 35,
+      "prerequisites": [],
+      "unlocks": { "improvements": ["mine"] }
+    },
+    {
+      "id": "bronze_working",
+      "name": "Bronze Working",
+      "scienceCost": 55,
+      "prerequisites": ["mining"],
+      "unlocks": {
+        "units": ["spearman"],
+        "revealedResources": ["iron"]
+      }
+    },
+    {
+      "id": "iron_working",
+      "name": "Iron Working",
+      "scienceCost": 100,
+      "prerequisites": ["bronze_working"],
+      "unlocks": { "units": ["swordsman"] }
+    }
+  ]
+}

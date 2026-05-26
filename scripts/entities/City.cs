@@ -1,0 +1,48 @@
+using System.Collections.Generic;
+using Godot;
+
+namespace NWO.Entities;
+
+public class City
+{
+    public string         Name               { get; set; }
+    public Vector2I       Position           { get; set; }
+    public int            Population         { get; set; } = 1;
+    public float          FoodAccumulated    { get; set; }
+    public int            ProductionProgress { get; set; }
+    public string?        ProductionItem     { get; set; } // "unit:warrior" or "building:monument"
+    public int            FoodYield          { get; set; }
+    public int            ProductionYield    { get; set; }
+    public HashSet<string> Buildings         { get; }     = new();
+
+    public int GrowthThreshold => 15 + 6 * Population;
+
+    public City(string name, Vector2I position)
+    {
+        Name     = name;
+        Position = position;
+    }
+
+    // Returns true if city grew this turn.
+    public bool ProcessFood()
+    {
+        FoodAccumulated += FoodYield - Population;
+        if (FoodAccumulated < 0) FoodAccumulated = 0;
+        if (FoodAccumulated < GrowthThreshold) return false;
+        FoodAccumulated -= GrowthThreshold;
+        Population++;
+        return true;
+    }
+
+    // Adds one turn of production. Returns completed item id when threshold is reached.
+    public string? AdvanceProduction(int itemCost)
+    {
+        if (ProductionItem == null) return null;
+        ProductionProgress += ProductionYield;
+        if (ProductionProgress < itemCost) return null;
+        ProductionProgress -= itemCost;
+        var done      = ProductionItem;
+        ProductionItem = null;
+        return done;
+    }
+}

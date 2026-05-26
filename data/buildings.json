@@ -1,0 +1,48 @@
+{
+  "buildings": [
+    {
+      "id": "monument",
+      "name": "Monument",
+      "productionCost": 60,
+      "requiredTech": null,
+      "yields": { "culture": 2 }
+    },
+    {
+      "id": "granary",
+      "name": "Granary",
+      "productionCost": 80,
+      "requiredTech": "pottery",
+      "yields": { "food": 2 }
+    },
+    {
+      "id": "barracks",
+      "name": "Barracks",
+      "productionCost": 100,
+      "requiredTech": null,
+      "yields": {},
+      "effect": "new_units_bonus_xp_15"
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "productionCost": 90,
+      "requiredTech": "writing",
+      "yields": { "science": 2 }
+    },
+    {
+      "id": "market",
+      "name": "Market",
+      "productionCost": 120,
+      "requiredTech": null,
+      "yields": { "gold": 2 }
+    },
+    {
+      "id": "walls",
+      "name": "Walls",
+      "productionCost": 130,
+      "requiredTech": null,
+      "yields": {},
+      "effect": "city_defense_plus_5"
+    }
+  ]
+}

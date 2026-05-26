@@ -1,0 +1,84 @@
+{
+  "units": [
+    {
+      "id": "warrior",
+      "name": "Warrior",
+      "productionCost": 40,
+      "attack": 8,
+      "defense": 8,
+      "movement": 2,
+      "range": 1,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": null,
+      "requiredResource": null
+    },
+    {
+      "id": "archer",
+      "name": "Archer",
+      "productionCost": 70,
+      "attack": 7,
+      "defense": 4,
+      "movement": 2,
+      "range": 2,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": null,
+      "requiredResource": null
+    },
+    {
+      "id": "spearman",
+      "name": "Spearman",
+      "productionCost": 60,
+      "attack": 6,
+      "defense": 12,
+      "movement": 2,
+      "range": 1,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": "bronze_working",
+      "requiredResource": null
+    },
+    {
+      "id": "horseman",
+      "name": "Horseman",
+      "productionCost": 80,
+      "attack": 12,
+      "defense": 7,
+      "movement": 4,
+      "range": 1,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": "horseback_riding",
+      "requiredResource": "horses"
+    },
+    {
+      "id": "settler",
+      "name": "Settler",
+      "productionCost": 100,
+      "attack": 0,
+      "defense": 0,
+      "movement": 2,
+      "range": 0,
+      "sight": 2,
+      "maintenanceGold": 0,
+      "requiredTech": null,
+      "requiredResource": null,
+      "special": "found_city"
+    },
+    {
+      "id": "worker",
+      "name": "Worker",
+      "productionCost": 70,
+      "attack": 0,
+      "defense": 0,
+      "movement": 2,
+      "range": 0,
+      "sight": 2,
+      "maintenanceGold": 0,
+      "requiredTech": null,
+      "requiredResource": null,
+      "special": "build_improvement"
+    }
+  ]
+}
