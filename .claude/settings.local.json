@@ -3,7 +3,14 @@
     "allow": [
       "PowerShell(git clone https://github.com/Klaboukes/NWO.git \"c:\\\\source\\\\NWO\" 2>&1)",
       "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" build \"c:\\\\source\\\\NWO\\\\NWO.csproj\" --nologo -v quiet 2>&1)",
-      "PowerShell(\\(Get-Command git -ErrorAction SilentlyContinue\\).Source; \\(Get-Command \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" -ErrorAction SilentlyContinue\\).Source)"
+      "PowerShell(\\(Get-Command git -ErrorAction SilentlyContinue\\).Source; \\(Get-Command \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" build \"c:\\\\source\\\\NWO\\\\NWO.Tests\\\\NWO.Tests.csproj\" --nologo 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" test \"c:\\\\source\\\\NWO\\\\NWO.Tests\\\\NWO.Tests.csproj\" --nologo --no-build 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" test \"c:\\\\source\\\\NWO\\\\NWO.Tests\\\\NWO.Tests.csproj\" --nologo 2>&1)",
+      "PowerShell(& \"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\" build \"c:\\\\source\\\\NWO\\\\NWO.sln\" --nologo -v minimal 2>&1)",
+      "PowerShell($git = \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\"; cd \"c:\\\\source\\\\NWO\"; & $git status --short)",
+      "PowerShell($git = \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\"; cd \"c:\\\\source\\\\NWO\"; & $git add scenes/ scripts/ NWO.csproj NWO.sln NWO.Tests/ 2>&1; & $git status --short)",
+      "PowerShell($git = \"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\"; cd \"c:\\\\source\\\\NWO\"; & $git reset HEAD NWO.Tests/bin NWO.Tests/obj 2>&1 | Select-Object -Last 5; & $git status --short | Where-Object { $_ -notmatch 'NWO\\\\.Tests/\\(bin|obj\\)' })"
     ]
   }
 }
