@@ -16,6 +16,7 @@ public class City : IEndTurnItem
     public int            FoodYield          { get; set; }
     public int            ProductionYield    { get; set; }
     public HashSet<string> Buildings         { get; }     = new();
+    public CityWorkforce  Workforce          { get; }     = new();
 
     public int GrowthThreshold => 15 + 6 * Population;
 

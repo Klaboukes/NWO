@@ -69,8 +69,12 @@ public class GameState
 
         Units.Remove(settler);
         city = new City(NextCityName(), settler.Owner, pos);
-        ComputeCityYields(city);
         Cities.Add(city);
+        CityWorkforceService.Recompute(this, city);
+        // Founding a new city can shift tile control near neighbours.
+        foreach (var other in Cities)
+            if (other != city && HexGrid.Distance(other.Position, pos) <= CityWorkforceService.WorkRadius * 2)
+                CityWorkforceService.Recompute(this, other);
         return FoundCityResult.Success;
     }
 
@@ -120,6 +124,8 @@ public class GameState
         city.Owner              = captor.Owner;
         city.ProductionItem     = null;
         city.ProductionProgress = 0;
+        city.Workforce.Locked.Clear();
+        CityWorkforceService.Recompute(this, city);
     }
 
     // ── End-of-turn processing ───────────────────────────────────────────────
@@ -138,8 +144,15 @@ public class GameState
         {
             if (city.Owner != player) continue;
 
+            // Refresh assignments before yields are spent — enemy moves last
+            // turn may have blockaded a worked tile.
+            CityWorkforceService.Recompute(this, city);
+
             if (city.ProcessFood())
+            {
                 notifications.Add($"{city.Name} grew to population {city.Population}!");
+                CityWorkforceService.Recompute(this, city);
+            }
 
             if (city.ProductionItem != null)
             {
@@ -175,26 +188,12 @@ public class GameState
                 var bdef = Catalog.Building(id);
                 if (bdef == null) return;
                 city.Buildings.Add(id);
-                city.FoodYield       += bdef.Yields.Food;
-                city.ProductionYield += bdef.Yields.Production;
+                CityWorkforceService.Recompute(this, city);
                 break;
         }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-
-    public void ComputeCityYields(City city)
-    {
-        int food = 0, prod = 0;
-        foreach (var tile in HexGrid.GetRange(city.Position, 1))
-        {
-            if (!Map.Tiles.TryGetValue(tile, out var t)) continue;
-            food += TerrainYields.Food(t);
-            prod += TerrainYields.Production(t);
-        }
-        city.FoodYield       = Math.Max(1, food);
-        city.ProductionYield = Math.Max(1, prod);
-    }
 
     public int MovementCost(Vector2I axial)
         => Map.Tiles.TryGetValue(axial, out var t) ? TerrainYields.MovementCost(t) : int.MaxValue;

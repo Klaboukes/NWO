@@ -1,3 +1,5 @@
+using System;
+
 namespace NWO.Map;
 
 // Lookup tables for terrain-driven gameplay numbers. Lives here (not in WorldMap)
@@ -38,4 +40,8 @@ public static class TerrainYields
 
     public static bool CanFoundCityOn(TerrainType t)
         => t != TerrainType.Ocean && t != TerrainType.Mountain;
+
+    // City-center floor: Civ 5 rule — always at least 2 food / 1 production.
+    public static (int Food, int Prod) CityCenter(TerrainType t)
+        => (Math.Max(2, Food(t)), Math.Max(1, Production(t)));
 }

@@ -65,7 +65,26 @@ Goal: Combat works. An AI opponent exists and fights back.
 
 ---
 
-## Phase 4 — Tech Tree & Economy (Week 11–12)
+## Phase 4 — City Management ✅ COMPLETE
+
+Goal: Cities feel alive. Yields are driven by which tiles their citizens work,
+not a static number computed once at founding.
+
+- [x] Per-city `Workforce` (focus + assigned tiles + locked tiles)
+- [x] `CityWorkforceService.Recompute` — auto-assigns citizens by focus, layered on top of locked picks
+- [x] Civ 5 city-center floor (2F / 1P minimum at the city tile)
+- [x] Tile control: nearest city center within work radius wins; earlier-founded breaks ties
+- [x] Enemy units blockade worked tiles (re-assigned on next turn)
+- [x] Three focus modes in the city panel: Balanced / Food / Production
+- [x] Right-click a workable tile on the map to lock/unlock a citizen
+- [x] WorldRenderer tints workable / assigned / locked tiles when a friendly city is selected
+- [x] Yields recompute on found, capture, building completion, growth, and end-of-turn
+
+**Done when:** You can found a city, switch its focus, lock a Hills tile to bias toward production, and watch the food/production numbers change as citizens reassign.
+
+---
+
+## Phase 5 — Tech Tree & Economy (Week 11–12)
 
 Goal: Research feels meaningful. Gold matters.
 
@@ -80,7 +99,7 @@ Goal: Research feels meaningful. Gold matters.
 
 ---
 
-## Phase 5 — Win Conditions & Polish (Week 13–14)
+## Phase 6 — Win Conditions & Polish (Week 13–14)
 
 Goal: The game has a beginning, middle, and end.
 

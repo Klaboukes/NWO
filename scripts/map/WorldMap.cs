@@ -203,6 +203,13 @@ public partial class WorldMap : Node2D
 
     private void HandleRightPress(Vector2I axial)
     {
+        // Right-click on a workable tile while a city is selected: toggle the
+        // worker lock. Civ-5 style — see CLAUDE.md UI/UX section.
+        if (_selection.City is { } city && city.Owner == _viewerPlayer)
+        {
+            ToggleWorkerLock(city, axial);
+            return;
+        }
         if (_selection.Unit == null) return;
 
         var attacker    = _selection.Unit;
@@ -307,7 +314,7 @@ public partial class WorldMap : Node2D
         _selection.SelectCity(city);
         _ui.SetFoundCityVisible(false);
         _ui.HideUnitPanel();
-        _ui.ShowCityPanel(city, _state.Catalog, item => SetProduction(city, item));
+        RefreshCityPanel(city);
         _renderer.QueueRedraw();
     }
 
@@ -378,8 +385,41 @@ public partial class WorldMap : Node2D
         city.ProductionItem     = item;
         city.ProductionProgress = 0;
         _ui.HidePersistentNotification();
-        _ui.ShowCityPanel(city, _state.Catalog, i => SetProduction(city, i));
+        RefreshCityPanel(city);
     }
+
+    private void SetCityFocus(City city, CityFocus focus)
+    {
+        if (city.Workforce.Focus == focus) return;
+        city.Workforce.Focus = focus;
+        CityWorkforceService.Recompute(_state, city);
+        RefreshCityPanel(city);
+        _renderer.QueueRedraw();
+    }
+
+    private void ToggleWorkerLock(City city, Vector2I axial)
+    {
+        if (!CityWorkforceService.Workable(_state, city).Contains(axial)) return;
+        if (!city.Workforce.Locked.Remove(axial))
+        {
+            // Cap locked tiles at population — locking past the limit would
+            // evict another locked tile on next recompute, which is confusing.
+            if (city.Workforce.Locked.Count >= city.Population)
+            {
+                _ui.ShowNotification("No idle citizens — unlock a tile first.");
+                return;
+            }
+            city.Workforce.Locked.Add(axial);
+        }
+        CityWorkforceService.Recompute(_state, city);
+        RefreshCityPanel(city);
+        _renderer.QueueRedraw();
+    }
+
+    private void RefreshCityPanel(City city) =>
+        _ui.ShowCityPanel(city, _state.Catalog,
+            item  => SetProduction(city, item),
+            focus => SetCityFocus(city, focus));
 
     // ── End-of-turn queue ────────────────────────────────────────────────────
 

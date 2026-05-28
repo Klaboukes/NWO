@@ -72,6 +72,27 @@ public partial class WorldRenderer : Node2D
             DrawPolygon(HexVertices(AxialToWorld(axial), HexSize - HexGap),
                 new[] { new Color(1f, 1f, 0.2f, 0.35f) });
 
+        // 2a. Selected-city workable / assigned / locked tile overlays.
+        if (_selection.City is { } selectedCity && selectedCity.Owner == _viewerPlayer)
+        {
+            foreach (var tile in CityWorkforceService.Workable(_state, selectedCity))
+            {
+                var w = AxialToWorld(tile);
+                bool assigned = selectedCity.Workforce.Assigned.Contains(tile);
+                bool locked   = selectedCity.Workforce.Locked.Contains(tile);
+                var tint = assigned
+                    ? new Color(0.35f, 0.85f, 0.35f, 0.30f)
+                    : new Color(0.45f, 0.75f, 1f,   0.18f);
+                DrawPolygon(HexVertices(w, HexSize - HexGap), new[] { tint });
+                if (assigned)
+                    DrawCircle(w + new Vector2(HexSize * 0.30f, -HexSize * 0.30f),
+                        HexSize * 0.10f, Colors.White);
+                if (locked)
+                    DrawCircle(w + new Vector2(-HexSize * 0.30f, -HexSize * 0.30f),
+                        HexSize * 0.10f, Colors.Gold);
+            }
+        }
+
         // 2b. Pending move path preview
         if (_selection.PendingPathPreview is { } preview)
         {

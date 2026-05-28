@@ -81,19 +81,21 @@ public class ScenarioTests
         var session = TestWorlds.StandardSession(out var human, out var ai);
         var settler = new Unit(TestWorlds.Settler(), human, new Vector2I(5, 5));
         session.State.Units.Add(settler);
-        // Park the AI somewhere harmless so it doesn't interfere.
-        session.State.Units.Add(new Unit(TestWorlds.Warrior(), ai, new Vector2I(18, 18)));
+        // No AI units — the AI player exists but has nothing to do, which keeps
+        // this test focused on the city's growth/production loop. (Old test
+        // parked an AI warrior far away; with the new tile-based yields the
+        // production window is long enough that a wandering AI warrior reached
+        // and engaged the city.)
 
         var founded = session.TryFoundCity(settler, out var city);
         Assert.Equal(GameState.FoundCityResult.Success, founded);
         city!.ProductionItem = "unit:warrior";
-        // Give the city enough yield to finish a 40-cost Warrior within the
-        // turn budget without depending on terrain layout.
-        city.ProductionYield = 10;
 
         int warriorCountBefore = session.State.Units.Count(u => u.Owner == human && u.Data.Id == "warrior");
 
-        for (int turn = 1; turn <= 8; turn++)
+        // All-Plains map: pop 1 yields 3F/2P, grows to pop 2 around turn 11 and
+        // tips up to 3P/turn — a Warrior (40) completes by turn 18 worst case.
+        for (int turn = 1; turn <= 25; turn++)
         {
             session.EndTurn();
             AssertInvariants(session.State, turn);
@@ -101,7 +103,7 @@ public class ScenarioTests
 
         int warriorCountAfter = session.State.Units.Count(u => u.Owner == human && u.Data.Id == "warrior");
         Assert.True(warriorCountAfter > warriorCountBefore,
-            $"city should have produced a Warrior by turn 8 (before={warriorCountBefore}, after={warriorCountAfter})");
+            $"city should have produced a Warrior by turn 25 (before={warriorCountBefore}, after={warriorCountAfter})");
     }
 
     [Fact]

@@ -135,7 +135,8 @@ public partial class UIController : CanvasLayer
     public void ShowCityPanel(
         City city,
         DataCatalog catalog,
-        Action<string> onSetProduction)
+        Action<string> onSetProduction,
+        Action<CityFocus> onSetFocus)
     {
         _cityPanel.Visible = true;
         _cityNameLabel.Text = city.Name;
@@ -144,14 +145,32 @@ public partial class UIController : CanvasLayer
         string prod = city.ProductionItem != null
             ? $"{catalog.ItemName(city.ProductionItem)} ({ProductionTurnsLeft(city, catalog)}) "
             : "Idle";
+        int locked   = city.Workforce.Locked.Count;
+        int assigned = city.Workforce.Assigned.Count;
         _cityStatsLabel.Text =
-            $"Pop: {city.Population}\n" +
+            $"Pop: {city.Population}  (workers {assigned}{(locked > 0 ? $", {locked} locked" : "")})\n" +
+            $"Focus: {city.Workforce.Focus}\n" +
             $"Food: {city.FoodAccumulated:F0}/{city.GrowthThreshold}  ({(netFood >= 0 ? "+" : "")}{netFood}/turn)\n" +
             $"Prod: {city.ProductionYield}/turn\n" +
             $"Producing: {prod}\n" +
-            $"\nBuildings:\n{(city.Buildings.Count > 0 ? string.Join(", ", city.Buildings) : "none")}";
+            $"\nRight-click a highlighted tile on the map to lock/unlock workers." +
+            $"\nBuildings: {(city.Buildings.Count > 0 ? string.Join(", ", city.Buildings) : "none")}";
 
         foreach (var child in _buildList.GetChildren()) child.QueueFree();
+
+        var focusRow = new HBoxContainer();
+        foreach (var f in new[] { CityFocus.Balanced, CityFocus.Food, CityFocus.Production })
+        {
+            var fbtn = new Button
+            {
+                Text       = city.Workforce.Focus == f ? $"[{f}]" : f.ToString(),
+                FocusMode  = Control.FocusModeEnum.None,
+            };
+            var captured = f;
+            fbtn.Pressed += () => onSetFocus(captured);
+            focusRow.AddChild(fbtn);
+        }
+        _buildList.AddChild(focusRow);
 
         foreach (var u in catalog.Units.Where(u => u.RequiredTech == null))
         {
