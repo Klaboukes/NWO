@@ -10,13 +10,18 @@ namespace NWO.Map;
 // when something visible changes.
 public partial class WorldRenderer : Node2D
 {
-    public const  float HexSize = 32f;
-    private const float HexGap  = 1f;
+    public const  float HexSize           = 32f;
+    private const float HexGap            = 1f;
+    private const float CombatFlashSecs   = 0.4f;
 
     private GameState        _state            = null!;
     private SelectionState   _selection        = null!;
     private MovementAnimator _animator         = null!;
     private Player           _viewerPlayer     = null!;
+
+    private Vector2I? _flashAttacker;
+    private Vector2I? _flashDefender;
+    private float     _flashTimeLeft;
 
     public void Initialize(
         GameState state,
@@ -28,6 +33,27 @@ public partial class WorldRenderer : Node2D
         _selection    = selection;
         _animator     = animator;
         _viewerPlayer = viewerPlayer;
+    }
+
+    // Briefly tints the attacker and defender tiles red. Caller invokes after combat.
+    public void FlashCombat(Vector2I attacker, Vector2I defender)
+    {
+        _flashAttacker = attacker;
+        _flashDefender = defender;
+        _flashTimeLeft = CombatFlashSecs;
+        QueueRedraw();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_flashTimeLeft <= 0f) return;
+        _flashTimeLeft -= (float)delta;
+        if (_flashTimeLeft <= 0f)
+        {
+            _flashAttacker = null;
+            _flashDefender = null;
+        }
+        QueueRedraw();
     }
 
     public override void _Draw()
@@ -81,7 +107,7 @@ public partial class WorldRenderer : Node2D
         {
             if (!fog.IsVisible(unit.Position)) continue;
             var pos = unit == _animator.AnimatingUnit ? _animator.CurrentWorldPos : AxialToWorld(unit.Position);
-            DrawCircle(pos, HexSize * 0.32f, new Color(0.15f, 0.40f, 0.90f));
+            DrawCircle(pos, HexSize * 0.32f, unit.Owner.Color);
             DrawString(ThemeDB.FallbackFont, pos + new Vector2(-5f, 5f),
                 unit.Data.Name[..1], HorizontalAlignment.Left, -1, 14, Colors.White);
             if (unit == _selection.Unit)
@@ -90,6 +116,17 @@ public partial class WorldRenderer : Node2D
                 DrawCircle(pos, HexSize * 0.32f, new Color(0f, 0f, 0f, 0.45f));
             if (unit.Fortified)
                 DrawArc(pos, HexSize * 0.38f, 0f, Mathf.Tau, 24, new Color(0.4f, 0.8f, 1f), 1.5f);
+        }
+
+        // 4b. Combat flash
+        if (_flashTimeLeft > 0f)
+        {
+            float alpha = Mathf.Clamp(_flashTimeLeft / CombatFlashSecs, 0f, 1f) * 0.6f;
+            var col = new Color(1f, 0.2f, 0.2f, alpha);
+            if (_flashAttacker is { } a)
+                DrawPolygon(HexVertices(AxialToWorld(a), HexSize - HexGap), new[] { col });
+            if (_flashDefender is { } d)
+                DrawPolygon(HexVertices(AxialToWorld(d), HexSize - HexGap), new[] { col });
         }
 
         // 5. Fog of war

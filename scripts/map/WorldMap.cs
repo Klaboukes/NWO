@@ -1,5 +1,6 @@
 using System.Linq;
 using Godot;
+using NWO.AI;
 using NWO.Core;
 using NWO.Entities;
 using NWO.UI;
@@ -23,6 +24,8 @@ public partial class WorldMap : Node2D
     private CameraController _cameraController = null!;
     private FogOfWar         _viewerFog        = null!;
     private Player           _viewerPlayer     = null!;
+    private AIController     _aiController     = null!;
+    private City?            _pendingCapture;
 
     private WorldRenderer _renderer = null!;
     private UIController  _ui       = null!;
@@ -37,8 +40,10 @@ public partial class WorldMap : Node2D
         var catalog = DataCatalog.Load();
         _state      = new GameState(map, catalog);
 
-        _viewerPlayer = _state.AddPlayer(new Player { Id = 0, Name = "Player", IsHuman = true, Color = Colors.Blue });
+        _viewerPlayer = _state.AddPlayer(new Player { Id = 0, Name = "Player",     IsHuman = true,  Color = Colors.Blue });
+        var aiPlayer  = _state.AddPlayer(new Player { Id = 1, Name = "Barbarians", IsHuman = false, Color = Colors.Red  });
         _viewerFog    = _state.Fog(_viewerPlayer);
+        _aiController = new AIController(_state);
 
         _renderer         = GetNode<WorldRenderer>("WorldRenderer");
         _ui               = GetNode<UIController>("UI");
@@ -56,6 +61,11 @@ public partial class WorldMap : Node2D
         _state.Units.Add(new Unit(warriorDef, _viewerPlayer, startPos));
         _state.Units.Add(new Unit(settlerDef, _viewerPlayer,
             _state.FindWalkableTileNear(new Vector2I(startPos.X + 3, startPos.Y))));
+
+        var aiStart = _state.FindWalkableTileNear(new Vector2I(startPos.X + 12, startPos.Y + 4));
+        _state.Units.Add(new Unit(warriorDef, aiPlayer, aiStart));
+        _state.Units.Add(new Unit(settlerDef, aiPlayer,
+            _state.FindWalkableTileNear(new Vector2I(aiStart.X - 2, aiStart.Y))));
 
         _renderer.Initialize(_state, _selection, _animator, _viewerPlayer);
         _cameraController.Position = WorldRenderer.AxialToWorld(MapCenterAxial());
@@ -195,21 +205,64 @@ public partial class WorldMap : Node2D
     private void HandleRightPress(Vector2I axial)
     {
         if (_selection.Unit == null) return;
+
+        var attacker = _selection.Unit;
+        var target   = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
+
+        if (target != null
+            && attacker.Data.Attack > 0
+            && HexGrid.Distance(attacker.Position, axial) <= attacker.Data.Range
+            && attacker.MovementRemaining > 0)
+        {
+            var attackerPos = attacker.Position;
+            var result      = _state.TryAttack(attacker, target);
+            if (result.Outcome != GameState.AttackOutcome.Invalid)
+            {
+                _renderer.FlashCombat(attackerPos, axial);
+                _ui.ShowNotification(FormatCombatResult(attacker, target, result));
+                RecomputeFog();
+                Deselect();
+                _renderer.QueueRedraw();
+                BuildAndStartEndTurnQueue();
+            }
+            return;
+        }
+
         if (!_selection.ReachableTiles.Contains(axial)) return;
 
-        var path = HexGrid.FindPath(_selection.Unit.Position, axial, _state.MovementCost);
+        var path = HexGrid.FindPath(attacker.Position, axial,
+            tile => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile));
         if (path.Count < 2) return;
 
-        StartMove(_selection.Unit, path);
+        // Walking onto an enemy city tile = capture on arrival.
+        _pendingCapture = _state.Cities.Find(c => c.Position == axial && c.Owner != _viewerPlayer);
+
+        StartMove(attacker, path);
         Deselect();
     }
+
+    private bool IsBlockedByEnemyUnit(Vector2I tile)
+        => _state.Units.Any(u => u.Position == tile && u.Owner != _viewerPlayer);
+
+    private static string FormatCombatResult(Unit attacker, Unit target, GameState.AttackResult r) => r.Outcome switch
+    {
+        GameState.AttackOutcome.DefenderKilled =>
+            $"{attacker.Data.Name} killed {target.Data.Name}! (took {r.AttackerDmg})",
+        GameState.AttackOutcome.AttackerKilled =>
+            $"{attacker.Data.Name} died attacking {target.Data.Name} (dealt {r.DefenderDmg})",
+        GameState.AttackOutcome.BothKilled =>
+            $"{attacker.Data.Name} and {target.Data.Name} destroyed each other!",
+        _ =>
+            $"{attacker.Data.Name} hits {target.Data.Name} for {r.DefenderDmg} (took {r.AttackerDmg})",
+    };
 
     private void UpdatePathPreview(Vector2I axial)
     {
         if (axial == _selection.PendingDestination) return;
         if (_selection.ReachableTiles.Contains(axial))
         {
-            var path = HexGrid.FindPath(_selection.Unit!.Position, axial, _state.MovementCost);
+            var path = HexGrid.FindPath(_selection.Unit!.Position, axial,
+                tile => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile));
             if (path.Count >= 2)
             {
                 _selection.PendingDestination = axial;
@@ -252,7 +305,8 @@ public partial class WorldMap : Node2D
 
     private void SelectUnit(Unit unit)
     {
-        var reachable = HexGrid.GetReachableTiles(unit.Position, unit.MovementRemaining, _state.MovementCost).ToHashSet();
+        int Cost(Vector2I tile) => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile);
+        var reachable = HexGrid.GetReachableTiles(unit.Position, unit.MovementRemaining, Cost).ToHashSet();
         _selection.SelectUnit(unit, reachable);
         _ui.SetFoundCityVisible(unit.Data.Special == "found_city");
         _ui.HideCityPanel();
@@ -279,6 +333,20 @@ public partial class WorldMap : Node2D
 
     private void OnAnimationCompleted()
     {
+        if (_pendingCapture != null && _animator.AnimatingUnit == null)
+        {
+            // _animator just cleared itself in Tick(); we need the unit it was carrying.
+            // Find the viewer's unit on the captured city's tile.
+            var captor = _state.Units.Find(u => u.Owner == _viewerPlayer && u.Position == _pendingCapture.Position);
+            if (captor != null)
+            {
+                var city = _pendingCapture;
+                _state.CaptureCity(captor, city);
+                _ui.ShowNotification($"{city.Name} captured!");
+            }
+            _pendingCapture = null;
+        }
+
         RecomputeFog();
         _renderer.QueueRedraw();
         _cameraController.StartPostAnimDelay();
@@ -377,7 +445,13 @@ public partial class WorldMap : Node2D
     private void ProcessTurn()
     {
         var completions   = new System.Collections.Generic.List<GameState.ProductionCompletion>();
-        var notifications = _state.ProcessEndOfTurn(completions);
+        var notifications = _state.EndPlayerTurn(completions);
+
+        while (!_state.CurrentPlayer.IsHuman)
+        {
+            _aiController.TakeTurn(_state.CurrentPlayer);
+            notifications.AddRange(_state.EndPlayerTurn(completions));
+        }
 
         Deselect();
         RecomputeFog();

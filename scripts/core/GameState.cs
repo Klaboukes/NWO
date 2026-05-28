@@ -26,13 +26,18 @@ public class GameState
     public List<Unit>   Units   { get; } = new();
     public List<City>   Cities  { get; } = new();
 
-    private readonly Dictionary<Player, FogOfWar> _fog = new();
-    private int _nextCityName;
+    public int    CurrentPlayerIndex { get; private set; }
+    public Player CurrentPlayer      => Players[CurrentPlayerIndex];
 
-    public GameState(MapData map, DataCatalog catalog)
+    private readonly Dictionary<Player, FogOfWar> _fog        = new();
+    private readonly Random                       _combatRng;
+    private int                                   _nextCityName;
+
+    public GameState(MapData map, DataCatalog catalog, int? combatSeed = null)
     {
-        Map     = map;
-        Catalog = catalog;
+        Map        = map;
+        Catalog    = catalog;
+        _combatRng = combatSeed.HasValue ? new Random(combatSeed.Value) : new Random();
     }
 
     public Player AddPlayer(Player player)
@@ -69,16 +74,70 @@ public class GameState
         return FoundCityResult.Success;
     }
 
+    // ── Combat ───────────────────────────────────────────────────────────────
+
+    public enum AttackOutcome { Invalid, Hit, AttackerKilled, DefenderKilled, BothKilled }
+
+    public record AttackResult(AttackOutcome Outcome, int AttackerDmg, int DefenderDmg);
+
+    public AttackResult TryAttack(Unit attacker, Unit defender)
+    {
+        if (attacker.Owner == defender.Owner)                     return Invalid();
+        if (attacker.MovementRemaining <= 0)                      return Invalid();
+        int dist = HexGrid.Distance(attacker.Position, defender.Position);
+        if (dist <= 0 || dist > attacker.Data.Range)              return Invalid();
+        if (attacker.Data.Attack <= 0)                            return Invalid();
+
+        bool isRanged = attacker.Data.Range >= 2;
+        var  combat   = CombatResolver.Resolve(attacker, defender, _combatRng, isRanged);
+
+        attacker.HP -= combat.AttackerDamage;
+        defender.HP -= combat.DefenderDamage;
+
+        bool attackerDead = attacker.HP <= 0;
+        bool defenderDead = defender.HP <= 0;
+
+        if (attackerDead) Units.Remove(attacker);
+        if (defenderDead) Units.Remove(defender);
+
+        attacker.MovementRemaining = 0;
+
+        AttackOutcome outcome =
+            attackerDead && defenderDead ? AttackOutcome.BothKilled
+            : attackerDead               ? AttackOutcome.AttackerKilled
+            : defenderDead               ? AttackOutcome.DefenderKilled
+            :                              AttackOutcome.Hit;
+
+        return new AttackResult(outcome, combat.AttackerDamage, combat.DefenderDamage);
+
+        static AttackResult Invalid() => new(AttackOutcome.Invalid, 0, 0);
+    }
+
+    // Transfer a city to the captor's player. Captor's own movement bookkeeping
+    // (zeroing remaining moves) is done by the caller's normal move flow.
+    public void CaptureCity(Unit captor, City city)
+    {
+        city.Owner              = captor.Owner;
+        city.ProductionItem     = null;
+        city.ProductionProgress = 0;
+    }
+
     // ── End-of-turn processing ───────────────────────────────────────────────
 
     public record ProductionCompletion(City City, string Item);
 
-    public List<string> ProcessEndOfTurn(List<ProductionCompletion> completions)
+    // Ends the current player's turn: processes their cities, resets their unit
+    // movement, then advances to the next player. When the index wraps back to
+    // 0, the global turn number ticks up.
+    public List<string> EndPlayerTurn(List<ProductionCompletion> completions)
     {
         var notifications = new List<string>();
+        var player        = CurrentPlayer;
 
         foreach (var city in Cities)
         {
+            if (city.Owner != player) continue;
+
             if (city.ProcessFood())
                 notifications.Add($"{city.Name} grew to population {city.Population}!");
 
@@ -95,8 +154,11 @@ public class GameState
             }
         }
 
-        foreach (var unit in Units) unit.ResetForNewTurn();
-        TurnManager.AdvanceTurn();
+        foreach (var unit in Units)
+            if (unit.Owner == player) unit.ResetForNewTurn();
+
+        CurrentPlayerIndex = (CurrentPlayerIndex + 1) % Players.Count;
+        if (CurrentPlayerIndex == 0) TurnManager.AdvanceTurn();
         return notifications;
     }
 
