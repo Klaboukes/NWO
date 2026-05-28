@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using NWO.AI;
 using NWO.Core;
 using NWO.Entities;
 using NWO.UI;
@@ -13,10 +13,12 @@ namespace NWO.Map;
 // gameplay logic is testable without a scene running.
 public partial class WorldMap : Node2D
 {
-    private const int   MapWidth        = 60;
-    private const int   MapHeight       = 40;
-    private const float SecondsPerTile  = 0.12f;
+    private const int   MapWidth            = 60;
+    private const int   MapHeight           = 40;
+    private const float SecondsPerTile      = 0.12f;
+    private const int   MinAISpawnDistance  = 10;
 
+    private GameSession      _session          = null!;
     private GameState        _state            = null!;
     private SelectionState   _selection        = new();
     private EndTurnQueue     _endTurnQueue     = new();
@@ -24,7 +26,6 @@ public partial class WorldMap : Node2D
     private CameraController _cameraController = null!;
     private FogOfWar         _viewerFog        = null!;
     private Player           _viewerPlayer     = null!;
-    private AIController     _aiController     = null!;
     private City?            _pendingCapture;
 
     private WorldRenderer _renderer = null!;
@@ -43,7 +44,7 @@ public partial class WorldMap : Node2D
         _viewerPlayer = _state.AddPlayer(new Player { Id = 0, Name = "Player",     IsHuman = true,  Color = Colors.Blue });
         var aiPlayer  = _state.AddPlayer(new Player { Id = 1, Name = "Barbarians", IsHuman = false, Color = Colors.Red  });
         _viewerFog    = _state.Fog(_viewerPlayer);
-        _aiController = new AIController(_state);
+        _session      = new GameSession(_state, _viewerPlayer);
 
         _renderer         = GetNode<WorldRenderer>("WorldRenderer");
         _ui               = GetNode<UIController>("UI");
@@ -62,10 +63,14 @@ public partial class WorldMap : Node2D
         _state.Units.Add(new Unit(settlerDef, _viewerPlayer,
             _state.FindWalkableTileNear(new Vector2I(startPos.X + 3, startPos.Y))));
 
-        var aiStart = _state.FindWalkableTileNear(new Vector2I(startPos.X + 12, startPos.Y + 4));
+        // Confine the AI to the player's landmass for MVP. Cross-continent /
+        // island AI is a Phase 5+ concern (needs naval movement). See
+        // ROADMAP.md → Post-MVP.
+        var landmass       = _state.GetConnectedLandmass(startPos);
+        var aiStart        = PickAISpawn(startPos, landmass);
+        var aiSettlerStart = FindNeighborOnLandmass(aiStart, landmass) ?? aiStart;
         _state.Units.Add(new Unit(warriorDef, aiPlayer, aiStart));
-        _state.Units.Add(new Unit(settlerDef, aiPlayer,
-            _state.FindWalkableTileNear(new Vector2I(aiStart.X - 2, aiStart.Y))));
+        _state.Units.Add(new Unit(settlerDef, aiPlayer, aiSettlerStart));
 
         _renderer.Initialize(_state, _selection, _animator, _viewerPlayer);
         _cameraController.Position = WorldRenderer.AxialToWorld(MapCenterAxial());
@@ -165,7 +170,6 @@ public partial class WorldMap : Node2D
                 break;
             case Key.Escape:
                 _cameraController.IsPanning = false;
-                _endTurnQueue.Clear();
                 _ui.HidePersistentNotification();
                 Deselect();
                 break;
@@ -181,13 +185,8 @@ public partial class WorldMap : Node2D
         var clickedUnit = _state.Units.Find(u => u.Position == axial && u.Owner == _viewerPlayer);
         var clickedCity = _state.Cities.Find(c => c.Position == axial);
 
-        if (clickedUnit != null && (clickedUnit.MovementRemaining > 0 || clickedUnit.Fortified))
+        if (clickedUnit != null)
         {
-            if (clickedUnit.Fortified)
-            {
-                clickedUnit.Fortified         = false;
-                clickedUnit.MovementRemaining = clickedUnit.Data.Movement;
-            }
             SelectUnit(clickedUnit);
             _cameraController.CenterOn(WorldRenderer.AxialToWorld(clickedUnit.Position));
         }
@@ -206,21 +205,21 @@ public partial class WorldMap : Node2D
     {
         if (_selection.Unit == null) return;
 
-        var attacker = _selection.Unit;
-        var target   = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
+        var attacker    = _selection.Unit;
+        var target      = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
+        int effectiveMP = attacker.Fortified ? attacker.Data.Movement : attacker.MovementRemaining;
 
         if (target != null
             && attacker.Data.Attack > 0
             && HexGrid.Distance(attacker.Position, axial) <= attacker.Data.Range
-            && attacker.MovementRemaining > 0)
+            && effectiveMP > 0)
         {
             var attackerPos = attacker.Position;
-            var result      = _state.TryAttack(attacker, target);
+            var result      = _session.TryAttack(attacker, target);
             if (result.Outcome != GameState.AttackOutcome.Invalid)
             {
                 _renderer.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(FormatCombatResult(attacker, target, result));
-                RecomputeFog();
                 Deselect();
                 _renderer.QueueRedraw();
                 BuildAndStartEndTurnQueue();
@@ -230,14 +229,12 @@ public partial class WorldMap : Node2D
 
         if (!_selection.ReachableTiles.Contains(axial)) return;
 
-        var path = HexGrid.FindPath(attacker.Position, axial,
-            tile => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile));
-        if (path.Count < 2) return;
+        var move = _session.TryMove(attacker, axial);
+        if (!move.Success) return;
 
-        // Walking onto an enemy city tile = capture on arrival.
-        _pendingCapture = _state.Cities.Find(c => c.Position == axial && c.Owner != _viewerPlayer);
-
-        StartMove(attacker, path);
+        // Capture is applied once the animation lands on the city tile.
+        _pendingCapture = move.CapturedOnArrival;
+        _animator.Start(attacker, move.Path);
         Deselect();
     }
 
@@ -292,24 +289,16 @@ public partial class WorldMap : Node2D
         _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
     }
 
-    private void StartMove(Unit unit, System.Collections.Generic.List<Vector2I> path)
-    {
-        if (path.Count < 2) return;
-        int cost = 0;
-        for (int i = 1; i < path.Count; i++)
-            cost += _state.MovementCost(path[i]);
-        unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - cost);
-        unit.Position          = path[^1];
-        _animator.Start(unit, path);
-    }
-
     private void SelectUnit(Unit unit)
     {
         int Cost(Vector2I tile) => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile);
-        var reachable = HexGrid.GetReachableTiles(unit.Position, unit.MovementRemaining, Cost).ToHashSet();
+        // Fortified units preview their full move range so right-click orders are validated as if awake.
+        int effectiveMP = unit.Fortified ? unit.Data.Movement : unit.MovementRemaining;
+        var reachable   = HexGrid.GetReachableTiles(unit.Position, effectiveMP, Cost).ToHashSet();
         _selection.SelectUnit(unit, reachable);
         _ui.SetFoundCityVisible(unit.Data.Special == "found_city");
         _ui.HideCityPanel();
+        _ui.ShowUnitPanel(unit);
         _renderer.QueueRedraw();
     }
 
@@ -317,6 +306,7 @@ public partial class WorldMap : Node2D
     {
         _selection.SelectCity(city);
         _ui.SetFoundCityVisible(false);
+        _ui.HideUnitPanel();
         _ui.ShowCityPanel(city, _state.Catalog, item => SetProduction(city, item));
         _renderer.QueueRedraw();
     }
@@ -326,6 +316,7 @@ public partial class WorldMap : Node2D
         _selection.Clear();
         _ui.SetFoundCityVisible(false);
         _ui.HideCityPanel();
+        _ui.HideUnitPanel();
         _renderer.QueueRedraw();
     }
 
@@ -333,16 +324,14 @@ public partial class WorldMap : Node2D
 
     private void OnAnimationCompleted()
     {
+        City? capturedCity = null;
         if (_pendingCapture != null && _animator.AnimatingUnit == null)
         {
-            // _animator just cleared itself in Tick(); we need the unit it was carrying.
-            // Find the viewer's unit on the captured city's tile.
             var captor = _state.Units.Find(u => u.Owner == _viewerPlayer && u.Position == _pendingCapture.Position);
             if (captor != null)
             {
-                var city = _pendingCapture;
-                _state.CaptureCity(captor, city);
-                _ui.ShowNotification($"{city.Name} captured!");
+                capturedCity = _pendingCapture;
+                _session.ResolveCapture(captor, capturedCity);
             }
             _pendingCapture = null;
         }
@@ -350,6 +339,17 @@ public partial class WorldMap : Node2D
         RecomputeFog();
         _renderer.QueueRedraw();
         _cameraController.StartPostAnimDelay();
+
+        if (capturedCity != null)
+        {
+            // Open the city panel so the player can choose production immediately.
+            // Queue advancement is suppressed so the persistent notification isn't overwritten.
+            SelectCity(capturedCity);
+            _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(capturedCity.Position));
+            _ui.ShowNotification($"{capturedCity.Name} captured — choose production!", persistent: true);
+            return;
+        }
+
         ShowNextOrAdvanceQueue();
     }
 
@@ -357,7 +357,7 @@ public partial class WorldMap : Node2D
 
     private void TryFoundCity(Unit settler)
     {
-        var result = _state.TryFoundCity(settler, out var city);
+        var result = _session.TryFoundCity(settler, out var city);
         switch (result)
         {
             case GameState.FoundCityResult.BadTerrain:
@@ -369,7 +369,6 @@ public partial class WorldMap : Node2D
         }
 
         Deselect();
-        RecomputeFog();
         _ui.ShowNotification($"{city!.Name} founded!");
         _renderer.QueueRedraw();
     }
@@ -378,6 +377,7 @@ public partial class WorldMap : Node2D
     {
         city.ProductionItem     = item;
         city.ProductionProgress = 0;
+        _ui.HidePersistentNotification();
         _ui.ShowCityPanel(city, _state.Catalog, i => SetProduction(city, i));
     }
 
@@ -436,28 +436,20 @@ public partial class WorldMap : Node2D
     private void FortifySelectedUnit()
     {
         if (_selection.Unit == null) return;
-        _selection.Unit.Fortified         = true;
-        _selection.Unit.MovementRemaining = 0;
+        _session.Fortify(_selection.Unit);
         if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
         else                         Deselect();
     }
 
     private void ProcessTurn()
     {
-        var completions   = new System.Collections.Generic.List<GameState.ProductionCompletion>();
-        var notifications = _state.EndPlayerTurn(completions);
-
-        while (!_state.CurrentPlayer.IsHuman)
-        {
-            _aiController.TakeTurn(_state.CurrentPlayer);
-            notifications.AddRange(_state.EndPlayerTurn(completions));
-        }
+        var summary = _session.EndTurn();
 
         Deselect();
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
-        if (notifications.Count > 0)
-            _ui.ShowNotification(string.Join("  |  ", notifications));
+        if (summary.Notifications.Count > 0)
+            _ui.ShowNotification(string.Join("  |  ", summary.Notifications));
         _renderer.QueueRedraw();
         BuildAndStartEndTurnQueue();
     }
@@ -477,5 +469,38 @@ public partial class WorldMap : Node2D
         int col = MapWidth  / 2;
         int row = MapHeight / 2;
         return new Vector2I(col, row - (col - (col & 1)) / 2);
+    }
+
+    // Picks an AI starting tile on `landmass` (the player's continent).
+    // Preference order:
+    //   1. Tiles at least MinAISpawnDistance away (avoids spawning adjacent).
+    //   2. Whatever's farthest if the island is too small for that rule.
+    // Falls back to playerStart only if the landmass is empty (player landed
+    // on a lone unwalkable tile — shouldn't happen in practice).
+    private static Vector2I PickAISpawn(Vector2I playerStart, HashSet<Vector2I> landmass)
+    {
+        if (landmass.Count == 0) return playerStart;
+
+        Vector2I best        = playerStart;
+        int      bestDist    = -1;
+        Vector2I farFromMin  = playerStart;
+        int      farFromMinD = -1;
+
+        foreach (var tile in landmass)
+        {
+            int d = HexGrid.Distance(playerStart, tile);
+            if (d > farFromMinD) { farFromMinD = d; farFromMin = tile; }
+            if (d >= MinAISpawnDistance && d > bestDist) { bestDist = d; best = tile; }
+        }
+        return bestDist >= 0 ? best : farFromMin;
+    }
+
+    // Walkable neighbour of `tile` that's on the same landmass, used to place
+    // the AI settler one hex from the warrior without leaving the continent.
+    private static Vector2I? FindNeighborOnLandmass(Vector2I tile, HashSet<Vector2I> landmass)
+    {
+        foreach (var n in HexGrid.GetNeighbors(tile))
+            if (landmass.Contains(n)) return n;
+        return null;
     }
 }

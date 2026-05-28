@@ -49,17 +49,17 @@ Goal: A full turn loop runs. Cities grow. Production works.
 
 ---
 
-## Phase 3 — Combat & AI (Week 8–10)
+## Phase 3 — Combat & AI ✅ COMPLETE
 
 Goal: Combat works. An AI opponent exists and fights back.
 
-- [ ] Implement combat resolution (attack/defense formula, HP damage)
-- [ ] Melee attack: click enemy unit to attack if in range
-- [ ] Ranged attack: Archer attacks adjacent-but-not-adjacent (range 2)
-- [ ] Unit death and removal from scene
-- [ ] City capture: military unit moves into city tile → city changes owner
-- [ ] Implement `AIController` (reactive: attack nearby, expand with Settler, queue Warrior)
-- [ ] AI takes its turn after player clicks "End Turn"
+- [x] Implement combat resolution (attack/defense formula, HP damage)
+- [x] Melee attack: click enemy unit to attack if in range
+- [x] Ranged attack: Archer attacks adjacent-but-not-adjacent (range 2)
+- [x] Unit death and removal from scene
+- [x] City capture: military unit moves into city tile → city changes owner
+- [x] Implement `AIController` (reactive: attack nearby, expand with Settler, queue Warrior)
+- [x] AI takes its turn after player clicks "End Turn"
 
 **Done when:** You can fight an AI unit, capture an AI city, and the AI can attack your units.
 
@@ -106,6 +106,10 @@ After shipping the MVP, the natural next steps are:
 - Culture and borders
 - Religion
 - More unit types (naval, siege)
+- **Cross-continent / multi-island AI spawning.** For MVP the AI is confined to
+  the player's landmass (see `WorldMap.PickAISpawn`); once naval units exist,
+  drop that constraint and let each player spawn on a separate continent so
+  expansion and exploration have meaning.
 - Map editor
 - Multiplayer (hot-seat, then network)
 - Mod support (data-driven via JSON already helps here)

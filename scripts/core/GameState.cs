@@ -218,6 +218,33 @@ public class GameState
         return origin;
     }
 
+    // All tiles reachable from `origin` by walking over land — i.e. the
+    // connected landmass it sits on. Returns an empty set if origin itself is
+    // impassable. Used to confine the AI's starting position to the player's
+    // continent during MVP; once naval movement / cross-island AI lands, the
+    // caller should switch to picking from any landmass.
+    public HashSet<Vector2I> GetConnectedLandmass(Vector2I origin)
+    {
+        var landmass = new HashSet<Vector2I>();
+        if (MovementCost(origin) == int.MaxValue) return landmass;
+
+        landmass.Add(origin);
+        var queue = new Queue<Vector2I>();
+        queue.Enqueue(origin);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            foreach (var n in HexGrid.GetNeighbors(current))
+            {
+                if (!Map.Tiles.ContainsKey(n))         continue;
+                if (MovementCost(n) == int.MaxValue)   continue;
+                if (!landmass.Add(n))                  continue;
+                queue.Enqueue(n);
+            }
+        }
+        return landmass;
+    }
+
     private static readonly string[] CityNames =
     {
         "Rome", "Athens", "Babylon", "Cairo", "Paris", "London",

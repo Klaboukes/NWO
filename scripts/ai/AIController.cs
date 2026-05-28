@@ -121,5 +121,8 @@ public class AIController
 
         unit.Position          = last;
         unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - spent);
+
+        var captured = _state.Cities.Find(c => c.Position == last && c.Owner != unit.Owner);
+        if (captured != null) _state.CaptureCity(unit, captured);
     }
 }
