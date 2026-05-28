@@ -26,6 +26,13 @@ public static class DataLoader
         return file?.Buildings ?? new List<BuildingData>();
     }
 
+    public static List<TechData> LoadTechs()
+    {
+        var json = ReadResFile("res://data/techs.json");
+        var file = JsonSerializer.Deserialize<TechsFile>(json, Options);
+        return file?.Techs ?? new List<TechData>();
+    }
+
     private static string ReadResFile(string resPath)
     {
         using var file = FileAccess.Open(resPath, FileAccess.ModeFlags.Read);
@@ -44,5 +51,10 @@ public static class DataLoader
     private class BuildingsFile
     {
         public List<BuildingData> Buildings { get; set; } = new();
+    }
+
+    private class TechsFile
+    {
+        public List<TechData> Techs { get; set; } = new();
     }
 }

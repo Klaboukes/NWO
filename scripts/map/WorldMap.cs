@@ -76,6 +76,7 @@ public partial class WorldMap : Node2D
         _cameraController.Position = WorldRenderer.AxialToWorld(MapCenterAxial());
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
+        _ui.SetCivStatus(_state, _viewerPlayer);
         _renderer.QueueRedraw();
         BuildAndStartEndTurnQueue();
     }
@@ -168,12 +169,55 @@ public partial class WorldMap : Node2D
             case Key.F when _selection.Unit != null:
                 FortifySelectedUnit();
                 break;
+            case Key.T:
+                if (!_animator.IsAnimating)
+                    _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch);
+                break;
             case Key.Escape:
                 _cameraController.IsPanning = false;
                 _ui.HidePersistentNotification();
+                _ui.HideTechTree();
                 Deselect();
                 break;
         }
+    }
+
+    private void OnSetResearch(string techId)
+    {
+        var result = CivEconomyService.SetResearch(_state, _viewerPlayer, techId);
+        if (result == CivEconomyService.SetResearchResult.Ok)
+        {
+            _ui.SetCivStatus(_state, _viewerPlayer);
+            _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch); // close on pick
+            RefreshEndTurnButton();
+        }
+    }
+
+    // Civ-5-style: relabel the End Turn button to reflect what's blocking the
+    // turn, instead of just silently refusing the click. Order matches the
+    // gates in OnEndTurnPressed: attention items → research → all-clear.
+    private void RefreshEndTurnButton()
+    {
+        var head = _endTurnQueue.PeekValid();
+        if (head is Unit unit)
+        {
+            _ui.SetEndTurnState($"{unit.Data.Name} Needs Orders ▶", blocked: true);
+            return;
+        }
+        if (head is City)
+        {
+            _ui.SetEndTurnState("Choose Production ▶", blocked: true);
+            return;
+        }
+        var civ = _state.Civ(_viewerPlayer);
+        if (civ.CurrentResearch == null
+            && CivEconomyService.SciencePerTurn(_state, _viewerPlayer) > 0
+            && _state.Catalog.Techs.Any(t => !civ.ResearchedTechs.Contains(t.Id)))
+        {
+            _ui.SetEndTurnState("Choose Research ▶", blocked: true);
+            return;
+        }
+        _ui.SetEndTurnState("End Turn (Enter)", blocked: false);
     }
 
     // ── Selection / movement ─────────────────────────────────────────────────
@@ -378,6 +422,9 @@ public partial class WorldMap : Node2D
         Deselect();
         _ui.ShowNotification($"{city!.Name} founded!");
         _renderer.QueueRedraw();
+        // Settler is gone; new city needs production. Rebuild the queue from
+        // live state so the head and the button label both reflect that.
+        BuildAndStartEndTurnQueue();
     }
 
     private void SetProduction(City city, string item)
@@ -386,6 +433,9 @@ public partial class WorldMap : Node2D
         city.ProductionProgress = 0;
         _ui.HidePersistentNotification();
         RefreshCityPanel(city);
+        // City no longer needs attention; let PeekValid drop it and advance
+        // the queue (which also updates the End Turn button).
+        ShowNextOrAdvanceQueue();
     }
 
     private void SetCityFocus(City city, CityFocus focus)
@@ -417,7 +467,7 @@ public partial class WorldMap : Node2D
     }
 
     private void RefreshCityPanel(City city) =>
-        _ui.ShowCityPanel(city, _state.Catalog,
+        _ui.ShowCityPanel(city, _state.Catalog, _state.Civ(_viewerPlayer),
             item  => SetProduction(city, item),
             focus => SetCityFocus(city, focus));
 
@@ -426,9 +476,42 @@ public partial class WorldMap : Node2D
     private void OnEndTurnPressed()
     {
         if (_animator.IsAnimating) return;
+        if (PromptForAttentionItemsIfNeeded()) return;
+        if (PromptForResearchIfNeeded()) return;
         _cameraController.CancelPostAnimDelay();
         _endTurnQueue.Clear();
         ProcessTurn();
+    }
+
+    // If the player still has idle units or cities without production, rebuild
+    // the end-turn queue, focus the first item, and hold the turn. The player
+    // must Space-skip / move / build / fortify to clear each before End Turn
+    // will advance.
+    private bool PromptForAttentionItemsIfNeeded()
+    {
+        BuildAndStartEndTurnQueue();
+        return _endTurnQueue.PeekValid() != null;
+    }
+
+    // Civ-5 nag: blocks End Turn until the player picks a research target.
+    // Opens the tech panel (if not already visible) and shows a one-shot
+    // notification. Returns true when the turn should be held.
+    private bool PromptForResearchIfNeeded()
+    {
+        var civ = _state.Civ(_viewerPlayer);
+        if (civ.CurrentResearch != null) return false;
+        // No city yet → no beakers → nothing to research with. Don't nag.
+        if (CivEconomyService.SciencePerTurn(_state, _viewerPlayer) <= 0) return false;
+
+        bool hasUnresearched = false;
+        foreach (var tech in _state.Catalog.Techs)
+            if (!civ.ResearchedTechs.Contains(tech.Id)) { hasUnresearched = true; break; }
+        if (!hasUnresearched) return false;
+
+        if (!_ui.IsTechTreeVisible)
+            _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch);
+        _ui.ShowNotification("Choose a research target before ending the turn.");
+        return true;
     }
 
     private void BuildAndStartEndTurnQueue()
@@ -454,6 +537,7 @@ public partial class WorldMap : Node2D
         if (item == null)
         {
             _ui.HidePersistentNotification();
+            RefreshEndTurnButton();
             return;
         }
 
@@ -471,6 +555,7 @@ public partial class WorldMap : Node2D
         }
         _ui.ShowNotification(item.PromptText, persistent: true);
         _renderer.QueueRedraw();
+        RefreshEndTurnButton();
     }
 
     private void FortifySelectedUnit()
@@ -491,6 +576,7 @@ public partial class WorldMap : Node2D
         if (summary.Notifications.Count > 0)
             _ui.ShowNotification(string.Join("  |  ", summary.Notifications));
         _renderer.QueueRedraw();
+        _ui.SetCivStatus(_state, _viewerPlayer);
         BuildAndStartEndTurnQueue();
     }
 

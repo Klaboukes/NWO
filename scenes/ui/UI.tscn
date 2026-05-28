@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1nwo_ui_scene"]
+[gd_scene load_steps=3 format=3 uid="uid://b1nwo_ui_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/UIController.cs" id="1_ui"]
+[ext_resource type="PackedScene" path="res://scenes/ui/TechTreePanel.tscn" id="2_techtree"]
 
 [node name="UI" type="CanvasLayer"]
 script = ExtResource("1_ui")
@@ -19,6 +20,22 @@ offset_top = 10.0
 offset_right = 200.0
 offset_bottom = 36.0
 text = "Turn 1"
+
+[node name="GoldLabel" type="Label" parent="Root"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 36.0
+offset_right = 400.0
+offset_bottom = 56.0
+text = "Treasury: 0  (+0/turn)"
+
+[node name="ScienceLabel" type="Label" parent="Root"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 56.0
+offset_right = 500.0
+offset_bottom = 76.0
+text = "Science: No research  (+0/turn)"
 
 [node name="NotifLabel" type="Label" parent="Root"]
 visible = false
@@ -123,3 +140,6 @@ layout_mode = 2
 [node name="UnitStatsLabel" type="Label" parent="Root/UnitPanel/VBox"]
 layout_mode = 2
 autowrap_mode = 2
+
+[node name="TechTreePanel" parent="Root" instance=ExtResource("2_techtree")]
+visible = false

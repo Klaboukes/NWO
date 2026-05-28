@@ -13,6 +13,8 @@ namespace NWO.UI;
 public partial class UIController : CanvasLayer
 {
     [Export] private NodePath _turnLabelPath        = "Root/TurnLabel";
+    [Export] private NodePath _goldLabelPath        = "Root/GoldLabel";
+    [Export] private NodePath _scienceLabelPath     = "Root/ScienceLabel";
     [Export] private NodePath _notifLabelPath       = "Root/NotifLabel";
     [Export] private NodePath _endTurnButtonPath    = "Root/EndTurnButton";
     [Export] private NodePath _foundCityButtonPath  = "Root/FoundCityButton";
@@ -24,10 +26,13 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _unitNameLabelPath    = "Root/UnitPanel/VBox/UnitNameLabel";
     [Export] private NodePath _unitHPLabelPath      = "Root/UnitPanel/VBox/UnitHPLabel";
     [Export] private NodePath _unitStatsLabelPath   = "Root/UnitPanel/VBox/UnitStatsLabel";
+    [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
 
     private const double NotifDuration = 3.0;
 
     private Label         _turnLabel       = null!;
+    private Label         _goldLabel       = null!;
+    private Label         _scienceLabel    = null!;
     private Label         _notifLabel      = null!;
     private Button        _endTurnButton   = null!;
     private Button        _foundCityButton = null!;
@@ -35,10 +40,11 @@ public partial class UIController : CanvasLayer
     private Label         _cityNameLabel   = null!;
     private Label         _cityStatsLabel  = null!;
     private VBoxContainer _buildList       = null!;
-    private Panel         _unitPanel       = null!;
-    private Label         _unitNameLabel   = null!;
-    private Label         _unitHPLabel     = null!;
-    private Label         _unitStatsLabel  = null!;
+    private Panel                    _unitPanel      = null!;
+    private Label                    _unitNameLabel  = null!;
+    private Label                    _unitHPLabel    = null!;
+    private Label                    _unitStatsLabel = null!;
+    private TechTreePanelController  _techTreePanel  = null!;
 
     private Unit?  _displayedUnit;
     private double _notifSecondsLeft;
@@ -50,6 +56,8 @@ public partial class UIController : CanvasLayer
     public override void _Ready()
     {
         _turnLabel       = GetNode<Label>(_turnLabelPath);
+        _goldLabel       = GetNode<Label>(_goldLabelPath);
+        _scienceLabel    = GetNode<Label>(_scienceLabelPath);
         _notifLabel      = GetNode<Label>(_notifLabelPath);
         _endTurnButton   = GetNode<Button>(_endTurnButtonPath);
         _foundCityButton = GetNode<Button>(_foundCityButtonPath);
@@ -61,6 +69,7 @@ public partial class UIController : CanvasLayer
         _unitNameLabel   = GetNode<Label>(_unitNameLabelPath);
         _unitHPLabel     = GetNode<Label>(_unitHPLabelPath);
         _unitStatsLabel  = GetNode<Label>(_unitStatsLabelPath);
+        _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
         _foundCityButton.Pressed += () => FoundCityPressed?.Invoke();
@@ -82,7 +91,31 @@ public partial class UIController : CanvasLayer
 
     public void SetTurn(int turn) => _turnLabel.Text = $"Turn {turn}";
 
+    public void SetCivStatus(GameState state, Player player)
+    {
+        var civ           = state.Civ(player);
+        int goldPerTurn   = CivEconomyService.GoldPerTurn(state, player);
+        int sciencePerTurn = CivEconomyService.SciencePerTurn(state, player);
+        _goldLabel.Text   = $"Treasury: {civ.Treasury}  ({(goldPerTurn >= 0 ? "+" : "")}{goldPerTurn}/turn)";
+
+        if (civ.CurrentResearch == null)
+        {
+            _scienceLabel.Text = $"Science: No research  (+{sciencePerTurn}/turn)";
+            return;
+        }
+        var tech = state.Catalog.Tech(civ.CurrentResearch);
+        int cost = tech?.ScienceCost ?? 0;
+        string name = tech?.Name ?? civ.CurrentResearch;
+        _scienceLabel.Text = $"Science: {name} {civ.ScienceAccumulated}/{cost}  (+{sciencePerTurn}/turn)";
+    }
+
     public void SetFoundCityVisible(bool visible) => _foundCityButton.Visible = visible;
+
+    public void SetEndTurnState(string label, bool blocked)
+    {
+        _endTurnButton.Text     = label;
+        _endTurnButton.Modulate = blocked ? new Color(1f, 0.85f, 0.4f) : Colors.White;
+    }
 
     public void ShowNotification(string text, bool persistent = false)
     {
@@ -101,6 +134,13 @@ public partial class UIController : CanvasLayer
     }
 
     public void HideCityPanel() => _cityPanel.Visible = false;
+
+    public void ToggleTechTree(GameState state, Player player, Action<string> onSetResearch)
+        => _techTreePanel.Toggle(state, player, onSetResearch);
+
+    public void HideTechTree() => _techTreePanel.Hide();
+
+    public bool IsTechTreeVisible => _techTreePanel.Visible;
 
     public void ShowUnitPanel(Unit unit)
     {
@@ -135,6 +175,7 @@ public partial class UIController : CanvasLayer
     public void ShowCityPanel(
         City city,
         DataCatalog catalog,
+        Civilization civ,
         Action<string> onSetProduction,
         Action<CityFocus> onSetFocus)
     {
@@ -172,14 +213,14 @@ public partial class UIController : CanvasLayer
         }
         _buildList.AddChild(focusRow);
 
-        foreach (var u in catalog.Units.Where(u => u.RequiredTech == null))
+        foreach (var u in catalog.Units.Where(u => TechAllows(civ, u.RequiredTech)))
         {
             var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"unit:{u.Id}") btn.Text += "  ◀";
             btn.Pressed += () => onSetProduction($"unit:{u.Id}");
             _buildList.AddChild(btn);
         }
-        foreach (var b in catalog.Buildings.Where(b => b.RequiredTech == null && !city.Buildings.Contains(b.Id)))
+        foreach (var b in catalog.Buildings.Where(b => TechAllows(civ, b.RequiredTech) && !city.Buildings.Contains(b.Id)))
         {
             var btn = new Button { Text = $"{b.Name} ({b.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"building:{b.Id}") btn.Text += "  ◀";
@@ -187,6 +228,9 @@ public partial class UIController : CanvasLayer
             _buildList.AddChild(btn);
         }
     }
+
+    private static bool TechAllows(Civilization civ, string? requiredTech)
+        => requiredTech == null || civ.ResearchedTechs.Contains(requiredTech);
 
     private static string ProductionTurnsLeft(City city, DataCatalog catalog)
     {

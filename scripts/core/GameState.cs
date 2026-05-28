@@ -29,9 +29,10 @@ public class GameState
     public int    CurrentPlayerIndex { get; private set; }
     public Player CurrentPlayer      => Players[CurrentPlayerIndex];
 
-    private readonly Dictionary<Player, FogOfWar> _fog        = new();
-    private readonly Random                       _combatRng;
-    private int                                   _nextCityName;
+    private readonly Dictionary<Player, FogOfWar>     _fog  = new();
+    private readonly Dictionary<Player, Civilization> _civs = new();
+    private readonly Random                           _combatRng;
+    private int                                       _nextCityName;
 
     public GameState(MapData map, DataCatalog catalog, int? combatSeed = null)
     {
@@ -43,11 +44,13 @@ public class GameState
     public Player AddPlayer(Player player)
     {
         Players.Add(player);
-        _fog[player] = new FogOfWar();
+        _fog[player]  = new FogOfWar();
+        _civs[player] = new Civilization(player) { Treasury = CivEconomyService.StartingTreasury };
         return player;
     }
 
-    public FogOfWar Fog(Player player) => _fog[player];
+    public FogOfWar     Fog(Player player) => _fog[player];
+    public Civilization Civ(Player player) => _civs[player];
 
     public void RecomputeFog(Player player, IReadOnlyDictionary<Unit, Vector2I>? animOverrides = null)
         => _fog[player].Recompute(player, Units, Cities, Map, CitySightRadius, animOverrides);
@@ -169,6 +172,8 @@ public class GameState
 
         foreach (var unit in Units)
             if (unit.Owner == player) unit.ResetForNewTurn();
+
+        CivEconomyService.ProcessEndOfTurn(this, player, notifications);
 
         CurrentPlayerIndex = (CurrentPlayerIndex + 1) % Players.Count;
         if (CurrentPlayerIndex == 0) TurnManager.AdvanceTurn();
