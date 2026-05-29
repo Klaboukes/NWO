@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/ui/UIController.cs" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/ui/TechTreePanel.tscn" id="2_techtree"]
 [ext_resource type="Script" path="res://scripts/ui/EventLogController.cs" id="3_eventlog"]
+[ext_resource type="Script" path="res://scripts/ui/MinimapController.cs" id="4_minimap"]
 
 [node name="UI" type="CanvasLayer"]
 script = ExtResource("1_ui")
@@ -169,6 +170,18 @@ offset_bottom = 320.0
 mouse_filter = 2
 theme_override_constants/separation = 2
 script = ExtResource("3_eventlog")
+
+[node name="Minimap" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -230.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 160.0
+mouse_filter = 0
+script = ExtResource("4_minimap")
 
 [node name="TechTreePanel" parent="Root" instance=ExtResource("2_techtree")]
 visible = false

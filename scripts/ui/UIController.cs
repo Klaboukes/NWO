@@ -30,6 +30,7 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _unitStatsLabelPath   = "Root/UnitPanel/VBox/UnitStatsLabel";
     [Export] private NodePath _workerActionsPath    = "Root/UnitPanel/VBox/WorkerActions";
     [Export] private NodePath _eventLogPath         = "Root/EventLog";
+    [Export] private NodePath _minimapPath          = "Root/Minimap";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
 
     private const double NotifDuration = 3.0;
@@ -51,6 +52,7 @@ public partial class UIController : CanvasLayer
     private Label                    _unitStatsLabel = null!;
     private VBoxContainer            _workerActions  = null!;
     private EventLogController       _eventLog       = null!;
+    private MinimapController        _minimap        = null!;
     private TechTreePanelController  _techTreePanel  = null!;
 
     private Unit?  _displayedUnit;
@@ -81,6 +83,7 @@ public partial class UIController : CanvasLayer
         _unitStatsLabel  = GetNode<Label>(_unitStatsLabelPath);
         _workerActions   = GetNode<VBoxContainer>(_workerActionsPath);
         _eventLog        = GetNode<EventLogController>(_eventLogPath);
+        _minimap         = GetNode<MinimapController>(_minimapPath);
         _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
@@ -142,6 +145,10 @@ public partial class UIController : CanvasLayer
     // Append a turn's end-of-turn events to the scrolling log. Events with a
     // Focus tile become clickable rows (see EventLogController).
     public void LogEvents(IEnumerable<GameEvent> events) => _eventLog.Add(events);
+
+    // One-time minimap setup (needs the world camera + a recenter callback).
+    public void InitializeMinimap(GameState state, Player viewer, Camera2D camera, Action<Vector2> onRecenter)
+        => _minimap.Initialize(state, viewer, camera, onRecenter);
 
     // Combat-odds preview shown while hovering an attackable target. Pass null to hide.
     public void ShowCombatForecast(string? text)

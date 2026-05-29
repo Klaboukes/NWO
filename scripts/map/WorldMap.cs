@@ -58,7 +58,8 @@ public partial class WorldMap : Node2D
 
         _renderer         = GetNode<WorldRenderer>("WorldRenderer");
         _ui               = GetNode<UIController>("UI");
-        _cameraController = new CameraController(GetNode<Camera2D>("Camera2D"));
+        var camera2D      = GetNode<Camera2D>("Camera2D");
+        _cameraController = new CameraController(camera2D);
         _animator         = new MovementAnimator(SecondsPerTile, WorldRenderer.AxialToWorld);
 
         _animator.Completed   += OnAnimationCompleted;
@@ -85,6 +86,7 @@ public partial class WorldMap : Node2D
         _state.Units.Add(new Unit(settlerDef, aiPlayer, aiSettlerStart));
 
         _renderer.Initialize(_state, _selection, _animator, _viewerPlayer);
+        _ui.InitializeMinimap(_state, _viewerPlayer, camera2D, RecenterCameraWorld);
         _cameraController.Position = WorldRenderer.AxialToWorld(MapCenterAxial());
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
@@ -766,10 +768,14 @@ public partial class WorldMap : Node2D
 
     // Recenter on a tile picked from the event log. Cancels any pending
     // post-animation centering so the camera goes where the player clicked.
-    private void FocusCameraOn(Vector2I tile)
+    private void FocusCameraOn(Vector2I tile) => RecenterCameraWorld(WorldRenderer.AxialToWorld(tile));
+
+    // Recenter on a world position (minimap click). Cancels any pending
+    // post-animation centering so the camera goes where the player clicked.
+    private void RecenterCameraWorld(Vector2 world)
     {
         _cameraController.CancelPostAnimDelay();
-        _cameraController.CenterOn(WorldRenderer.AxialToWorld(tile));
+        _cameraController.CenterOn(world);
     }
 
     private void RecomputeFog()

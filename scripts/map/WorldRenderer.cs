@@ -247,7 +247,7 @@ public partial class WorldRenderer : Node2D
         return v;
     }
 
-    private static Color TerrainColor(TerrainType terrain) => terrain switch
+    public static Color TerrainColor(TerrainType terrain) => terrain switch
     {
         TerrainType.Ocean     => new Color(0.18f, 0.35f, 0.65f),
         TerrainType.Coast     => new Color(0.33f, 0.55f, 0.80f),
