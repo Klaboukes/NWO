@@ -40,6 +40,45 @@ are scenes. A `TileMap` migration is deferred until art assets exist.
 
 ---
 
+## Build, Test & Verify
+
+The standard loop for any change: `dotnet build` (expect **0 warnings**) →
+`dotnet test` (green) → **headless scene check** → commit.
+
+```powershell
+dotnet build NWO.sln                         # compile (treat warnings as failures)
+dotnet test  NWO.Tests/NWO.Tests.csproj      # headless xUnit gameplay tests
+```
+
+**Headless scene checks** catch scene-load / `GetNode` path / node-wiring errors
+that the C# compiler and xUnit can't (those only surface when Godot instantiates a
+`.tscn`). Requires the **C#/.NET ("mono") build** of Godot — the plain build can't
+load this project. The `_console.exe` variant prints to stdout, so prefer it for
+capturing logs:
+
+```powershell
+# 1. Import + register classes; reports asset/script import errors
+godot --headless --path . --import
+
+# 2. Instantiate a scene for a few frames and watch for errors.
+#    A clean WorldMap run prints "Map seed: …".
+godot --headless --path . "res://scenes/world/WorldMap.tscn" --quit-after 30
+godot --headless --path . --quit-after 20      # boot scene = MainMenu.tscn
+```
+
+Filter the output for `ERROR`, `SCRIPT ERROR`, `Cannot`, `Exception`, `Node not found`.
+
+**Limitation:** headless has no input/display, so button-driven flows (menus,
+save/load click-through) still need an interactive editor run (open `project.godot`,
+press **F5**). Save files are written to `user://saves/*.json`
+(`%APPDATA%\Godot\app_userdata\NWO\saves\` on Windows).
+
+> If `godot` isn't found, the .NET build's folder must be on PATH (a `godot.cmd`
+> shim alongside the executable works well). See `docs/ROADMAP.md` for what each
+> phase additionally requires (e.g. milestones touching draw code need a manual run).
+
+---
+
 ## Project Structure (actual)
 
 ```
