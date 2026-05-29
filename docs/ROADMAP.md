@@ -84,16 +84,16 @@ not a static number computed once at founding.
 
 ---
 
-## Phase 5 — Tech Tree & Economy (Week 11–12)
+## Phase 5 — Tech Tree & Economy ✅ COMPLETE
 
 Goal: Research feels meaningful. Gold matters.
 
-- [ ] Load tech tree from `data/techs.json`
-- [ ] Tech tree UI: show available techs, prerequisites, costs
-- [ ] Science accumulates per turn; tech completes when threshold met
-- [ ] Unlocks wire up: researching a tech enables its building/unit in menus
-- [ ] Gold income and unit maintenance cost
-- [ ] Negative gold → disband cheapest unit
+- [x] Load tech tree from `data/techs.json`
+- [x] Tech tree UI: show available techs, prerequisites, costs
+- [x] Science accumulates per turn; tech completes when threshold met
+- [x] Unlocks wire up: researching a tech enables its building/unit in menus
+- [x] Gold income and unit maintenance cost
+- [x] Negative gold → disband cheapest unit
 
 **Done when:** You can research Horseback Riding, then build Horsemen in your cities.
 

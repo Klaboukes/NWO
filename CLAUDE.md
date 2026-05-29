@@ -1,5 +1,20 @@
 # Claude Code Instructions
 
+## Project Docs
+
+This is **NWO**, a Civ 5-inspired turn-based 4X strategy game built in
+**Godot 4 + C# (.NET 8)**. Before working on a feature, consult the relevant
+design doc in `docs/`:
+
+- [docs/OVERVIEW.md](docs/OVERVIEW.md) — vision, MVP scope, what's out of scope
+- [docs/TECH_STACK.md](docs/TECH_STACK.md) — engine, language, folder layout, axial hex coords
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — singletons + EventBus, key classes, turn flow, AI
+- [docs/MECHANICS.md](docs/MECHANICS.md) — terrain/unit/city/tech/combat rules and numbers
+- [docs/ROADMAP.md](docs/ROADMAP.md) — phased plan; current progress tracked via checkboxes
+
+These docs are the source of truth for design intent. Keep `docs/ROADMAP.md`
+checkboxes in sync as phases complete (ties into the auto-commit rule below).
+
 ## Git & GitHub
 
 - Auto-commit and push to `origin/main` when a roadmap phase is marked complete.
