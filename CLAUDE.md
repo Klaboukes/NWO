@@ -29,6 +29,8 @@ The game is loosely modeled on Civilization V. Players coming from Civ 5 must fi
 ### Mouse
 - **Left-click** on own unit or city: select it (centers camera smoothly).
 - **Left-click** on an empty/unselectable tile: deselect.
+- **Left-click drag** on the map: pan the camera (grab-pan). A click that doesn't
+  move past a small threshold still selects/deselects as above; only a drag pans.
 - **Right-click** on a reachable tile while a unit is selected: execute the move.
 - **Middle-mouse drag**: pan the camera.
 - **Mouse hover** while a unit is selected: shows the path preview to the hovered tile — no button held.

@@ -17,6 +17,7 @@ public partial class WorldMap : Node2D
     private const int   MapHeight           = 40;
     private const float SecondsPerTile      = 0.12f;
     private const int   MinAISpawnDistance  = 10;
+    private const float DragThreshold       = 8f; // px the cursor must travel before LMB becomes a pan, not a click
 
     private GameSession      _session          = null!;
     private GameState        _state            = null!;
@@ -27,6 +28,13 @@ public partial class WorldMap : Node2D
     private FogOfWar         _viewerFog        = null!;
     private Player           _viewerPlayer     = null!;
     private City?            _pendingCapture;
+
+    // Left-mouse click-vs-drag state. A press starts a candidate click; once the
+    // cursor travels past DragThreshold it becomes a camera pan and the release
+    // no longer selects (Civ 5 grab-pan). See _UnhandledInput.
+    private bool             _lmbDown;
+    private bool             _lmbPanning;
+    private Vector2          _lmbDragAccum;
 
     private WorldRenderer _renderer = null!;
     private UIController  _ui       = null!;
@@ -113,8 +121,21 @@ public partial class WorldMap : Node2D
 
         if (@event is InputEventMouseMotion motion)
         {
-            if (_cameraController.IsPanning)
+            if (_cameraController.IsPanning)            // middle-mouse pan
+            {
                 _cameraController.ApplyMousePan(motion.Relative);
+            }
+            else if (_lmbDown && !_animator.IsAnimating)
+            {
+                // LMB held: promote to a pan once the cursor moves past the click
+                // threshold, then drag the camera (Civ 5 left-drag grab-pan).
+                _lmbDragAccum += motion.Relative;
+                if (_lmbPanning || _lmbDragAccum.Length() > DragThreshold)
+                {
+                    _lmbPanning = true;
+                    _cameraController.ApplyMousePan(motion.Relative);
+                }
+            }
             else if (_selection.Unit != null && !_animator.IsAnimating)
             {
                 var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
@@ -132,7 +153,10 @@ public partial class WorldMap : Node2D
                 case MouseButton.WheelUp:   _cameraController.Zoom(1.15f); break;
                 case MouseButton.WheelDown: _cameraController.Zoom(0.87f); break;
                 case MouseButton.Left when !_animator.IsAnimating:
-                    HandleLeftPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+                    // Defer select/move to release so we can tell a click from a drag-pan.
+                    _lmbDown      = true;
+                    _lmbPanning   = false;
+                    _lmbDragAccum = Vector2.Zero;
                     break;
                 case MouseButton.Right when !_animator.IsAnimating:
                     HandleRightPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
@@ -145,6 +169,14 @@ public partial class WorldMap : Node2D
         else if (mb.ButtonIndex == MouseButton.Middle)
         {
             _cameraController.IsPanning = false;
+        }
+        else if (mb.ButtonIndex == MouseButton.Left)
+        {
+            // Released without dragging past the threshold → treat as a click.
+            if (_lmbDown && !_lmbPanning && !_animator.IsAnimating)
+                HandleLeftPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+            _lmbDown    = false;
+            _lmbPanning = false;
         }
     }
 
@@ -182,6 +214,7 @@ public partial class WorldMap : Node2D
                 break;
             case Key.Escape:
                 _cameraController.IsPanning = false;
+                _lmbDown = _lmbPanning = false;
                 _ui.HidePersistentNotification();
                 _ui.HideTechTree();
                 Deselect();
