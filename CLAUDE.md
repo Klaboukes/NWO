@@ -34,7 +34,10 @@ The game is loosely modeled on Civilization V. Players coming from Civ 5 must fi
 - **Right-click** on a reachable tile while a unit is selected: execute the move.
 - **Middle-mouse drag**: pan the camera.
 - **Mouse hover** while a unit is selected: shows the path preview to the hovered tile — no button held.
-- **Scroll wheel**: zoom.
+- **Scroll wheel**: zoom (vertical). **Horizontal scroll** (touchpad two-finger sideways): pan left/right.
+- **Touchpad**: tap = click, click-drag = grab-pan (same events as a mouse). Two-finger
+  pan gesture pans; pinch gesture zooms (macOS-reliable; on Windows two-finger scroll
+  arrives as wheel events and is handled there instead).
 
 ### Keyboard
 - **WASD / arrow keys**: pan camera.

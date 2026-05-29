@@ -17,7 +17,9 @@ public partial class WorldMap : Node2D
     private const int   MapHeight           = 40;
     private const float SecondsPerTile      = 0.12f;
     private const int   MinAISpawnDistance  = 10;
-    private const float DragThreshold       = 8f; // px the cursor must travel before LMB becomes a pan, not a click
+    private const float DragThreshold       = 8f;   // px the cursor must travel before LMB becomes a pan, not a click
+    private const float WheelPanStep        = 80f;  // view shift per horizontal-wheel notch (touchpad two-finger horizontal scroll)
+    private const float PanGestureScale     = 2.5f; // touchpad two-finger pan-gesture sensitivity
 
     private GameSession      _session          = null!;
     private GameState        _state            = null!;
@@ -145,13 +147,30 @@ public partial class WorldMap : Node2D
             return;
         }
 
+        // Touchpad gestures. Reliable on macOS; on Windows precision touchpads
+        // two-finger scroll usually arrives as wheel events (handled below) and
+        // these may never fire — harmless to handle anyway.
+        if (@event is InputEventPanGesture pan)        // two-finger drag
+        {
+            _cameraController.ApplyMousePan(pan.Delta * PanGestureScale);
+            return;
+        }
+        if (@event is InputEventMagnifyGesture magnify) // pinch-to-zoom
+        {
+            _cameraController.Zoom(magnify.Factor);
+            return;
+        }
+
         if (@event is not InputEventMouseButton mb) return;
         if (mb.Pressed)
         {
             switch (mb.ButtonIndex)
             {
-                case MouseButton.WheelUp:   _cameraController.Zoom(1.15f); break;
-                case MouseButton.WheelDown: _cameraController.Zoom(0.87f); break;
+                case MouseButton.WheelUp:    _cameraController.Zoom(1.15f); break;
+                case MouseButton.WheelDown:  _cameraController.Zoom(0.87f); break;
+                // Horizontal two-finger scroll on a touchpad → pan sideways.
+                case MouseButton.WheelRight: _cameraController.ApplyMousePan(new Vector2(-WheelPanStep, 0)); break;
+                case MouseButton.WheelLeft:  _cameraController.ApplyMousePan(new Vector2( WheelPanStep, 0)); break;
                 case MouseButton.Left when !_animator.IsAnimating:
                     // Defer select/move to release so we can tell a click from a drag-pan.
                     _lmbDown      = true;
