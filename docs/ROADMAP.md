@@ -110,19 +110,20 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
   - [x] `Walls` finally grants its +5 city defense
   - [x] Units heal when idle (+10, +15 near a friendly city)
   - [x] Combat-odds preview on hover + on-map HP bars for units & cities
-- **M2 — Economy & expansion** (next up)
-  - [ ] Tile improvements: `enum ImprovementType { None, Farm, Mine, Road, Pasture }`
-        in `MapData`; worker gets a multi-turn build task (`Unit.CurrentTask`)
-        processed in `EndPlayerTurn`. Yields via `TerrainYields`/`CityWorkforceService`:
-        Farm +1 food, Mine +1 prod, Pasture +1 prod (Animal Husbandry), Road halves
-        move cost. Tech-gated (Mining→Mine, etc.).
-  - [ ] Per-tile gold: add Gold to `TerrainYields`, sum worked-tile gold in
-        `CivEconomyService.GoldPerTurn` (currently buildings-only). "Buy" button in
-        city panel spends treasury to finish production (cost ∝ remaining).
-  - [ ] Strategic resources: `MapGenerator` scatters horses (Plains/Grassland) and
-        iron (Hills) into `MapData`; `ResourceService` answers "does this civ work
-        resource X"; enforce `UnitData.RequiredResource` in the build-list filter
-        (`UIController.ShowCityPanel`); reveal only after the revealing tech.
+- **M2 — Economy & expansion ✅ COMPLETE**
+  - [x] Tile improvements (`ImprovementType` Farm/Mine/Pasture/Road in `MapData`):
+        Worker multi-turn build task (`Unit.CurrentTask`) ticked in `EndPlayerTurn`,
+        cancelled on move; busy workers don't block End Turn. Yields via
+        `ImprovementService` + `CityWorkforceService`: Farm +1 food, Mine/Pasture
+        +1 prod, Road halves move cost (`GameState.MovementCost`). Tech-gated
+        (Mining→Mine, Animal Husbandry→Pasture). Build menu on the unit panel.
+  - [x] Per-tile gold: `TerrainYields.Gold` (Coast/Ocean trade), summed over worked
+        tiles in `CivEconomyService.GoldPerTurn`. Gold rush-buy ("Buy now" button)
+        at 4 gold per remaining hammer (`BuyCost` / `TryBuyProduction`).
+  - [x] Strategic resources: `MapGenerator` scatters Horses (Plains/Grassland) and
+        Iron (Hills) into `MapData.Resources`; `ResourceService` handles reveal
+        (tech-gated) + access (controlling a resource tile); gates Horseman/Swordsman
+        in the build list; +1 prod for a revealed worked resource tile.
 - **M3 — Readable HUD**
   - [ ] Minimap: new `MinimapController` (+ `UI.tscn` node) drawing scaled map with
         fog, unit/city dots, camera viewport rect; click to recenter.

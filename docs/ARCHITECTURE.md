@@ -18,7 +18,9 @@ Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
 ├── TurnManager        — plain turn counter
 ├── AIController        — reactive AI, mutates GameState directly
 ├── CityWorkforceService — citizen auto-assignment + yield recompute (static)
-├── CivEconomyService  — gold/science/research/disband per turn (static)
+├── CivEconomyService  — gold/science/research/disband + rush-buy per turn (static)
+├── ResourceService    — strategic-resource reveal + access gating (static)
+├── ImprovementService — tile-improvement rules: tech/terrain/yields (static)
 ├── CombatResolver     — pure combat formula (static)
 ├── DataCatalog        — id-indexed lookup of unit/building/tech data
 ├── DataLoader         — loads the JSON data files at startup

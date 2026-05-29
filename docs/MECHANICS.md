@@ -17,34 +17,52 @@
 
 ### Terrain Types
 
-Yields per `TerrainYields`. There is **no per-tile Gold** in the code yet — gold
-comes only from buildings (see §9), so the Gold column is **[planned]**.
+Yields per `TerrainYields`. Coast/Ocean now carry **+1 Gold** (trade); land tiles
+have none until improvements/buildings provide it (see §9).
 
-| Terrain | Movement Cost | Food | Production |
-|---------|--------------|------|------------|
-| Grassland | 1 | +2 | +0 |
-| Plains | 1 | +1 | +1 |
-| Desert | 1 | +0 | +1 |
-| Tundra | 1 | +1 | +0 |
-| Snow | 1 | +0 | +0 |
-| Hills | 2 | +1 | +2 |
-| Forest | 2 | +1 | +2 |
-| Mountain | impassable | — | — |
-| Ocean | impassable | +1 | +0 |
-| Coast | impassable | +2 | +0 |
+| Terrain | Movement Cost | Food | Production | Gold |
+|---------|--------------|------|------------|------|
+| Grassland | 1 | +2 | +0 | +0 |
+| Plains | 1 | +1 | +1 | +0 |
+| Desert | 1 | +0 | +1 | +0 |
+| Tundra | 1 | +1 | +0 | +0 |
+| Snow | 1 | +0 | +0 | +0 |
+| Hills | 2 | +1 | +2 | +0 |
+| Forest | 2 | +1 | +2 | +0 |
+| Mountain | impassable | — | — | — |
+| Ocean | impassable | +1 | +0 | +1 |
+| Coast | impassable | +2 | +0 | +1 |
 
 Ocean and Coast are currently **impassable** (no naval units yet); their food
 values only matter to coastal cities working those tiles. Naval movement costs
 are **[planned]**.
 
-### Resources **[planned]**
-No resource system is implemented yet — `MapGenerator` places terrain only, and
-`MapData` stores nothing but terrain. The data files already reference resources
-(`horses` for Horseman, `iron` revealed by Bronze Working), and techs list
-`revealedResources`, but nothing scatters or grants them. Planned types:
-- **Luxury**: gold + happiness when connected to a city
-- **Strategic**: required to build certain units (e.g., Horses → Horseman)
-- **Bonus**: +yield to the tile (e.g., Wheat +1 Food)
+### Improvements
+
+Workers (`special: "build_improvement"`) build tile improvements over several
+turns (`Unit.CurrentTask`, ticked in `GameState.EndPlayerTurn`; moving cancels
+it). Rules live in `ImprovementService`; yields fold into `CityWorkforceService`.
+
+| Improvement | Effect | Valid terrain | Tech | Turns |
+|-------------|--------|---------------|------|-------|
+| Farm    | +1 Food | Grassland/Plains | — | 3 |
+| Mine    | +1 Prod | Hills | Mining | 3 |
+| Pasture | +1 Prod | Grassland/Plains | Animal Husbandry | 3 |
+| Road    | halves entry move cost (min 1) | any passable land | — | 2 |
+
+### Resources (strategic)
+
+`MapGenerator` scatters two strategic resources deterministically (seeded):
+**Horses** on Plains/Grassland, **Iron** on Hills, stored in `MapData.Resources`.
+`ResourceService` governs two gates:
+- **Reveal** — a resource is visible/usable only once the civ researches its
+  revealing tech (Animal Husbandry → Horses, Bronze Working → Iron).
+- **Access** — the civ must control a tile bearing the resource (within a city's
+  work radius). This gates units with a matching `requiredResource` (Horseman →
+  Horses, Swordsman → Iron) in the build list.
+
+A revealed worked resource tile also grants **+1 Production**. Luxury/Bonus
+resources and resource trading remain **[planned]**.
 
 ### Map Generation (Procedural)
 - Algorithm: two layers of simplex noise (`FastNoiseLite`) blended 70/30, with a
@@ -52,7 +70,8 @@ No resource system is implemented yet — `MapGenerator` places terrain only, an
 - Rivers: not in MVP
 - Continents: the falloff tends to produce multiple landmasses, but a minimum
   count is **not** enforced.
-- Resource scatter: **[planned]** (see above).
+- Resource scatter: Horses (Plains/Grassland) and Iron (Hills), seeded so a given
+  map seed always produces the same layout (see Resources above).
 
 ---
 
@@ -134,14 +153,15 @@ Start of Turn
 | Worker | 70 | 0 | 0 | 2 | — |
 
 All units have sight radius 2 and 1 gold maintenance (Settler/Worker cost 0).
-The Horseman/Swordsman list a `requiredResource` (`horses`/`iron`), but since
-resources aren't implemented yet those requirements aren't enforced.
+The Horseman/Swordsman `requiredResource` (`horses`/`iron`) is enforced in the
+build list — you must have access to the resource (see Resources, §1).
 
 ### Special Units
 - **Settler**: Can found a city (`special: "found_city"`). Consumed on use.
-- **Worker**: Carries `special: "build_improvement"`, but **tile improvements
-  (Road, Farm, Mine) are not implemented yet [planned]** — a Worker currently
-  has no action it can perform.
+- **Worker**: Carries `special: "build_improvement"`. When selected, the unit
+  panel offers the improvements buildable on its tile (terrain/tech permitting);
+  the build runs over several turns and the worker is parked until it finishes
+  (see Improvements, §1). Moving the worker cancels the build.
 
 ---
 
@@ -255,10 +275,10 @@ Mining → Bronze Working → Iron Working
 
 - Only one tech can be researched at a time
 - Prerequisites must be completed before a tech is available
-- **Building/unit unlocks work** (a researched tech enables its building/unit in
-  the city build menu). The **improvement** unlocks (Pasture, Mine) and
-  **revealed resources** (Horse, Iron) are data only — those systems aren't built
-  yet **[planned]**.
+- **Building/unit, improvement, and resource-reveal unlocks all work**: a
+  researched tech enables its building/unit in the build menu, allows its
+  improvement (Pasture, Mine) to be built by Workers, and reveals its strategic
+  resource (Horses, Iron) on the map and for unit gating.
 
 ---
 
@@ -293,15 +313,17 @@ computation in code. The intended conditions:
 Handled civ-wide by `CivEconomyService` each turn:
 
 - Each civ starts with a treasury of **50** gold (`StartingTreasury`).
-- **Income**: sum of building Gold yields (Market +2). There is no per-tile or
-  trade gold yet **[planned]**.
+- **Income**: sum of building Gold yields (Market +2) **plus worked-tile trade
+  gold** (Coast/Ocean +1 each).
 - **Maintenance**: each unit's `maintenanceGold` (1 for military, 0 for
   Settler/Worker), minus a **2-gold free grace** (`FreeUnitMaintenance`) — so a
   Warrior + Settler opening costs 0/turn.
 - **Negative treasury**: units are disbanded until the treasury is non-negative,
   cheapest by **production cost** first, then lowest HP. Disbanding refunds the
   unit's maintenance for the turn but no production.
-- **[planned]** Buying buildings/units instantly with gold is not implemented.
+- **Rush-buy**: the city panel's "Buy now" button completes the current
+  production instantly for **4 gold per remaining hammer** (`BuyCost` /
+  `GameSession.TryBuyProduction`), disabled when idle or unaffordable.
 
 ### Research
 - Science accumulates civ-wide each turn (1 per city + building science).
