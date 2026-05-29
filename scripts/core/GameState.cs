@@ -286,6 +286,20 @@ public class GameState
                 CityWorkforceService.Recompute(this, c);
     }
 
+    // Immediately finishes a city's current production (used by gold rush-buy).
+    // Mirrors the end-of-turn completion: spawns the unit / adds the building and
+    // clears the queue. Caller is responsible for charging gold. Returns the
+    // completion (for notifications) or null if nothing was producing.
+    public ProductionCompletion? RushProduction(City city)
+    {
+        if (city.ProductionItem == null) return null;
+        var item = city.ProductionItem;
+        CompleteProduction(city, item);
+        city.ProductionItem     = null;
+        city.ProductionProgress = 0;
+        return new ProductionCompletion(city, item);
+    }
+
     private void CompleteProduction(City city, string item)
     {
         var (kind, id) = DataCatalog.SplitItem(item);

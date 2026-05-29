@@ -221,7 +221,8 @@ public partial class UIController : CanvasLayer
         City city,
         Civilization civ,
         Action<string> onSetProduction,
-        Action<CityFocus> onSetFocus)
+        Action<CityFocus> onSetFocus,
+        Action onBuyProduction)
     {
         var catalog = state.Catalog;
         _cityPanel.Visible = true;
@@ -257,6 +258,21 @@ public partial class UIController : CanvasLayer
             focusRow.AddChild(fbtn);
         }
         _buildList.AddChild(focusRow);
+
+        // Rush-buy the current item with gold.
+        if (city.ProductionItem != null)
+        {
+            int price       = CivEconomyService.BuyCost(state, city);
+            bool affordable = price > 0 && civ.Treasury >= price;
+            var buyBtn = new Button
+            {
+                Text      = $"Buy now: {price} gold",
+                Disabled  = !affordable,
+                FocusMode = Control.FocusModeEnum.None,
+            };
+            buyBtn.Pressed += () => onBuyProduction();
+            _buildList.AddChild(buyBtn);
+        }
 
         foreach (var u in catalog.Units.Where(u =>
                      TechAllows(civ, u.RequiredTech)

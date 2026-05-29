@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NWO.Entities;
+using NWO.Map;
 
 namespace NWO.Core;
 
@@ -55,6 +56,11 @@ public static class CivEconomyService
         foreach (var city in state.Cities)
         {
             if (city.Owner != player) continue;
+            // Worked-tile trade income.
+            foreach (var tile in city.Workforce.Assigned)
+                if (state.Map.Tiles.TryGetValue(tile, out var terrain))
+                    income += TerrainYields.Gold(terrain);
+            // Building income.
             foreach (var buildingId in city.Buildings)
             {
                 var bdef = state.Catalog.Building(buildingId);
@@ -69,6 +75,17 @@ public static class CivEconomyService
         }
         int paid = System.Math.Max(0, maintenance - FreeUnitMaintenance);
         return income - paid;
+    }
+
+    // Gold to rush-buy the remaining production of a city's current item.
+    public const int GoldPerProduction = 4;
+
+    public static int BuyCost(GameState state, City city)
+    {
+        if (city.ProductionItem == null) return 0;
+        int cost      = state.Catalog.ItemCost(city.ProductionItem);
+        int remaining = System.Math.Max(0, cost - city.ProductionProgress);
+        return remaining * GoldPerProduction;
     }
 
     public enum SetResearchResult { Ok, AlreadyResearched, MissingPrereq, UnknownTech }

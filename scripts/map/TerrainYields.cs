@@ -38,6 +38,15 @@ public static class TerrainYields
         _                   => 0,
     };
 
+    // Trade income from a worked tile. Coast/Ocean carry gold (Civ-5 trade),
+    // land tiles none until improvements/buildings provide it.
+    public static int Gold(TerrainType t) => t switch
+    {
+        TerrainType.Coast => 1,
+        TerrainType.Ocean => 1,
+        _                 => 0,
+    };
+
     public static bool CanFoundCityOn(TerrainType t)
         => t != TerrainType.Ocean && t != TerrainType.Mountain;
 

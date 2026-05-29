@@ -616,7 +616,23 @@ public partial class WorldMap : Node2D
     private void RefreshCityPanel(City city) =>
         _ui.ShowCityPanel(_state, city, _state.Civ(_viewerPlayer),
             item  => SetProduction(city, item),
-            focus => SetCityFocus(city, focus));
+            focus => SetCityFocus(city, focus),
+            ()    => BuyProduction(city));
+
+    private void BuyProduction(City city)
+    {
+        if (!_session.TryBuyProduction(city, out var completion))
+        {
+            _ui.ShowNotification("Not enough gold to buy that.");
+            return;
+        }
+        if (completion != null)
+            _ui.ShowNotification($"{city.Name} bought {_state.Catalog.ItemName(completion.Item)}!");
+        _ui.SetCivStatus(_state, _viewerPlayer);
+        RecomputeFog(); // a bought unit may extend sight
+        RefreshCityPanel(city);
+        _renderer.QueueRedraw();
+    }
 
     // ── End-of-turn queue ────────────────────────────────────────────────────
 

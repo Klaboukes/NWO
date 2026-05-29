@@ -175,6 +175,23 @@ public class GameSession
         return true;
     }
 
+    // Rush-buy the city's current production with gold. Fails if the city isn't
+    // the viewer's, nothing is producing, or the treasury can't cover the cost.
+    public bool TryBuyProduction(City city, out GameState.ProductionCompletion? completion)
+    {
+        completion = null;
+        if (city.Owner != Viewer)       return false;
+        if (city.ProductionItem == null) return false;
+
+        int price = CivEconomyService.BuyCost(State, city);
+        var civ   = State.Civ(Viewer);
+        if (price <= 0 || civ.Treasury < price) return false;
+
+        civ.Treasury -= price;
+        completion    = State.RushProduction(city);
+        return true;
+    }
+
     // ── End-of-turn ──────────────────────────────────────────────────────────
 
     public record EndTurnSummary(
