@@ -153,7 +153,7 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
 
 ---
 
-## Phase 6 — Win Conditions, Main Menu, Save/Load, Audio
+## Phase 6 — Win Conditions, Main Menu, Save/Load, Audio ✅ COMPLETE
 
 Goal: The game has a beginning, middle, and end — start from a menu, play to a
 win/loss, see a result screen, and save/reload without data loss.
@@ -198,12 +198,16 @@ win/loss, see a result screen, and save/reload without data loss.
 - [x] Tests: full-state round-trip, `Vector2I` converter (values + keys), ownership
       rebinding, loaded state keeps playing.
 
-### P6.3 — Audio (placeholder sounds)
-- [ ] `AudioManager` autoload (pool of `AudioStreamPlayer`) with
-      `Play(Sfx { Click, Move, Attack, CityFound, Win, Lose })`.
-- [ ] Placeholder `.ogg` clips in `assets/audio/` (stand-ins, swap later).
-- [ ] Trigger points: UI clicks, move animation, attack resolution, city founded,
-      win/lose on the result screen.
+### P6.3 — Audio (placeholder sounds) ✅ COMPLETE
+- [x] `AudioManager` autoload (pool of `AudioStreamPlayer`) with
+      `Play(Sfx { Click, Move, Attack, CityFound, Win, Lose })`. The project's first
+      autoload (`/root/AudioManager`); a `Node` so the player pool survives scene
+      changes. `Instance` is null-safe, so triggers are no-ops under headless xUnit.
+- [x] Placeholder sounds without committed binaries: `AudioManager` synthesizes a
+      distinct tone per `Sfx` (`AudioStreamWav`), but prefers a real
+      `assets/audio/<name>.ogg` if one is dropped in (swap later, no code change).
+- [x] Trigger points: UI clicks (HUD/menu/victory buttons), move order, attack
+      resolution (unit + city), city founded, win/lose on the result screen.
 
 **Done when:** You can start a new game from the menu, found a city, build units,
 research techs, fight the AI to a capture-win or loss, and save/reload losslessly.

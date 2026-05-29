@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using NWO.Audio;
 using NWO.Core;
 using NWO.Entities;
 using NWO.UI;
@@ -374,6 +375,7 @@ public partial class WorldMap : Node2D
             var result      = _session.TryAttack(attacker, target);
             if (result.Outcome != GameState.AttackOutcome.Invalid)
             {
+                AudioManager.Instance?.Play(Sfx.Attack);
                 _renderer.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(FormatCombatResult(attacker, target, result));
                 Deselect();
@@ -391,6 +393,7 @@ public partial class WorldMap : Node2D
             var result      = _session.TryAttackCity(attacker, cityTarget);
             if (result.Success)
             {
+                AudioManager.Instance?.Play(Sfx.Attack);
                 _renderer.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(FormatCityAttackResult(attacker, cityTarget, result));
                 Deselect();
@@ -407,6 +410,7 @@ public partial class WorldMap : Node2D
 
         // Capture is applied once the animation lands on the city tile.
         _pendingCapture = move.CapturedOnArrival;
+        AudioManager.Instance?.Play(Sfx.Move);
         _animator.Start(attacker, move.Path);
         Deselect();
     }
@@ -678,6 +682,7 @@ public partial class WorldMap : Node2D
         }
 
         Deselect();
+        AudioManager.Instance?.Play(Sfx.CityFound);
         _ui.ShowNotification($"{city!.Name} founded!");
         _renderer.QueueRedraw();
         // Settler is gone; new city needs production. Rebuild the queue from

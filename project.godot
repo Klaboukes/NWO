@@ -19,6 +19,10 @@ config/icon="res://icon.svg"
 
 project/assembly_name="NWO"
 
+[autoload]
+
+AudioManager="*res://scripts/audio/AudioManager.cs"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

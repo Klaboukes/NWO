@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using NWO.Audio;
 using NWO.Core;
 using NWO.Entities;
 using NWO.Map;
@@ -104,24 +105,27 @@ public partial class UIController : CanvasLayer
         _pauseMenu       = GetNode<Control>(_pauseMenuPath);
         _saveBrowser     = GetNode<SaveBrowserController>(_saveBrowserPath);
 
-        _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
-        _foundCityButton.Pressed += () => FoundCityPressed?.Invoke();
+        _endTurnButton.Pressed   += () => { Click(); EndTurnPressed?.Invoke(); };
+        _foundCityButton.Pressed += () => { Click(); FoundCityPressed?.Invoke(); };
         _eventLog.FocusRequested += tile => EventFocusRequested?.Invoke(tile);
 
         WirePauseMenu();
     }
+
+    // Plays the shared UI click. A no-op under xUnit (no AudioManager autoload).
+    private static void Click() => AudioManager.Instance?.Play(Sfx.Click);
 
     // The HUD "Menu" button opens a pause overlay; Save/Load route through the
     // SaveBrowser. Saving/loading needs the live GameState (held by WorldMap), so
     // this raises events rather than touching SaveService for those two.
     private void WirePauseMenu()
     {
-        _menuButton.Pressed += () => _pauseMenu.Visible = !_pauseMenu.Visible;
-        Btn("Root/PauseMenu/CenterPanel/VBox/ResumeButton").Pressed   += () => _pauseMenu.Visible = false;
-        Btn("Root/PauseMenu/CenterPanel/VBox/SaveButton").Pressed     += () => { _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: true); };
-        Btn("Root/PauseMenu/CenterPanel/VBox/LoadButton").Pressed     += () => { _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: false); };
-        Btn("Root/PauseMenu/CenterPanel/VBox/MainMenuButton").Pressed += () => MainMenuRequested?.Invoke();
-        Btn("Root/PauseMenu/CenterPanel/VBox/QuitButton").Pressed     += () => GetTree().Quit();
+        _menuButton.Pressed += () => { Click(); _pauseMenu.Visible = !_pauseMenu.Visible; };
+        Btn("Root/PauseMenu/CenterPanel/VBox/ResumeButton").Pressed   += () => { Click(); _pauseMenu.Visible = false; };
+        Btn("Root/PauseMenu/CenterPanel/VBox/SaveButton").Pressed     += () => { Click(); _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: true); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/LoadButton").Pressed     += () => { Click(); _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: false); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/MainMenuButton").Pressed += () => { Click(); MainMenuRequested?.Invoke(); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/QuitButton").Pressed     += () => { Click(); GetTree().Quit(); };
 
         _saveBrowser.SaveChosen     += name => { _saveBrowser.Hide(); SaveRequested?.Invoke(name); ShowNotification($"Saved \"{name}\"."); };
         _saveBrowser.LoadChosen     += file => LoadRequested?.Invoke(file);
@@ -256,7 +260,7 @@ public partial class UIController : CanvasLayer
         {
             var btn = new Button { Text = $"Build {type} ({turns}t)", FocusMode = Control.FocusModeEnum.None };
             var captured = type;
-            btn.Pressed += () => BuildImprovementPressed?.Invoke(captured);
+            btn.Pressed += () => { Click(); BuildImprovementPressed?.Invoke(captured); };
             _workerActions.AddChild(btn);
         }
     }
@@ -328,7 +332,7 @@ public partial class UIController : CanvasLayer
                 FocusMode  = Control.FocusModeEnum.None,
             };
             var captured = f;
-            fbtn.Pressed += () => onSetFocus(captured);
+            fbtn.Pressed += () => { Click(); onSetFocus(captured); };
             focusRow.AddChild(fbtn);
         }
         _buildList.AddChild(focusRow);
@@ -344,7 +348,7 @@ public partial class UIController : CanvasLayer
                 Disabled  = !affordable,
                 FocusMode = Control.FocusModeEnum.None,
             };
-            buyBtn.Pressed += () => onBuyProduction();
+            buyBtn.Pressed += () => { Click(); onBuyProduction(); };
             _buildList.AddChild(buyBtn);
         }
 
@@ -354,14 +358,14 @@ public partial class UIController : CanvasLayer
         {
             var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"unit:{u.Id}") btn.Text += "  ◀";
-            btn.Pressed += () => onSetProduction($"unit:{u.Id}");
+            btn.Pressed += () => { Click(); onSetProduction($"unit:{u.Id}"); };
             _buildList.AddChild(btn);
         }
         foreach (var b in catalog.Buildings.Where(b => TechAllows(civ, b.RequiredTech) && !city.Buildings.Contains(b.Id)))
         {
             var btn = new Button { Text = $"{b.Name} ({b.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"building:{b.Id}") btn.Text += "  ◀";
-            btn.Pressed += () => onSetProduction($"building:{b.Id}");
+            btn.Pressed += () => { Click(); onSetProduction($"building:{b.Id}"); };
             _buildList.AddChild(btn);
         }
     }

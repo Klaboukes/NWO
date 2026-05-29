@@ -7,9 +7,10 @@
 
 ## Core Pattern: Headless model + scene coordinator
 
-There is **no EventBus and there are no autoloaded singletons.** Instead the
-codebase splits cleanly into pure-logic gameplay code (no Godot scene
-dependencies, fully unit-testable) and a thin Godot presentation layer.
+There is **no EventBus, and the only autoloaded singleton is `AudioManager`**
+(presentation-only sound; see *Audio* below). Gameplay state and logic stay out of
+autoloads. Instead the codebase splits cleanly into pure-logic gameplay code (no
+Godot scene dependencies, fully unit-testable) and a thin Godot presentation layer.
 
 ```
 Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
@@ -338,7 +339,20 @@ converge in `WorldMap.ResolveLaunch`, which reads the `GameLaunch` static handof
 `GameFactory.NewGame(seed)` builds a fresh world (map generation, players, starting
 units, AI spawn — all extracted from the old `_Ready`). `GameLaunch` also carries
 `LastResult` to the victory screen. Scene changes use `GetTree().ChangeSceneToFile`;
-the static survives the transition since the project defines no autoloads.
+a plain C# static survives the transition, so `GameLaunch` (gameplay handoff) stays a
+static rather than an autoload — only audio, which needs a live persistent `Node`, is.
+
+## Audio
+
+`AudioManager` is the project's single **autoload** (`/root/AudioManager`, registered
+in `project.godot`). It's a `Node` so its small `AudioStreamPlayer` pool persists
+across scene changes, giving MainMenu, WorldMap, and VictoryScreen one shared channel.
+Callers use `AudioManager.Instance?.Play(Sfx.…)`; `Instance` is null under `NWO.Tests`
+(no autoload runs there), so every trigger is a safe no-op headless. Each `Sfx`
+(`Click, Move, Attack, CityFound, Win, Lose`) resolves once at startup to a real
+`res://assets/audio/<name>.ogg` if present, otherwise to a tone synthesized in code
+(`AudioStreamWav`) — so audio ships with no committed binaries and real clips can be
+dropped in later with no code change.
 
 ## Saving / Loading
 

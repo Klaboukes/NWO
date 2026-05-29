@@ -1,4 +1,5 @@
 using Godot;
+using NWO.Audio;
 using NWO.Core;
 
 namespace NWO.UI;
@@ -29,11 +30,14 @@ public partial class VictoryScreenController : Control
                 ? "Domination victory"
                 : "Score victory (turn limit)";
             detail.Text = $"{how}\n{result.Winner.Name} wins with {result.Score} points.";
+            AudioManager.Instance?.Play(humanWon ? Sfx.Win : Sfx.Lose);
         }
 
-        GetNode<Button>("CenterPanel/VBox/Buttons/MainMenuButton").Pressed += OnMainMenu;
-        GetNode<Button>("CenterPanel/VBox/Buttons/QuitButton").Pressed     += OnQuit;
+        GetNode<Button>("CenterPanel/VBox/Buttons/MainMenuButton").Pressed += () => { Click(); OnMainMenu(); };
+        GetNode<Button>("CenterPanel/VBox/Buttons/QuitButton").Pressed     += () => { Click(); OnQuit(); };
     }
+
+    private static void Click() => AudioManager.Instance?.Play(Sfx.Click);
 
     private void OnMainMenu()
     {

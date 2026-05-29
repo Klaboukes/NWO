@@ -1,4 +1,5 @@
 using Godot;
+using NWO.Audio;
 using NWO.Core;
 
 namespace NWO.UI;
@@ -15,14 +16,16 @@ public partial class MainMenuController : Control
 
     public override void _Ready()
     {
-        GetNode<Button>("CenterPanel/VBox/NewGameButton").Pressed  += OnNewGame;
-        GetNode<Button>("CenterPanel/VBox/LoadGameButton").Pressed += OnLoadGame;
-        GetNode<Button>("CenterPanel/VBox/QuitButton").Pressed     += () => GetTree().Quit();
+        GetNode<Button>("CenterPanel/VBox/NewGameButton").Pressed  += () => { Click(); OnNewGame(); };
+        GetNode<Button>("CenterPanel/VBox/LoadGameButton").Pressed += () => { Click(); OnLoadGame(); };
+        GetNode<Button>("CenterPanel/VBox/QuitButton").Pressed     += () => { Click(); GetTree().Quit(); };
 
         _browser = GetNode<SaveBrowserController>("SaveBrowser");
         _browser.LoadChosen     += OnLoadChosen;
         _browser.CloseRequested += () => _browser.Hide();
     }
+
+    private static void Click() => AudioManager.Instance?.Play(Sfx.Click);
 
     private void OnNewGame()
     {
