@@ -183,7 +183,11 @@ public partial class UIController : CanvasLayer
         _notifLabel.Visible = false;
     }
 
-    public void HideCityPanel() => _cityPanel.Visible = false;
+    public void HideCityPanel()
+    {
+        _cityPanel.Visible = false;
+        _minimap.Visible   = true; // restore the minimap the city panel was covering
+    }
 
     public void ToggleTechTree(GameState state, Player player, Action<string> onSetResearch)
         => _techTreePanel.Toggle(state, player, onSetResearch);
@@ -259,6 +263,7 @@ public partial class UIController : CanvasLayer
     {
         var catalog = state.Catalog;
         _cityPanel.Visible = true;
+        _minimap.Visible   = false; // the right-edge city panel would overlap the minimap
         _cityNameLabel.Text = city.Name;
 
         int netFood = city.FoodYield - city.Population;
