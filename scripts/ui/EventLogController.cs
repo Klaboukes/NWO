@@ -11,6 +11,9 @@ namespace NWO.UI;
 // for end-of-turn summaries. Combat/one-shot messages still use the banner.
 public partial class EventLogController : VBoxContainer
 {
+    // TODO: make the log scrollable (e.g. wrap rows in a ScrollContainer) so a
+    // busy turn can show more than MaxRows events instead of truncating to the
+    // most recent few. Minor for now.
     private const int MaxRows = 6;
 
     private readonly LinkedList<GameEvent> _events = new();

@@ -38,6 +38,16 @@ public partial class WorldMap : Node2D
     private bool             _lmbPanning;
     private Vector2          _lmbDragAccum;
 
+    // Tile tooltip dwell: the cursor must rest on a tile for TooltipDelay before
+    // its tooltip appears; crossing into a new tile restarts the countdown. The
+    // countdown is driven in _Process (no motion events fire while the cursor is
+    // perfectly still, which is exactly when we want it to show).
+    private const float      TooltipDelay = 0.4f;
+    private Vector2I?        _hoverTile;
+    private Vector2          _hoverScreenPos;
+    private float            _hoverDwell;
+    private bool             _tooltipShown;
+
     private WorldRenderer _renderer = null!;
     private UIController  _ui       = null!;
 
@@ -105,11 +115,23 @@ public partial class WorldMap : Node2D
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))  dir.X -= 1;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) dir.X += 1;
         _cameraController.ApplyKeyboardPan(dir, (float)delta);
+        if (dir != Vector2.Zero) ClearHoverTooltip(); // keyboard pan moves the map under a still cursor
 
         if (_animator.Tick((float)delta))
         {
             _cameraController.CenterOn(_animator.CurrentWorldPos);
             _renderer.QueueRedraw();
+        }
+
+        // Tile tooltip dwell countdown — show once the cursor has rested long enough.
+        if (_hoverTile is { } hover && !_tooltipShown)
+        {
+            _hoverDwell += (float)delta;
+            if (_hoverDwell >= TooltipDelay)
+            {
+                _ui.ShowTileTooltip(BuildTileInfo(hover), _hoverScreenPos);
+                _tooltipShown = true;
+            }
         }
 
         _cameraController.Tick((float)delta);
@@ -130,7 +152,7 @@ public partial class WorldMap : Node2D
             if (_cameraController.IsPanning)            // middle-mouse pan
             {
                 _cameraController.ApplyMousePan(motion.Relative);
-                _ui.HideTileTooltip();
+                ClearHoverTooltip();
             }
             else if (_lmbDown && !_animator.IsAnimating
                      && (_lmbPanning || (_lmbDragAccum += motion.Relative).Length() > DragThreshold))
@@ -139,7 +161,7 @@ public partial class WorldMap : Node2D
                 // left-drag grab-pan), no tile tooltip while panning.
                 _lmbPanning = true;
                 _cameraController.ApplyMousePan(motion.Relative);
-                _ui.HideTileTooltip();
+                ClearHoverTooltip();
             }
             else
             {
@@ -149,7 +171,7 @@ public partial class WorldMap : Node2D
                     UpdatePathPreview(axial);
                     UpdateCombatForecast(axial);
                 }
-                UpdateTileTooltip(motion.Position);
+                RegisterHover(motion.Position);
             }
             return;
         }
@@ -467,17 +489,39 @@ public partial class WorldMap : Node2D
         _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
     }
 
-    // Hovered-tile tooltip: terrain + yields, plus any revealed resource and any
-    // built improvement. Hidden over undiscovered tiles and off-map.
-    private void UpdateTileTooltip(Vector2 screenPos)
+    // Register the tile under the cursor for the dwell-delay tooltip. Crossing
+    // into a new tile (or onto an undiscovered/off-map tile) restarts the
+    // countdown and hides any shown tooltip; resting on the same tile lets the
+    // _Process countdown elapse and — once shown — keeps the tooltip following
+    // the cursor within that tile.
+    private void RegisterHover(Vector2 screenPos)
     {
+        _hoverScreenPos = screenPos;
         var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
         if (!_state.Map.Tiles.ContainsKey(axial) || !_viewerFog.IsDiscovered(axial))
         {
-            _ui.HideTileTooltip();
+            ClearHoverTooltip();
             return;
         }
-        _ui.ShowTileTooltip(BuildTileInfo(axial), screenPos);
+        if (_hoverTile != axial)
+        {
+            _hoverTile  = axial;
+            _hoverDwell = 0f;
+            if (_tooltipShown) { _ui.HideTileTooltip(); _tooltipShown = false; }
+        }
+        else if (_tooltipShown)
+        {
+            _ui.ShowTileTooltip(BuildTileInfo(axial), screenPos); // follow cursor within the tile
+        }
+    }
+
+    // Forget the hovered tile and hide any visible tooltip (cursor left the map,
+    // or the map is panning under the cursor).
+    private void ClearHoverTooltip()
+    {
+        _hoverTile  = null;
+        _hoverDwell = 0f;
+        if (_tooltipShown) { _ui.HideTileTooltip(); _tooltipShown = false; }
     }
 
     private string BuildTileInfo(Vector2I axial)
