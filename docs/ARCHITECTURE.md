@@ -16,7 +16,7 @@ Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
 ├── GameState          — authoritative world model + pure operations on it
 ├── GameSession        — headless turn driver (player actions + end-turn loop)
 ├── TurnManager        — plain turn counter
-├── AIController        — reactive AI, mutates GameState directly
+├── AIController        — strategic AI, mutates GameState directly
 ├── CityWorkforceService — citizen auto-assignment + yield recompute (static)
 ├── CivEconomyService  — gold/science/research/disband + rush-buy per turn (static)
 ├── ResourceService    — strategic-resource reveal + access gating (static)
@@ -254,21 +254,33 @@ overlay.
 
 ---
 
-## AI (Reactive)
+## AI (Strategic)
 
-`AIController` runs one pass per turn. Per unit, in order:
+`AIController` runs one pass per turn: **research → unit actions → production**.
+It is deterministic (no RNG) — combat decisions use `CombatResolver.Expected`.
 
-1. **Attack**: if an enemy unit is within attack range, attack it.
-2. **Settle**: if the unit is a Settler, try to found a city on its *current*
-   tile (it does not seek out a site ≥3 tiles away — it just walks toward the
-   enemy and settles when founding succeeds).
-3. **Advance**: otherwise step toward the nearest enemy unit or city, stopping
-   short of occupied tiles. It bombards an enemy city in range and only captures
-   one once its HP is depleted (the same rule the player follows).
+**Research.** When `CurrentResearch` is idle it picks the first tech in a curated,
+economy-first preference list whose prerequisites are met (`SetResearch`).
 
-Idle AI cities always queue a **Warrior**. The current AI does **not** build
-other units/buildings, does **not** manage city focus, and does **not** research
-techs. It also sees through fog (iterates `GameState.Units` directly).
+**Units**, dispatched by role:
+- *Settlers* found on the current tile when legal, else march to the best-scored
+  nearby site (≥ `MinCityDistance`, ranked by surrounding yields).
+- *Workers* build the best non-Road improvement on a controlled tile, or walk to
+  the nearest improvable tile.
+- *Military*, in order: attack an in-range enemy unit when the forecast favours it
+  (never suicidal melee; ranged always fires) → bombard/assault an in-range city
+  it can survive → retreat to the nearest city when wounded (HP < 35) → hold if
+  it's a lone garrison → reinforce a threatened undefended city in range → else
+  advance on the nearest enemy. Captures still require depleting a city's HP then
+  moving a melee unit in (the same rule the player follows).
+
+**Production** for each idle city: a defender if undefended → Walls if threatened
+→ a Settler while below the expansion target and safe → a Worker (≈ one per city)
+→ otherwise an attacker. All choices are gated by tech/resource availability
+(mirrors the build-list filter). City focus is set by need (grow small cities,
+else pump current production).
+
+The AI sees through fog (iterates `GameState.Units`/`Cities` directly).
 
 In `WorldMap` the AI player is seeded as a single opponent named "Barbarians",
 confined to the player's landmass (`GetConnectedLandmass` + `PickAISpawn`).

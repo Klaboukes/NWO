@@ -99,7 +99,7 @@ Goal: Research feels meaningful. Gold matters.
 
 ---
 
-## Phase 5.5 — Pre-Phase-6 hardening (in progress)
+## Phase 5.5 — Pre-Phase-6 hardening ✅ COMPLETE
 
 Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
 
@@ -132,14 +132,20 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
         `EventLogController` shows last 6, click focuses the tile.
   - [x] City list/cycle hotkey (`C`) to jump between own cities.
   - [x] Tile hover tooltip: terrain + yields + revealed resource + improvement.
-- **M4 — Competent AI** (rework `AIController.TakeTurn`)
-  - [ ] Research an available tech via `CivEconomyService.SetResearch` when idle.
-  - [ ] Production mix: early Settler/Worker when safe; defenders for undefended
-        cities; attackers gated by tech/resources; Walls when threatened.
-  - [ ] Expansion: move Settlers to scored valid sites (≥ MinCityDistance), found there.
-  - [ ] Military: use `CombatResolver.Expected` to avoid suicidal attacks; garrison
-        cities; retreat damaged units toward a friendly city to heal.
-  - [ ] City focus set by need (growth vs. production).
+- **M4 — Competent AI ✅ COMPLETE** (reworked `AIController.TakeTurn`)
+  - [x] Research an available tech via `CivEconomyService.SetResearch` when idle
+        (curated economy-first preference order).
+  - [x] Production mix: defenders for undefended cities first; Walls when threatened;
+        Settlers while below target and safe; ~1 Worker per city; attackers otherwise.
+        All gated by tech/resource availability (mirrors the build-list filter).
+  - [x] Expansion: Settlers found on the spot when legal, else march to the
+        best-scored nearby site (≥ MinCityDistance, surrounding yields).
+  - [x] Military: `CombatResolver.Expected` gates attacks (no suicidal melee, ranged
+        always fires); wounded units retreat to the nearest city; lone garrisons hold;
+        spare units reinforce threatened cities or advance on the enemy.
+  - [x] City focus set by need (grow small cities, else pump current production).
+  - [x] Workers develop controlled tiles (best non-Road improvement) and walk to the
+        nearest improvable tile when idle.
 
 > Sequencing M2 → M3 → M4. Each milestone: implement → `dotnet build` (0 warnings)
 > → `dotnet test` (green, add tests) → sync `docs/` (drop matching **[planned]**

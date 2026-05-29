@@ -15,6 +15,20 @@ public class AIControllerTests
         Id = "warrior", Name = "Warrior", Attack = 8, Defense = 8, Movement = 2, Range = 1,
     };
 
+    private static UnitData SettlerData() => new()
+    {
+        Id = "settler", Name = "Settler", Attack = 0, Defense = 0, Movement = 2,
+        Range = 0, Special = "found_city",
+    };
+
+    private static List<UnitData> Units() => new() { WarriorData(), SettlerData() };
+
+    private static List<TechData> Techs() => new()
+    {
+        new TechData { Id = "pottery", Name = "Pottery", ScienceCost = 35 },
+        new TechData { Id = "mining",  Name = "Mining",  ScienceCost = 35 },
+    };
+
     private static GameState MakeState(out Player human, out Player ai)
     {
         var map = new MapData(10, 10);
@@ -22,7 +36,7 @@ public class AIControllerTests
         for (int r = 0; r < 10; r++)
             map.Tiles[new Vector2I(q, r)] = TerrainType.Plains;
 
-        var catalog = new DataCatalog(new List<UnitData>(), new List<BuildingData>());
+        var catalog = new DataCatalog(Units(), new List<BuildingData>(), Techs());
         var state   = new GameState(map, catalog);
         human       = state.AddPlayer(new Player { Id = 0, Name = "P0", IsHuman = true  });
         ai          = state.AddPlayer(new Player { Id = 1, Name = "P1", IsHuman = false });
@@ -94,5 +108,65 @@ public class AIControllerTests
 
         int distAfter = HexGrid.Distance(aiUnit.Position, hUnit.Position);
         Assert.True(distAfter < 5, $"AI should have closed the gap, distance = {distAfter}");
+    }
+
+    [Fact]
+    public void AI_WhenIdleResearch_PicksATech()
+    {
+        var state = MakeState(out _, out var ai);
+        state.Cities.Add(new City("Rome", ai, new Vector2I(5, 5)));
+
+        new AIController(state).TakeTurn(ai);
+
+        Assert.Equal("pottery", state.Civ(ai).CurrentResearch);
+    }
+
+    [Fact]
+    public void AI_WithSettlerOnGoodSite_FoundsCity()
+    {
+        var state   = MakeState(out _, out var ai);
+        var settler = new Unit(SettlerData(), ai, new Vector2I(5, 5));
+        state.Units.Add(settler);
+
+        new AIController(state).TakeTurn(ai);
+
+        Assert.Contains(state.Cities, c => c.Owner == ai && c.Position == new Vector2I(5, 5));
+        Assert.DoesNotContain(settler, state.Units); // consumed by founding
+    }
+
+    [Fact]
+    public void AI_DeclinesASuicidalAttack()
+    {
+        var state  = MakeState(out var human, out var ai);
+        var aiUnit = new Unit(WarriorData(), ai,    new Vector2I(0, 0)) { HP = 20 };
+        var hUnit  = new Unit(WarriorData(), human, new Vector2I(1, 0)) { HP = 100 };
+        state.Units.Add(aiUnit);
+        state.Units.Add(hUnit);
+
+        new AIController(state).TakeTurn(ai);
+
+        // A wounded warrior must not throw itself at a full-health one it can't kill.
+        Assert.Equal(100, hUnit.HP);
+        Assert.Contains(aiUnit, state.Units);
+    }
+
+    [Fact]
+    public void AI_MovesToGarrisonAThreatenedCity()
+    {
+        var state = MakeState(out var human, out var ai);
+        var city  = new City("Rome", ai, new Vector2I(5, 5));
+        state.Cities.Add(city);
+
+        // Enemy within the threat radius of the (undefended) city.
+        state.Units.Add(new Unit(WarriorData(), human, new Vector2I(5, 8)));
+        // Friendly warrior in range but too far to engage the enemy this turn.
+        var defender = new Unit(WarriorData(), ai, new Vector2I(5, 1));
+        state.Units.Add(defender);
+
+        int before = HexGrid.Distance(defender.Position, city.Position);
+        new AIController(state).TakeTurn(ai);
+        int after  = HexGrid.Distance(defender.Position, city.Position);
+
+        Assert.True(after < before, $"defender should close on its city, {before} -> {after}");
     }
 }
