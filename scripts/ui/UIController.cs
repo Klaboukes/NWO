@@ -190,12 +190,13 @@ public partial class UIController : CanvasLayer
     }
 
     public void ShowCityPanel(
+        GameState state,
         City city,
-        DataCatalog catalog,
         Civilization civ,
         Action<string> onSetProduction,
         Action<CityFocus> onSetFocus)
     {
+        var catalog = state.Catalog;
         _cityPanel.Visible = true;
         _cityNameLabel.Text = city.Name;
 
@@ -230,7 +231,9 @@ public partial class UIController : CanvasLayer
         }
         _buildList.AddChild(focusRow);
 
-        foreach (var u in catalog.Units.Where(u => TechAllows(civ, u.RequiredTech)))
+        foreach (var u in catalog.Units.Where(u =>
+                     TechAllows(civ, u.RequiredTech)
+                     && ResourceService.Allows(state, civ.Owner, u.RequiredResource)))
         {
             var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"unit:{u.Id}") btn.Text += "  ◀";

@@ -46,7 +46,35 @@ public static class MapGenerator
             }
         }
 
+        ScatterResources(data, seed);
         return data;
+    }
+
+    // Sprinkles strategic resources onto eligible terrain with a fixed per-tile
+    // probability. Seeded off the map seed (offset so it doesn't correlate with
+    // the height noise) so a given seed always yields the same resource layout.
+    private const float HorsesChance = 0.04f; // of eligible Plains/Grassland tiles
+    private const float IronChance   = 0.10f; // of Hills tiles (rarer terrain → higher rate)
+
+    private static void ScatterResources(MapData data, int seed)
+    {
+        // System.Random (not Godot's RNG) keeps placement deterministic and free
+        // of engine init. Iterates Tiles in insertion order (col/row), which is
+        // stable for a no-deletion dictionary, so a seed always yields the same map.
+        var rng = new System.Random(seed + 1337);
+        foreach (var (axial, terrain) in data.Tiles)
+        {
+            switch (terrain)
+            {
+                case TerrainType.Plains:
+                case TerrainType.Grassland:
+                    if (rng.NextDouble() < HorsesChance) data.Resources[axial] = ResourceType.Horses;
+                    break;
+                case TerrainType.Hills:
+                    if (rng.NextDouble() < IronChance) data.Resources[axial] = ResourceType.Iron;
+                    break;
+            }
+        }
     }
 
     // Even-q offset → axial for flat-top hexes.

@@ -67,6 +67,19 @@ public partial class WorldRenderer : Node2D
             DrawPolygon(HexVertices(AxialToWorld(axial), HexSize - HexGap),
                 new[] { TerrainColor(terrain) });
 
+        // 1b. Strategic resources — drawn once revealed to the viewer (has the
+        // tech) and the tile has been discovered.
+        foreach (var (axial, res) in _state.Map.Resources)
+        {
+            if (!fog.IsDiscovered(axial)) continue;
+            if (!ResourceService.IsRevealed(_state, _viewerPlayer, res)) continue;
+            var w   = AxialToWorld(axial) + new Vector2(-HexSize * 0.30f, HexSize * 0.32f);
+            var col = res == ResourceType.Horses ? new Color(0.85f, 0.75f, 0.55f)
+                                                 : new Color(0.55f, 0.55f, 0.62f);
+            DrawCircle(w, HexSize * 0.12f, col);
+            DrawCircle(w, HexSize * 0.12f, Colors.Black, false, 1f);
+        }
+
         // 2. Movement range overlay
         foreach (var axial in _selection.ReachableTiles)
             DrawPolygon(HexVertices(AxialToWorld(axial), HexSize - HexGap),

@@ -12,6 +12,7 @@ namespace NWO.Core;
 public static class CityWorkforceService
 {
     public const int WorkRadius = 2;
+    private const int ResourceProductionBonus = 1; // a revealed Horses/Iron tile adds +1 prod when worked
 
     // Recompute Assigned tiles + FoodYield/ProductionYield for one city.
     public static void Recompute(GameState state, City city)
@@ -49,6 +50,11 @@ public static class CityWorkforceService
             if (!state.Map.Tiles.TryGetValue(tile, out var t)) continue;
             food += TerrainYields.Food(t);
             prod += TerrainYields.Production(t);
+
+            // A revealed strategic resource on a worked tile adds a small bonus.
+            var res = state.Map.ResourceAt(tile);
+            if (res != ResourceType.None && ResourceService.IsRevealed(state, city.Owner, res))
+                prod += ResourceProductionBonus;
         }
 
         foreach (var buildingId in city.Buildings)

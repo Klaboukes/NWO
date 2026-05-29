@@ -586,7 +586,7 @@ public partial class WorldMap : Node2D
     }
 
     private void RefreshCityPanel(City city) =>
-        _ui.ShowCityPanel(city, _state.Catalog, _state.Civ(_viewerPlayer),
+        _ui.ShowCityPanel(_state, city, _state.Civ(_viewerPlayer),
             item  => SetProduction(city, item),
             focus => SetCityFocus(city, focus));
 

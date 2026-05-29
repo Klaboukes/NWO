@@ -13,10 +13,17 @@ public class MapData
     // Keyed by axial (q, r) coordinates — pre-allocated to avoid resizing
     public Dictionary<Vector2I, TerrainType> Tiles { get; }
 
+    // Strategic resources, keyed by axial coord. Sparse — only resource tiles
+    // appear. Populated by MapGenerator; read (never structurally mutated) in play.
+    public Dictionary<Vector2I, ResourceType> Resources { get; } = new();
+
     public MapData(int width, int height)
     {
         Width  = width;
         Height = height;
         Tiles  = new(width * height);
     }
+
+    public ResourceType ResourceAt(Vector2I axial)
+        => Resources.GetValueOrDefault(axial, ResourceType.None);
 }
