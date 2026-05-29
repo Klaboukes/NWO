@@ -183,5 +183,16 @@ offset_bottom = 160.0
 mouse_filter = 0
 script = ExtResource("4_minimap")
 
+[node name="TileTooltip" type="PanelContainer" parent="Root"]
+visible = false
+layout_mode = 0
+offset_right = 160.0
+offset_bottom = 60.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Root/TileTooltip"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
 [node name="TechTreePanel" parent="Root" instance=ExtResource("2_techtree")]
 visible = false

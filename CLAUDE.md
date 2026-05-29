@@ -43,6 +43,7 @@ The game is loosely modeled on Civilization V. Players coming from Civ 5 must fi
 - **WASD / arrow keys**: pan camera.
 - **Enter**: end turn (or advance the end-turn queue if a prompt is active).
 - **Tab**: cycle to next unit needing attention.
+- **C**: cycle between your own cities (centers on each).
 - **Space**: skip the current end-turn-queue item.
 - **B**: Build city (when a settler is selected).
 - **F**: Fortify selected unit (Found city if the unit is a settler — `B` is preferred).

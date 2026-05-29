@@ -124,14 +124,14 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
         Iron (Hills) into `MapData.Resources`; `ResourceService` handles reveal
         (tech-gated) + access (controlling a resource tile); gates Horseman/Swordsman
         in the build list; +1 prod for a revealed worked resource tile.
-- **M3 — Readable HUD**
-  - [ ] Minimap: new `MinimapController` (+ `UI.tscn` node) drawing scaled map with
+- **M3 — Readable HUD ✅ COMPLETE**
+  - [x] Minimap: new `MinimapController` (+ `UI.tscn` node) drawing scaled map with
         fog, unit/city dots, camera viewport rect; click to recenter.
-  - [ ] Event log: replace `List<string>` notifications with
+  - [x] Event log: replaced `List<string>` notifications with
         `GameEvent { string Text; Vector2I? Focus }` out of `EndPlayerTurn`/session;
-        `EventLogController` shows last N, click focuses the tile.
-  - [ ] City list/cycle hotkey (`C`) to jump between own cities.
-  - [ ] Tile hover tooltip: terrain + yields + improvement/resource.
+        `EventLogController` shows last 6, click focuses the tile.
+  - [x] City list/cycle hotkey (`C`) to jump between own cities.
+  - [x] Tile hover tooltip: terrain + yields + revealed resource + improvement.
 - **M4 — Competent AI** (rework `AIController.TakeTurn`)
   - [ ] Research an available tech via `CivEconomyService.SetResearch` when idle.
   - [ ] Production mix: early Settler/Worker when safe; defenders for undefended

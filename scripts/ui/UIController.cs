@@ -31,6 +31,8 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _workerActionsPath    = "Root/UnitPanel/VBox/WorkerActions";
     [Export] private NodePath _eventLogPath         = "Root/EventLog";
     [Export] private NodePath _minimapPath          = "Root/Minimap";
+    [Export] private NodePath _tileTooltipPath      = "Root/TileTooltip";
+    [Export] private NodePath _tileTooltipLabelPath = "Root/TileTooltip/Label";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
 
     private const double NotifDuration = 3.0;
@@ -53,6 +55,8 @@ public partial class UIController : CanvasLayer
     private VBoxContainer            _workerActions  = null!;
     private EventLogController       _eventLog       = null!;
     private MinimapController        _minimap        = null!;
+    private Control                  _tileTooltip    = null!;
+    private Label                    _tileTooltipLabel = null!;
     private TechTreePanelController  _techTreePanel  = null!;
 
     private Unit?  _displayedUnit;
@@ -84,6 +88,8 @@ public partial class UIController : CanvasLayer
         _workerActions   = GetNode<VBoxContainer>(_workerActionsPath);
         _eventLog        = GetNode<EventLogController>(_eventLogPath);
         _minimap         = GetNode<MinimapController>(_minimapPath);
+        _tileTooltip     = GetNode<Control>(_tileTooltipPath);
+        _tileTooltipLabel = GetNode<Label>(_tileTooltipLabelPath);
         _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
@@ -149,6 +155,17 @@ public partial class UIController : CanvasLayer
     // One-time minimap setup (needs the world camera + a recenter callback).
     public void InitializeMinimap(GameState state, Player viewer, Camera2D camera, Action<Vector2> onRecenter)
         => _minimap.Initialize(state, viewer, camera, onRecenter);
+
+    // Hovered-tile tooltip (terrain/yields/resource/improvement). Positioned just
+    // off the cursor; pass screenPos in viewport coordinates. HideTileTooltip clears it.
+    public void ShowTileTooltip(string text, Vector2 screenPos)
+    {
+        _tileTooltipLabel.Text = text;
+        _tileTooltip.Position  = screenPos + new Vector2(16, 16);
+        _tileTooltip.Visible   = true;
+    }
+
+    public void HideTileTooltip() => _tileTooltip.Visible = false;
 
     // Combat-odds preview shown while hovering an attackable target. Pass null to hide.
     public void ShowCombatForecast(string? text)

@@ -130,23 +130,26 @@ public partial class WorldMap : Node2D
             if (_cameraController.IsPanning)            // middle-mouse pan
             {
                 _cameraController.ApplyMousePan(motion.Relative);
+                _ui.HideTileTooltip();
             }
-            else if (_lmbDown && !_animator.IsAnimating)
+            else if (_lmbDown && !_animator.IsAnimating
+                     && (_lmbPanning || (_lmbDragAccum += motion.Relative).Length() > DragThreshold))
             {
-                // LMB held: promote to a pan once the cursor moves past the click
-                // threshold, then drag the camera (Civ 5 left-drag grab-pan).
-                _lmbDragAccum += motion.Relative;
-                if (_lmbPanning || _lmbDragAccum.Length() > DragThreshold)
+                // LMB held and dragged past the threshold → camera pan (Civ 5
+                // left-drag grab-pan), no tile tooltip while panning.
+                _lmbPanning = true;
+                _cameraController.ApplyMousePan(motion.Relative);
+                _ui.HideTileTooltip();
+            }
+            else
+            {
+                if (_selection.Unit != null && !_animator.IsAnimating)
                 {
-                    _lmbPanning = true;
-                    _cameraController.ApplyMousePan(motion.Relative);
+                    var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
+                    UpdatePathPreview(axial);
+                    UpdateCombatForecast(axial);
                 }
-            }
-            else if (_selection.Unit != null && !_animator.IsAnimating)
-            {
-                var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
-                UpdatePathPreview(axial);
-                UpdateCombatForecast(axial);
+                UpdateTileTooltip(motion.Position);
             }
             return;
         }
@@ -230,6 +233,9 @@ public partial class WorldMap : Node2D
                 break;
             case Key.H when _selection.Unit != null:
                 SleepSelectedUnitUntilHealed();
+                break;
+            case Key.C:
+                CycleToNextCity();
                 break;
             case Key.T:
                 if (!_animator.IsAnimating)
@@ -446,6 +452,51 @@ public partial class WorldMap : Node2D
         }
 
         _ui.ShowCombatForecast(null);
+    }
+
+    // [C] Jump between this player's cities (Civ-5 city cycle), centering each.
+    private void CycleToNextCity()
+    {
+        var cities = _state.Cities.Where(c => c.Owner == _viewerPlayer).ToList();
+        if (cities.Count == 0) return;
+
+        int currentIdx = _selection.City != null ? cities.IndexOf(_selection.City) : -1;
+        var next = cities[(currentIdx + 1) % cities.Count];
+
+        SelectCity(next);
+        _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
+    }
+
+    // Hovered-tile tooltip: terrain + yields, plus any revealed resource and any
+    // built improvement. Hidden over undiscovered tiles and off-map.
+    private void UpdateTileTooltip(Vector2 screenPos)
+    {
+        var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
+        if (!_state.Map.Tiles.ContainsKey(axial) || !_viewerFog.IsDiscovered(axial))
+        {
+            _ui.HideTileTooltip();
+            return;
+        }
+        _ui.ShowTileTooltip(BuildTileInfo(axial), screenPos);
+    }
+
+    private string BuildTileInfo(Vector2I axial)
+    {
+        var terrain = _state.Map.Tiles[axial];
+        var yields  = new List<string>();
+        if (TerrainYields.Food(terrain)       is var f and > 0) yields.Add($"{f}F");
+        if (TerrainYields.Production(terrain)  is var p and > 0) yields.Add($"{p}P");
+        if (TerrainYields.Gold(terrain)        is var g and > 0) yields.Add($"{g}G");
+
+        string text = terrain.ToString();
+        if (yields.Count > 0) text += "  " + string.Join(" ", yields);
+
+        if (_state.Map.Resources.TryGetValue(axial, out var res) && res != ResourceType.None
+            && ResourceService.IsRevealed(_state, _viewerPlayer, res))
+            text += $"\nResource: {res}";
+        if (_state.Map.Improvements.TryGetValue(axial, out var imp) && imp != ImprovementType.None)
+            text += $"\nImprovement: {imp}";
+        return text;
     }
 
     private void CycleToNextUnitNeedingAttention()
