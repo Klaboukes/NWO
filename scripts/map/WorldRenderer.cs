@@ -80,6 +80,23 @@ public partial class WorldRenderer : Node2D
             DrawCircle(w, HexSize * 0.12f, Colors.Black, false, 1f);
         }
 
+        // 1c. Tile improvements — a small glyph at bottom-right of discovered tiles.
+        foreach (var (axial, imp) in _state.Map.Improvements)
+        {
+            if (!fog.IsDiscovered(axial)) continue;
+            var w = AxialToWorld(axial) + new Vector2(HexSize * 0.18f, HexSize * 0.18f);
+            (string glyph, Color col) = imp switch
+            {
+                ImprovementType.Farm    => ("F", new Color(0.95f, 0.85f, 0.30f)),
+                ImprovementType.Mine    => ("M", new Color(0.75f, 0.70f, 0.65f)),
+                ImprovementType.Pasture => ("P", new Color(0.80f, 0.65f, 0.45f)),
+                ImprovementType.Road    => ("=", new Color(0.55f, 0.45f, 0.35f)),
+                _                       => ("", Colors.White),
+            };
+            if (glyph.Length > 0)
+                DrawString(ThemeDB.FallbackFont, w, glyph, HorizontalAlignment.Left, -1, 12, col);
+        }
+
         // 2. Movement range overlay
         foreach (var axial in _selection.ReachableTiles)
             DrawPolygon(HexVertices(AxialToWorld(axial), HexSize - HexGap),

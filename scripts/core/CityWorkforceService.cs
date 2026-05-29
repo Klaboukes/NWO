@@ -51,6 +51,11 @@ public static class CityWorkforceService
             food += TerrainYields.Food(t);
             prod += TerrainYields.Production(t);
 
+            // Worker-built improvements on the tile.
+            var imp = state.Map.ImprovementAt(tile);
+            food += ImprovementService.Food(imp);
+            prod += ImprovementService.Production(imp);
+
             // A revealed strategic resource on a worked tile adds a small bonus.
             var res = state.Map.ResourceAt(tile);
             if (res != ResourceType.None && ResourceService.IsRevealed(state, city.Owner, res))

@@ -130,7 +130,7 @@ visible = false
 layout_mode = 1
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -120.0
+offset_top = -210.0
 offset_right = 230.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/UnitPanel"]
@@ -154,6 +154,10 @@ layout_mode = 2
 [node name="UnitStatsLabel" type="Label" parent="Root/UnitPanel/VBox"]
 layout_mode = 2
 autowrap_mode = 2
+
+[node name="WorkerActions" type="VBoxContainer" parent="Root/UnitPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 2
 
 [node name="TechTreePanel" parent="Root" instance=ExtResource("2_techtree")]
 visible = false

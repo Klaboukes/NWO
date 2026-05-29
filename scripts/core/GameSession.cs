@@ -53,6 +53,7 @@ public class GameSession
         if (!State.Map.Tiles.ContainsKey(dest)) return Failed();
 
         WakeIfFortified(unit);
+        unit.CurrentTask = null; // moving cancels an in-progress build
 
         var path = HexGrid.FindPath(unit.Position, dest, t => MoveCostFor(unit, t));
         if (path.Count < 2) return Failed();
@@ -156,6 +157,22 @@ public class GameSession
         unit.Fortified         = true;
         unit.MovementRemaining = 0;
         unit.SleepUntilHealed  = unit.HP < Unit.MaxHP;
+    }
+
+    // Order a Worker to build an improvement on its current tile. Validates the
+    // build (terrain/tech/duplicate) and commits the unit's move for this turn.
+    public bool TryStartImprovement(Unit worker, ImprovementType type)
+    {
+        if (worker.Owner != Viewer)                        return false;
+        if (worker.Data.Special != "build_improvement")    return false;
+        if (!ImprovementService.CanBuild(State, Viewer, worker.Position, type)) return false;
+
+        worker.Fortified        = false;
+        worker.SleepUntilHealed = false;
+        worker.CurrentTask      = new ImprovementTask(
+            worker.Position, type, ImprovementService.BuildTurns(type));
+        worker.MovementRemaining = 0; // committing to the build ends its move this turn
+        return true;
     }
 
     // ── End-of-turn ──────────────────────────────────────────────────────────

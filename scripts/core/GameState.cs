@@ -230,6 +230,7 @@ public class GameState
         foreach (var unit in Units)
         {
             if (unit.Owner != player) continue;
+            AdvanceImprovementTask(unit, notifications);
             HealUnit(unit, player);
             unit.ResetForNewTurn();
         }
@@ -262,6 +263,29 @@ public class GameState
         }
     }
 
+    // Ticks down a Worker's build task. A worker that moved off its task tile
+    // forfeits it. On completion the improvement is written to the map and any
+    // city that works the tile re-tallies its yields.
+    private void AdvanceImprovementTask(Unit unit, List<string> notifications)
+    {
+        if (unit.CurrentTask is not { } task) return;
+        if (unit.Position != task.Tile) { unit.CurrentTask = null; return; }
+
+        int remaining = task.TurnsRemaining - 1;
+        if (remaining > 0)
+        {
+            unit.CurrentTask = task with { TurnsRemaining = remaining };
+            return;
+        }
+
+        Map.Improvements[task.Tile] = task.Type;
+        unit.CurrentTask = null;
+        notifications.Add($"Worker built {task.Type}.");
+        foreach (var c in Cities)
+            if (HexGrid.Distance(c.Position, task.Tile) <= CityWorkforceService.WorkRadius)
+                CityWorkforceService.Recompute(this, c);
+    }
+
     private void CompleteProduction(City city, string item)
     {
         var (kind, id) = DataCatalog.SplitItem(item);
@@ -283,7 +307,16 @@ public class GameState
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     public int MovementCost(Vector2I axial)
-        => Map.Tiles.TryGetValue(axial, out var t) ? TerrainYields.MovementCost(t) : int.MaxValue;
+    {
+        if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
+        int cost = TerrainYields.MovementCost(t);
+        if (cost == int.MaxValue) return cost;
+        // A road halves the entry cost (min 1) — rough/forest tiles become as
+        // cheap as open ground to traverse.
+        if (Map.ImprovementAt(axial) == ImprovementType.Road)
+            cost = Math.Max(1, cost / 2);
+        return cost;
+    }
 
     public Vector2I FindWalkableTileNear(Vector2I origin)
     {

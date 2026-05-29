@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using NWO.Core;
 using NWO.Entities;
+using NWO.Map;
 
 namespace NWO.UI;
 
@@ -27,6 +28,7 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _unitNameLabelPath    = "Root/UnitPanel/VBox/UnitNameLabel";
     [Export] private NodePath _unitHPLabelPath      = "Root/UnitPanel/VBox/UnitHPLabel";
     [Export] private NodePath _unitStatsLabelPath   = "Root/UnitPanel/VBox/UnitStatsLabel";
+    [Export] private NodePath _workerActionsPath    = "Root/UnitPanel/VBox/WorkerActions";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
 
     private const double NotifDuration = 3.0;
@@ -46,6 +48,7 @@ public partial class UIController : CanvasLayer
     private Label                    _unitNameLabel  = null!;
     private Label                    _unitHPLabel    = null!;
     private Label                    _unitStatsLabel = null!;
+    private VBoxContainer            _workerActions  = null!;
     private TechTreePanelController  _techTreePanel  = null!;
 
     private Unit?  _displayedUnit;
@@ -54,6 +57,7 @@ public partial class UIController : CanvasLayer
 
     public event Action? EndTurnPressed;
     public event Action? FoundCityPressed;
+    public event Action<ImprovementType>? BuildImprovementPressed;
 
     public override void _Ready()
     {
@@ -72,6 +76,7 @@ public partial class UIController : CanvasLayer
         _unitNameLabel   = GetNode<Label>(_unitNameLabelPath);
         _unitHPLabel     = GetNode<Label>(_unitHPLabelPath);
         _unitStatsLabel  = GetNode<Label>(_unitStatsLabelPath);
+        _workerActions   = GetNode<VBoxContainer>(_workerActionsPath);
         _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
@@ -158,6 +163,7 @@ public partial class UIController : CanvasLayer
     {
         _displayedUnit     = unit;
         _unitPanel.Visible = true;
+        ClearWorkerActions();
         RefreshUnitPanel();
     }
 
@@ -165,6 +171,26 @@ public partial class UIController : CanvasLayer
     {
         _displayedUnit     = null;
         _unitPanel.Visible = false;
+        ClearWorkerActions();
+    }
+
+    // Populate the Worker build menu with one button per available improvement.
+    // Pass an empty list (or a non-Worker unit) to clear it.
+    public void ShowWorkerActions(IEnumerable<(ImprovementType Type, int Turns)> options)
+    {
+        ClearWorkerActions();
+        foreach (var (type, turns) in options)
+        {
+            var btn = new Button { Text = $"Build {type} ({turns}t)", FocusMode = Control.FocusModeEnum.None };
+            var captured = type;
+            btn.Pressed += () => BuildImprovementPressed?.Invoke(captured);
+            _workerActions.AddChild(btn);
+        }
+    }
+
+    private void ClearWorkerActions()
+    {
+        foreach (var child in _workerActions.GetChildren()) child.QueueFree();
     }
 
     private const int UnitMaxHP = 100;
@@ -179,12 +205,13 @@ public partial class UIController : CanvasLayer
                               : unit.HP >= 30 ? Colors.Yellow
                                               : Colors.IndianRed;
 
-        string status = unit.SleepUntilHealed ? "  (Healing…)"
-                      : unit.Fortified        ? "  (Fortified)"
-                                              : "";
-        string hints = unit.Data.Special == "found_city"
-            ? "[B] Found City   [Space] Skip"
-            : "[Space] Skip   [F] Fortify   [H] Heal";
+        string status = unit.CurrentTask is { } task ? $"  (Building {task.Type}: {task.TurnsRemaining}t left)"
+                      : unit.SleepUntilHealed        ? "  (Healing…)"
+                      : unit.Fortified               ? "  (Fortified)"
+                                                     : "";
+        string hints = unit.Data.Special == "found_city"   ? "[B] Found City   [Space] Skip"
+                     : unit.Data.Special == "build_improvement" ? "Build below   [Space] Skip   [F] Fortify"
+                                                              : "[Space] Skip   [F] Fortify   [H] Heal";
         _unitStatsLabel.Text =
             $"Moves: {unit.MovementRemaining} / {unit.Data.Movement}{status}\n{hints}";
     }

@@ -17,6 +17,10 @@ public class MapData
     // appear. Populated by MapGenerator; read (never structurally mutated) in play.
     public Dictionary<Vector2I, ResourceType> Resources { get; } = new();
 
+    // Worker-built tile improvements, keyed by axial coord. Sparse. Mutated at
+    // runtime when a Worker completes a build task (see GameState).
+    public Dictionary<Vector2I, ImprovementType> Improvements { get; } = new();
+
     public MapData(int width, int height)
     {
         Width  = width;
@@ -26,4 +30,7 @@ public class MapData
 
     public ResourceType ResourceAt(Vector2I axial)
         => Resources.GetValueOrDefault(axial, ResourceType.None);
+
+    public ImprovementType ImprovementAt(Vector2I axial)
+        => Improvements.GetValueOrDefault(axial, ImprovementType.None);
 }

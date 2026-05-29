@@ -65,6 +65,7 @@ public partial class WorldMap : Node2D
         _animator.TileEntered += () => { RecomputeFog(); _renderer.QueueRedraw(); };
         _ui.EndTurnPressed    += OnEndTurnPressed;
         _ui.FoundCityPressed  += () => { if (_selection.Unit != null) TryFoundCity(_selection.Unit); };
+        _ui.BuildImprovementPressed += OnBuildImprovement;
 
         var warriorDef = catalog.Unit("warrior")!;
         var settlerDef = catalog.Unit("settler")!;
@@ -468,6 +469,33 @@ public partial class WorldMap : Node2D
         _ui.SetFoundCityVisible(unit.Data.Special == "found_city");
         _ui.HideCityPanel();
         _ui.ShowUnitPanel(unit);
+        RefreshWorkerActions(unit);
+        _renderer.QueueRedraw();
+    }
+
+    // Show the build menu for an idle Worker (a busy one shows its task status
+    // on the panel instead). Non-Workers get no build buttons.
+    private void RefreshWorkerActions(Unit unit)
+    {
+        if (unit.Data.Special == "build_improvement" && unit.CurrentTask == null)
+            _ui.ShowWorkerActions(ImprovementService.BuildableOptions(_state, _viewerPlayer, unit.Position));
+        else
+            _ui.ShowWorkerActions(System.Array.Empty<(ImprovementType, int)>());
+    }
+
+    private void OnBuildImprovement(ImprovementType type)
+    {
+        var worker = _selection.Unit;
+        if (worker == null) return;
+        if (!_session.TryStartImprovement(worker, type))
+        {
+            _ui.ShowNotification($"Can't build {type} here.");
+            return;
+        }
+        _ui.ShowNotification($"Worker started building {type}.");
+        // Worker is now busy (no longer needs attention) — advance the queue.
+        if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
+        else                         Deselect();
         _renderer.QueueRedraw();
     }
 
