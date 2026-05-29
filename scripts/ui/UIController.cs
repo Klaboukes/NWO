@@ -152,6 +152,9 @@ public partial class UIController : CanvasLayer
     // Focus tile become clickable rows (see EventLogController).
     public void LogEvents(IEnumerable<GameEvent> events) => _eventLog.Add(events);
 
+    // Wipe the event log (called at the start of each turn).
+    public void ClearEventLog() => _eventLog.Clear();
+
     // One-time minimap setup (needs the world camera + a recenter callback).
     public void InitializeMinimap(GameState state, Player viewer, Camera2D camera, Action<Vector2> onRecenter)
         => _minimap.Initialize(state, viewer, camera, onRecenter);

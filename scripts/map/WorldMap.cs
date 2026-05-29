@@ -808,8 +808,11 @@ public partial class WorldMap : Node2D
         Deselect();
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
-        if (summary.Notifications.Count > 0)
-            _ui.LogEvents(summary.Notifications);
+        // The event log shows only this turn's events.
+        _ui.ClearEventLog();
+        var events = FilterEventsForViewer(summary.Notifications);
+        if (events.Count > 0)
+            _ui.LogEvents(events);
         _renderer.QueueRedraw();
         _ui.SetCivStatus(_state, _viewerPlayer);
         BuildAndStartEndTurnQueue();
@@ -817,9 +820,36 @@ public partial class WorldMap : Node2D
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    // Recenter on a tile picked from the event log. Cancels any pending
-    // post-animation centering so the camera goes where the player clicked.
-    private void FocusCameraOn(Vector2I tile) => RecenterCameraWorld(WorldRenderer.AxialToWorld(tile));
+    // Recenter on a tile picked from the event log. An event for one of the
+    // player's own cities also opens that city's panel; anything else just moves
+    // the camera.
+    private void FocusCameraOn(Vector2I tile)
+    {
+        var ownCity = _state.Cities.Find(c => c.Position == tile && c.Owner == _viewerPlayer);
+        if (ownCity != null) SelectCity(ownCity);
+        RecenterCameraWorld(WorldRenderer.AxialToWorld(tile));
+    }
+
+    // Apply per-viewer rules to the raw turn events before they hit the log:
+    //  - an enemy city growing is hidden entirely;
+    //  - any other enemy-city event is shown, but is only clickable (keeps its
+    //    Focus tile) once the player has discovered that city — otherwise the
+    //    tile reference is stripped so we don't reveal an unseen city's location.
+    // Player-owned cities and tile-less events pass through unchanged.
+    private List<GameEvent> FilterEventsForViewer(List<GameEvent> events)
+    {
+        var result = new List<GameEvent>();
+        foreach (var e in events)
+        {
+            if (e.Focus is not { } tile) { result.Add(e); continue; }
+            var city = _state.Cities.Find(c => c.Position == tile);
+            if (city == null || city.Owner == _viewerPlayer) { result.Add(e); continue; }
+
+            if (e.Kind == GameEventKind.CityGrew) continue; // hide enemy growth
+            result.Add(_viewerFog.IsDiscovered(tile) ? e : e with { Focus = null });
+        }
+        return result;
+    }
 
     // Recenter on a world position (minimap click). Cancels any pending
     // post-animation centering so the camera goes where the player clicked.

@@ -17,6 +17,13 @@ public partial class EventLogController : VBoxContainer
 
     public event Action<Vector2I>? FocusRequested;
 
+    // Drop all events and clear the rows (the log starts fresh each turn).
+    public void Clear()
+    {
+        _events.Clear();
+        foreach (var child in GetChildren()) child.QueueFree();
+    }
+
     // Append a turn's events (oldest first), trim to the last N rows, redraw.
     public void Add(IEnumerable<GameEvent> events)
     {

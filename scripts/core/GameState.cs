@@ -208,7 +208,7 @@ public class GameState
 
             if (city.ProcessFood())
             {
-                notifications.Add(new GameEvent($"{city.Name} grew to population {city.Population}!", city.Position));
+                notifications.Add(new GameEvent($"{city.Name} grew to population {city.Population}!", city.Position, GameEventKind.CityGrew));
                 CityWorkforceService.Recompute(this, city);
             }
 
@@ -220,7 +220,7 @@ public class GameState
                 {
                     completions.Add(new ProductionCompletion(city, done));
                     CompleteProduction(city, done);
-                    notifications.Add(new GameEvent($"{city.Name} completed {Catalog.ItemName(done)}!", city.Position));
+                    notifications.Add(new GameEvent($"{city.Name} completed {Catalog.ItemName(done)}!", city.Position, GameEventKind.CityProduced));
                 }
             }
 
