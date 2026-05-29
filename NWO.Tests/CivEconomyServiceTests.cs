@@ -100,7 +100,7 @@ public class CivEconomyServiceTests
         Assert.Equal(CivEconomyService.SetResearchResult.Ok,
             CivEconomyService.SetResearch(state, p, "pottery"));
 
-        var notifs = new List<string>();
+        var notifs = new List<GameEvent>();
         // 1 science/turn * 3 turns = 3 → completes on turn 3.
         for (int i = 0; i < 3; i++)
             CivEconomyService.ProcessEndOfTurn(state, p, notifs);
@@ -108,7 +108,7 @@ public class CivEconomyServiceTests
         var civ = state.Civ(p);
         Assert.Contains("pottery", civ.ResearchedTechs);
         Assert.Null(civ.CurrentResearch);
-        Assert.Contains("Researched Pottery!", notifs);
+        Assert.Contains(notifs, n => n.Text == "Researched Pottery!");
     }
 
     [Fact]
@@ -198,12 +198,12 @@ public class CivEconomyServiceTests
         state.Units.Add(warrior);
         state.Civ(p).Treasury = -1;
 
-        var notifs = new List<string>();
+        var notifs = new List<GameEvent>();
         CivEconomyService.ProcessEndOfTurn(state, p, notifs);
 
         // GoldPerTurn = -2 (two units × 1 maint). Treasury starts -1 → -3 → disband scout (refund 1) → -2 → disband warrior (refund 1) → -1 → no units left.
         Assert.DoesNotContain(scout, state.Units);
-        Assert.Contains("Treasury depleted — disbanded Scout.", notifs);
+        Assert.Contains(notifs, n => n.Text == "Treasury depleted — disbanded Scout.");
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public class CivEconomyServiceTests
         state.Units.Add(new Unit(Scout(), p, new Vector2I(0, 0)));
         state.Civ(p).Treasury = -100;
 
-        var notifs = new List<string>();
+        var notifs = new List<GameEvent>();
         CivEconomyService.ProcessEndOfTurn(state, p, notifs);
 
         Assert.Empty(state.Units);
@@ -229,12 +229,12 @@ public class CivEconomyServiceTests
         city.Buildings.Add("market");
         state.Units.Add(new Unit(Warrior(maintenance: 1), p, new Vector2I(0, 0)));
 
-        var notifs = new List<string>();
+        var notifs = new List<GameEvent>();
         CivEconomyService.ProcessEndOfTurn(state, p, notifs);
 
         // +4 market, 1 maint fully covered by free allowance → +4 net.
         Assert.Equal(4, state.Civ(p).Treasury);
         Assert.Single(state.Units);
-        Assert.DoesNotContain(notifs, n => n.Contains("disbanded"));
+        Assert.DoesNotContain(notifs, n => n.Text.Contains("disbanded"));
     }
 }

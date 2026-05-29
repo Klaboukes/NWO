@@ -193,9 +193,9 @@ public class GameState
     // Ends the current player's turn: processes their cities, resets their unit
     // movement, then advances to the next player. When the index wraps back to
     // 0, the global turn number ticks up.
-    public List<string> EndPlayerTurn(List<ProductionCompletion> completions)
+    public List<GameEvent> EndPlayerTurn(List<ProductionCompletion> completions)
     {
-        var notifications = new List<string>();
+        var notifications = new List<GameEvent>();
         var player        = CurrentPlayer;
 
         foreach (var city in Cities)
@@ -208,7 +208,7 @@ public class GameState
 
             if (city.ProcessFood())
             {
-                notifications.Add($"{city.Name} grew to population {city.Population}!");
+                notifications.Add(new GameEvent($"{city.Name} grew to population {city.Population}!", city.Position));
                 CityWorkforceService.Recompute(this, city);
             }
 
@@ -220,7 +220,7 @@ public class GameState
                 {
                     completions.Add(new ProductionCompletion(city, done));
                     CompleteProduction(city, done);
-                    notifications.Add($"{city.Name} completed {Catalog.ItemName(done)}!");
+                    notifications.Add(new GameEvent($"{city.Name} completed {Catalog.ItemName(done)}!", city.Position));
                 }
             }
 
@@ -266,7 +266,7 @@ public class GameState
     // Ticks down a Worker's build task. A worker that moved off its task tile
     // forfeits it. On completion the improvement is written to the map and any
     // city that works the tile re-tallies its yields.
-    private void AdvanceImprovementTask(Unit unit, List<string> notifications)
+    private void AdvanceImprovementTask(Unit unit, List<GameEvent> notifications)
     {
         if (unit.CurrentTask is not { } task) return;
         if (unit.Position != task.Tile) { unit.CurrentTask = null; return; }
@@ -280,7 +280,7 @@ public class GameState
 
         Map.Improvements[task.Tile] = task.Type;
         unit.CurrentTask = null;
-        notifications.Add($"Worker built {task.Type}.");
+        notifications.Add(new GameEvent($"Worker built {task.Type}.", task.Tile));
         foreach (var c in Cities)
             if (HexGrid.Distance(c.Position, task.Tile) <= CityWorkforceService.WorkRadius)
                 CityWorkforceService.Recompute(this, c);

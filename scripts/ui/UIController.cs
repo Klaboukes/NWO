@@ -29,6 +29,7 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _unitHPLabelPath      = "Root/UnitPanel/VBox/UnitHPLabel";
     [Export] private NodePath _unitStatsLabelPath   = "Root/UnitPanel/VBox/UnitStatsLabel";
     [Export] private NodePath _workerActionsPath    = "Root/UnitPanel/VBox/WorkerActions";
+    [Export] private NodePath _eventLogPath         = "Root/EventLog";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
 
     private const double NotifDuration = 3.0;
@@ -49,6 +50,7 @@ public partial class UIController : CanvasLayer
     private Label                    _unitHPLabel    = null!;
     private Label                    _unitStatsLabel = null!;
     private VBoxContainer            _workerActions  = null!;
+    private EventLogController       _eventLog       = null!;
     private TechTreePanelController  _techTreePanel  = null!;
 
     private Unit?  _displayedUnit;
@@ -58,6 +60,7 @@ public partial class UIController : CanvasLayer
     public event Action? EndTurnPressed;
     public event Action? FoundCityPressed;
     public event Action<ImprovementType>? BuildImprovementPressed;
+    public event Action<Vector2I>? EventFocusRequested;
 
     public override void _Ready()
     {
@@ -77,10 +80,12 @@ public partial class UIController : CanvasLayer
         _unitHPLabel     = GetNode<Label>(_unitHPLabelPath);
         _unitStatsLabel  = GetNode<Label>(_unitStatsLabelPath);
         _workerActions   = GetNode<VBoxContainer>(_workerActionsPath);
+        _eventLog        = GetNode<EventLogController>(_eventLogPath);
         _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
         _foundCityButton.Pressed += () => FoundCityPressed?.Invoke();
+        _eventLog.FocusRequested += tile => EventFocusRequested?.Invoke(tile);
     }
 
     public override void _Process(double delta)
@@ -133,6 +138,10 @@ public partial class UIController : CanvasLayer
         _notifPersistent       = persistent;
         _notifSecondsLeft      = persistent ? 0 : NotifDuration;
     }
+
+    // Append a turn's end-of-turn events to the scrolling log. Events with a
+    // Focus tile become clickable rows (see EventLogController).
+    public void LogEvents(IEnumerable<GameEvent> events) => _eventLog.Add(events);
 
     // Combat-odds preview shown while hovering an attackable target. Pass null to hide.
     public void ShowCombatForecast(string? text)

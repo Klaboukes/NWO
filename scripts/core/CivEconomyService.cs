@@ -19,7 +19,7 @@ public static class CivEconomyService
     // unit upkeep is waived, so a 1-warrior + 1-settler opening costs 0/turn.
     public const int FreeUnitMaintenance = 2;
 
-    public static void ProcessEndOfTurn(GameState state, Player player, List<string> notifications)
+    public static void ProcessEndOfTurn(GameState state, Player player, List<GameEvent> notifications)
     {
         var civ = state.Civ(player);
 
@@ -107,7 +107,7 @@ public static class CivEconomyService
         return SetResearchResult.Ok;
     }
 
-    private static void AdvanceResearch(GameState state, Civilization civ, List<string> notifications)
+    private static void AdvanceResearch(GameState state, Civilization civ, List<GameEvent> notifications)
     {
         if (civ.CurrentResearch == null) return;
         var tech = state.Catalog.Tech(civ.CurrentResearch);
@@ -123,7 +123,7 @@ public static class CivEconomyService
     // While treasury is negative, disband the player's cheapest-production-cost
     // unit. Ties broken by lowest current HP. Loop terminates when treasury
     // is non-negative or the player has no units left.
-    private static void EnforceTreasury(GameState state, Civilization civ, List<string> notifications)
+    private static void EnforceTreasury(GameState state, Civilization civ, List<GameEvent> notifications)
     {
         while (civ.Treasury < 0)
         {
@@ -134,10 +134,11 @@ public static class CivEconomyService
                 .FirstOrDefault();
             if (victim == null) return;
 
+            var victimPos = victim.Position;
             state.Units.Remove(victim);
             // Disbanding refunds nothing — gold deficit persists until income
             // catches up. Notification surfaces the loss to the player.
-            notifications.Add($"Treasury depleted — disbanded {victim.Data.Name}.");
+            notifications.Add(new GameEvent($"Treasury depleted — disbanded {victim.Data.Name}.", victimPos));
 
             // Maintenance is paid up-front for the turn; removing the unit gives
             // its maintenance back as a small relief so the player doesn't lose

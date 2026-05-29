@@ -195,7 +195,7 @@ public class GameSession
     // ── End-of-turn ──────────────────────────────────────────────────────────
 
     public record EndTurnSummary(
-        List<string>                         Notifications,
+        List<GameEvent>                      Notifications,
         List<GameState.ProductionCompletion> Completions);
 
     // Ends the viewer's turn, then runs every AI player's turn synchronously,

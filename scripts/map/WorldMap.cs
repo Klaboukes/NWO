@@ -66,6 +66,7 @@ public partial class WorldMap : Node2D
         _ui.EndTurnPressed    += OnEndTurnPressed;
         _ui.FoundCityPressed  += () => { if (_selection.Unit != null) TryFoundCity(_selection.Unit); };
         _ui.BuildImprovementPressed += OnBuildImprovement;
+        _ui.EventFocusRequested     += FocusCameraOn;
 
         var warriorDef = catalog.Unit("warrior")!;
         var settlerDef = catalog.Unit("settler")!;
@@ -755,13 +756,21 @@ public partial class WorldMap : Node2D
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
         if (summary.Notifications.Count > 0)
-            _ui.ShowNotification(string.Join("  |  ", summary.Notifications));
+            _ui.LogEvents(summary.Notifications);
         _renderer.QueueRedraw();
         _ui.SetCivStatus(_state, _viewerPlayer);
         BuildAndStartEndTurnQueue();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    // Recenter on a tile picked from the event log. Cancels any pending
+    // post-animation centering so the camera goes where the player clicked.
+    private void FocusCameraOn(Vector2I tile)
+    {
+        _cameraController.CancelPostAnimDelay();
+        _cameraController.CenterOn(WorldRenderer.AxialToWorld(tile));
+    }
 
     private void RecomputeFog()
     {
