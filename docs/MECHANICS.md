@@ -116,7 +116,10 @@ Start of Turn
 ### Healing
 - A unit that did **not** move or attack this turn recovers **+10 HP** at end of
   turn (**+15** if on or adjacent to a friendly city), capped at 100. Fortifying
-  is the natural way to heal.
+  (`F`) or skipping (`Space`) a unit both leave it idle, so both heal.
+- **`H` — fortify until healed:** the unit fortifies and keeps sleeping until it
+  reaches full HP, then automatically wakes. Any manual order (move/attack/found)
+  cancels the standing order early.
 
 ### MVP Unit Roster
 

@@ -253,6 +253,13 @@ public class GameState
         if (Cities.Exists(c => c.Owner == player && HexGrid.Distance(c.Position, unit.Position) <= 1))
             heal += UnitHealNearCityBonus;
         unit.HP = Math.Min(Unit.MaxHP, unit.HP + heal);
+
+        // "Fortify until healed" wakes the unit once it's back to full strength.
+        if (unit.SleepUntilHealed && unit.HP >= Unit.MaxHP)
+        {
+            unit.SleepUntilHealed = false;
+            unit.Fortified        = false;
+        }
     }
 
     private void CompleteProduction(City city, string item)

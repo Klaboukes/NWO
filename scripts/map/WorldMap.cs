@@ -173,6 +173,9 @@ public partial class WorldMap : Node2D
             case Key.F when _selection.Unit != null:
                 FortifySelectedUnit();
                 break;
+            case Key.H when _selection.Unit != null:
+                SleepSelectedUnitUntilHealed();
+                break;
             case Key.T:
                 if (!_animator.IsAnimating)
                     _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch);
@@ -591,6 +594,10 @@ public partial class WorldMap : Node2D
     private void AdvanceEndTurnQueue()
     {
         _cameraController.CancelPostAnimDelay();
+        // Skipping = "done for this turn" without spending the unit's action, so it
+        // leaves the queue (and won't be re-added on End Turn) but still heals.
+        if (_endTurnQueue.PeekValid() is Unit skipped)
+            skipped.SkippedThisTurn = true;
         _endTurnQueue.Pop();
         ShowNextOrAdvanceQueue();
     }
@@ -626,6 +633,15 @@ public partial class WorldMap : Node2D
     {
         if (_selection.Unit == null) return;
         _session.Fortify(_selection.Unit);
+        if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
+        else                         Deselect();
+    }
+
+    // [H] Fortify the selected unit until it has healed to full, then auto-wake.
+    private void SleepSelectedUnitUntilHealed()
+    {
+        if (_selection.Unit == null) return;
+        _session.FortifyUntilHealed(_selection.Unit);
         if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
         else                         Deselect();
     }

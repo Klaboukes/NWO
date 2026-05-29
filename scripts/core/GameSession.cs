@@ -148,6 +148,16 @@ public class GameSession
         unit.MovementRemaining = 0;
     }
 
+    // [H] order: fortify and keep sleeping until HP is full, then auto-wake (see
+    // GameState.HealUnit). If already at full HP it's just a plain fortify.
+    public void FortifyUntilHealed(Unit unit)
+    {
+        if (unit.Owner != Viewer) return;
+        unit.Fortified         = true;
+        unit.MovementRemaining = 0;
+        unit.SleepUntilHealed  = unit.HP < Unit.MaxHP;
+    }
+
     // ── End-of-turn ──────────────────────────────────────────────────────────
 
     public record EndTurnSummary(
@@ -177,6 +187,7 @@ public class GameSession
     {
         if (!unit.Fortified) return;
         unit.Fortified         = false;
+        unit.SleepUntilHealed  = false; // a manual order overrides "sleep until healed"
         unit.MovementRemaining = unit.Data.Movement;
     }
 }

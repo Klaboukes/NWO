@@ -14,6 +14,8 @@ public class Unit : IEndTurnItem
     public int      MovementRemaining { get; set; }
     public bool     Fortified         { get; set; }
     public bool     ActedThisTurn     { get; set; } // set on move/attack; gates end-of-turn healing
+    public bool     SkippedThisTurn   { get; set; } // [Space] skip — done this turn, but still heals
+    public bool     SleepUntilHealed  { get; set; } // [H] fortify until HP is full, then auto-wake
 
     public const int MaxHP = 100;
 
@@ -27,14 +29,17 @@ public class Unit : IEndTurnItem
 
     public void ResetForNewTurn()
     {
-        ActedThisTurn = false;
+        ActedThisTurn   = false;
+        SkippedThisTurn = false; // a one-turn pass; standing orders (Fortify/Sleep) persist
         if (!Fortified)
             MovementRemaining = Data.Movement;
     }
 
     // ── IEndTurnItem ─────────────────────────────────────────────────────────
 
-    public bool     NeedsAttention => MovementRemaining > 0 && !Fortified;
-    public string   PromptText     => $"{Data.Name} has moves — [Space] Skip  [F] Fortify";
+    // A unit needs orders if it still has moves and hasn't been parked this turn
+    // (fortified, sleeping-until-healed, or skipped).
+    public bool     NeedsAttention => MovementRemaining > 0 && !Fortified && !SkippedThisTurn;
+    public string   PromptText     => $"{Data.Name} has moves — [Space] Skip  [F] Fortify  [H] Heal";
     public Vector2I FocusPosition  => Position;
 }

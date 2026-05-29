@@ -41,7 +41,11 @@ The game is loosely modeled on Civilization V. Players coming from Civ 5 must fi
 - **Space**: skip the current end-turn-queue item.
 - **B**: Build city (when a settler is selected).
 - **F**: Fortify selected unit (Found city if the unit is a settler — `B` is preferred).
+- **H**: Fortify the selected unit until it heals to full HP, then auto-wake ("sleep until healed").
 - **Esc**: cancel / deselect / clear notification.
+
+Note: **Space** skips a unit for the current turn (it leaves the end-turn queue and
+won't re-block End Turn) without spending its action, so a skipped unit still heals.
 
 ## UI/UX — Camera & Game Progression Flow
 

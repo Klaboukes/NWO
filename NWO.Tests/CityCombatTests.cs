@@ -154,6 +154,68 @@ public class CityCombatTests
     }
 
     [Fact]
+    public void SkippedUnit_LeavesQueueButStillHeals()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5))
+        {
+            HP = 50,
+            SkippedThisTurn = true, // as set by pressing Space on the unit
+        };
+        session.State.Units.Add(unit);
+
+        Assert.False(unit.NeedsAttention); // won't re-block End Turn
+
+        session.State.EndPlayerTurn(new List<GameState.ProductionCompletion>());
+
+        Assert.Equal(60, unit.HP);             // skipping still heals
+        Assert.False(unit.SkippedThisTurn);    // one-turn pass cleared
+    }
+
+    [Fact]
+    public void FortifyUntilHealed_SleepsWhenDamaged_PlainFortifyWhenFull()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var hurt    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5)) { HP = 50 };
+        var full    = new Unit(TestWorlds.Warrior(), human, new Vector2I(6, 6)) { HP = 100 };
+        session.State.Units.Add(hurt);
+        session.State.Units.Add(full);
+
+        session.FortifyUntilHealed(hurt);
+        session.FortifyUntilHealed(full);
+
+        Assert.True(hurt.Fortified);
+        Assert.True(hurt.SleepUntilHealed);
+        Assert.Equal(0, hurt.MovementRemaining);
+
+        Assert.True(full.Fortified);
+        Assert.False(full.SleepUntilHealed); // nothing to heal → ordinary fortify
+    }
+
+    [Fact]
+    public void SleepingUnit_StaysAsleepUntilFull_ThenWakes()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5))
+        {
+            HP = 85, Fortified = true, SleepUntilHealed = true,
+        };
+        session.State.Units.Add(unit);
+
+        // Full round: 85 → 95, still asleep.
+        session.EndTurn();
+        Assert.Equal(95, unit.HP);
+        Assert.True(unit.SleepUntilHealed);
+        Assert.True(unit.Fortified);
+
+        // Next round: 95 → 100, wakes.
+        session.EndTurn();
+        Assert.Equal(100, unit.HP);
+        Assert.False(unit.SleepUntilHealed);
+        Assert.False(unit.Fortified);
+    }
+
+    [Fact]
     public void EndTurn_DoesNotHealUnitThatActed()
     {
         var session = TestWorlds.StandardSession(out var human, out _);
