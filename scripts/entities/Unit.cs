@@ -40,6 +40,5 @@ public class Unit : IEndTurnItem
     // A unit needs orders if it still has moves and hasn't been parked this turn
     // (fortified, sleeping-until-healed, or skipped).
     public bool     NeedsAttention => MovementRemaining > 0 && !Fortified && !SkippedThisTurn;
-    public string   PromptText     => $"{Data.Name} has moves — [Space] Skip  [F] Fortify  [H] Heal";
     public Vector2I FocusPosition  => Position;
 }

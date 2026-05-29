@@ -85,6 +85,5 @@ public class City : IEndTurnItem
     // ── IEndTurnItem ─────────────────────────────────────────────────────────
 
     public bool     NeedsAttention => ProductionItem == null;
-    public string   PromptText     => $"{Name} needs production — [Space] Skip";
     public Vector2I FocusPosition  => Position;
 }

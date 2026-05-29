@@ -322,6 +322,13 @@ Notifications currently emitted:
 - City founded / city captured
 - Combat result (hit / kill / both killed)
 
+The top-center banner is the **combat/event feed** — it shows combat results and
+one-shot events (founded/captured/grew/built/researched) and action errors. It no
+longer shows turn-blocking prompts: what's blocking End Turn is on the **End Turn
+button** ("Needs Orders ▶" / "Choose Production ▶" / "Choose Research ▶"), and the
+per-unit control hints (`[Space] Skip / [F] Fortify / [H] Heal`) live on the
+selected-unit panel.
+
 **[planned]:** "unit under attack" alerts and the score-victory warning (last 50
-turns) aren't implemented. The notification surface is a single transient/
-persistent label, not yet a scrolling event log (Phase 6).
+turns) aren't implemented. The banner is still a single label, not yet a
+scrolling event log (Phase 6 / M3).

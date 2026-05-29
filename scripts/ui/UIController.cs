@@ -179,9 +179,14 @@ public partial class UIController : CanvasLayer
                               : unit.HP >= 30 ? Colors.Yellow
                                               : Colors.IndianRed;
 
-        string status = unit.Fortified ? "  (Fortified)" : "";
+        string status = unit.SleepUntilHealed ? "  (Healing…)"
+                      : unit.Fortified        ? "  (Fortified)"
+                                              : "";
+        string hints = unit.Data.Special == "found_city"
+            ? "[B] Found City   [Space] Skip"
+            : "[Space] Skip   [F] Fortify   [H] Heal";
         _unitStatsLabel.Text =
-            $"Moves: {unit.MovementRemaining} / {unit.Data.Movement}{status}";
+            $"Moves: {unit.MovementRemaining} / {unit.Data.Movement}{status}\n{hints}";
     }
 
     public void ShowCityPanel(

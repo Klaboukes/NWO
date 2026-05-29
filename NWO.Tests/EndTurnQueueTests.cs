@@ -10,7 +10,6 @@ public class EndTurnQueueTests
     private class StubItem : IEndTurnItem
     {
         public bool     NeedsAttention { get; set; } = true;
-        public string   PromptText     => "stub";
         public Vector2I FocusPosition  => Vector2I.Zero;
     }
 

@@ -461,10 +461,10 @@ public partial class WorldMap : Node2D
         if (capturedCity != null)
         {
             // Open the city panel so the player can choose production immediately.
-            // Queue advancement is suppressed so the persistent notification isn't overwritten.
+            // Queue advancement is suppressed so the capture event message isn't overwritten.
             SelectCity(capturedCity);
             _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(capturedCity.Position));
-            _ui.ShowNotification($"{capturedCity.Name} captured — choose production!", persistent: true);
+            _ui.ShowNotification($"{capturedCity.Name} captured!"); // event; the button prompts for production
             return;
         }
 
@@ -575,9 +575,10 @@ public partial class WorldMap : Node2D
             if (!civ.ResearchedTechs.Contains(tech.Id)) { hasUnresearched = true; break; }
         if (!hasUnresearched) return false;
 
+        // The End Turn button shows "Choose Research ▶"; opening the panel is the
+        // guidance, so no banner nag is needed.
         if (!_ui.IsTechTreeVisible)
             _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch);
-        _ui.ShowNotification("Choose a research target before ending the turn.");
         return true;
     }
 
@@ -624,7 +625,11 @@ public partial class WorldMap : Node2D
                 _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(city.Position));
                 break;
         }
-        _ui.ShowNotification(item.PromptText, persistent: true);
+        // The blocking state is shown on the End Turn button (RefreshEndTurnButton)
+        // and the selected unit/city panel — no banner prompt needed. The banner is
+        // reserved for combat results and one-shot game events. Clear any lingering
+        // persistent banner as we surface the next item.
+        _ui.HidePersistentNotification();
         _renderer.QueueRedraw();
         RefreshEndTurnButton();
     }
