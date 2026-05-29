@@ -32,6 +32,8 @@ Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
 Godot scene layer (scripts, scenes)
 ├── WorldMap (Node2D)  — scene coordinator: owns GameState, wires input,
 │                         camera, animation, selection, queue, renderer, UI
+├── WorldInputRouter   — decodes raw input into semantic intents for WorldMap
+├── TileTooltipController — tile-tooltip dwell timer (driven from WorldMap._Process)
 ├── WorldRenderer      — immediate-mode (_Draw) rendering of map/units/cities
 ├── UIController       — HUD widgets (top bar, city/unit panels, notifications)
 ├── TechTreePanelController — tech tree panel
@@ -39,6 +41,9 @@ Godot scene layer (scripts, scenes)
 ├── MovementAnimator   — tweens a unit along its path
 ├── SelectionState     — current selection + reachable/preview tiles
 └── EndTurnQueue       — ordered "needs attention" items for end-turn flow
+
+Pure helpers (no scene state): CombatMessages (combat result text),
+EventVisibilityFilter (per-viewer event-log rules), Scenes (scene-path constants).
 ```
 
 The live scene (`WorldMap`) and the headless tests (`NWO.Tests`) both drive the

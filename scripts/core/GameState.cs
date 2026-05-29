@@ -16,7 +16,10 @@ namespace NWO.Core;
 public class GameState
 {
     private const int CitySightRadius = 2;
-    private const int MinCityDistance = 3;
+
+    // Minimum tile distance between any two cities. Public so the AI can score
+    // candidate settle sites without founding-and-failing (see AIController).
+    public const int MinCityDistance = 3;
 
     public MapData     Map         { get; }
     public DataCatalog Catalog     { get; }

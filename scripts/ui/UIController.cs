@@ -270,14 +270,12 @@ public partial class UIController : CanvasLayer
         foreach (var child in _workerActions.GetChildren()) child.QueueFree();
     }
 
-    private const int UnitMaxHP = 100;
-
     private void RefreshUnitPanel()
     {
         var unit = _displayedUnit!;
         _unitNameLabel.Text = unit.Data.Name;
 
-        _unitHPLabel.Text     = $"HP: {unit.HP} / {UnitMaxHP}";
+        _unitHPLabel.Text     = $"HP: {unit.HP} / {Unit.MaxHP}";
         _unitHPLabel.Modulate = unit.HP >= 70 ? Colors.LightGreen
                               : unit.HP >= 30 ? Colors.Yellow
                                               : Colors.IndianRed;

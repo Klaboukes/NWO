@@ -26,10 +26,6 @@ public class AIController
 
     public AIController(GameState state) => _state = state;
 
-    // Mirrors GameState.MinCityDistance (private there); kept in sync so the AI
-    // can score candidate settle sites without founding-and-failing.
-    private const int MinCityDistance = 3;
-
     // How many cities the AI wants before it stops prioritising expansion.
     private const int ExpansionTarget = 3;
     // Enemy military within this many tiles of a city counts as a threat.
@@ -269,7 +265,7 @@ public class AIController
             if (!_state.Map.Tiles.TryGetValue(tile, out var terrain)) continue;
             if (!TerrainYields.CanFoundCityOn(terrain))                continue;
             if (_state.MovementCost(tile) == int.MaxValue)             continue;
-            if (_state.Cities.Any(c => HexGrid.Distance(c.Position, tile) < MinCityDistance))
+            if (_state.Cities.Any(c => HexGrid.Distance(c.Position, tile) < GameState.MinCityDistance))
                 continue;
 
             int score = SiteScore(tile) - HexGrid.Distance(settler.Position, tile);

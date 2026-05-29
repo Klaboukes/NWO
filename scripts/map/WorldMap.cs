@@ -9,15 +9,14 @@ using NWO.UI;
 namespace NWO.Map;
 
 // Scene coordinator. Owns the GameState model and stitches together input,
-// camera, animation, selection, end-turn queue, renderer, and UI. Each
-// concern lives in its own class so this file stays under ~300 lines and the
-// gameplay logic is testable without a scene running.
+// camera, animation, selection, end-turn queue, renderer, and UI. Each concern
+// lives in its own class — input decoding (WorldInputRouter), the tile-tooltip
+// dwell timer (TileTooltipController), combat result text (CombatMessages), and
+// event-log visibility (EventVisibilityFilter) — so this file stays a thin
+// coordinator and the gameplay logic is testable without a scene running.
 public partial class WorldMap : Node2D
 {
-    private const float SecondsPerTile      = 0.12f;
-    private const float DragThreshold       = 8f;   // px the cursor must travel before LMB becomes a pan, not a click
-    private const float WheelPanStep        = 80f;  // view shift per horizontal-wheel notch (touchpad two-finger horizontal scroll)
-    private const float PanGestureScale     = 2.5f; // touchpad two-finger pan-gesture sensitivity
+    private const float SecondsPerTile = 0.12f;
 
     private GameSession      _session          = null!;
     private GameState        _state            = null!;
@@ -25,26 +24,11 @@ public partial class WorldMap : Node2D
     private EndTurnQueue     _endTurnQueue     = new();
     private MovementAnimator _animator         = null!;
     private CameraController _cameraController = null!;
+    private WorldInputRouter _input            = null!;
+    private TileTooltipController _tooltip      = null!;
     private FogOfWar         _viewerFog        = null!;
     private Player           _viewerPlayer     = null!;
     private City?            _pendingCapture;
-
-    // Left-mouse click-vs-drag state. A press starts a candidate click; once the
-    // cursor travels past DragThreshold it becomes a camera pan and the release
-    // no longer selects (Civ 5 grab-pan). See _UnhandledInput.
-    private bool             _lmbDown;
-    private bool             _lmbPanning;
-    private Vector2          _lmbDragAccum;
-
-    // Tile tooltip dwell: the cursor must rest on a tile for TooltipDelay before
-    // its tooltip appears; crossing into a new tile restarts the countdown. The
-    // countdown is driven in _Process (no motion events fire while the cursor is
-    // perfectly still, which is exactly when we want it to show).
-    private const float      TooltipDelay = 0.4f;
-    private Vector2I?        _hoverTile;
-    private Vector2          _hoverScreenPos;
-    private float            _hoverDwell;
-    private bool             _tooltipShown;
 
     private WorldRenderer _renderer = null!;
     private UIController  _ui       = null!;
@@ -62,6 +46,22 @@ public partial class WorldMap : Node2D
         var camera2D      = GetNode<Camera2D>("Camera2D");
         _cameraController = new CameraController(camera2D);
         _animator         = new MovementAnimator(SecondsPerTile, WorldRenderer.AxialToWorld);
+
+        _input = new WorldInputRouter(
+            _cameraController,
+            () => _animator.IsAnimating,
+            () => WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+        _input.KeyPressed   += HandleKeyPress;
+        _input.LeftClicked  += HandleLeftPress;
+        _input.RightPressed += HandleRightPress;
+        _input.Hovered      += OnHover;
+        _input.Panned       += () => _tooltip.Clear();
+
+        _tooltip = new TileTooltipController(
+            canShow:   axial => _state.Map.Tiles.ContainsKey(axial) && _viewerFog.IsDiscovered(axial),
+            buildText: BuildTileInfo,
+            show:      _ui.ShowTileTooltip,
+            hide:      _ui.HideTileTooltip);
 
         _animator.Completed   += OnAnimationCompleted;
         _animator.TileEntered += () => { RecomputeFog(); _renderer.QueueRedraw(); };
@@ -107,17 +107,15 @@ public partial class WorldMap : Node2D
 
     // ── Save / load / menu (HUD pause overlay) ─────────────────────────────────
 
-    private const string MainMenuScene = "res://scenes/ui/MainMenu.tscn";
-
     private void OnSaveRequested(string slotName) => SaveService.Save(_state, slotName);
 
     private void OnLoadRequested(string file)
     {
         GameLaunch.LoadedGame = SaveService.Load(file, _state.Catalog);
-        GetTree().ChangeSceneToFile("res://scenes/world/WorldMap.tscn");
+        GetTree().ChangeSceneToFile(Scenes.World);
     }
 
-    private void OnMainMenuRequested() => GetTree().ChangeSceneToFile(MainMenuScene);
+    private void OnMainMenuRequested() => GetTree().ChangeSceneToFile(Scenes.MainMenu);
 
     // ── Per-frame ────────────────────────────────────────────────────────────
 
@@ -129,7 +127,7 @@ public partial class WorldMap : Node2D
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))  dir.X -= 1;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) dir.X += 1;
         _cameraController.ApplyKeyboardPan(dir, (float)delta);
-        if (dir != Vector2.Zero) ClearHoverTooltip(); // keyboard pan moves the map under a still cursor
+        if (dir != Vector2.Zero) _tooltip.Clear(); // keyboard pan moves the map under a still cursor
 
         if (_animator.Tick((float)delta))
         {
@@ -137,109 +135,27 @@ public partial class WorldMap : Node2D
             _renderer.QueueRedraw();
         }
 
-        // Tile tooltip dwell countdown — show once the cursor has rested long enough.
-        if (_hoverTile is { } hover && !_tooltipShown)
-        {
-            _hoverDwell += (float)delta;
-            if (_hoverDwell >= TooltipDelay)
-            {
-                _ui.ShowTileTooltip(BuildTileInfo(hover), _hoverScreenPos);
-                _tooltipShown = true;
-            }
-        }
-
+        _tooltip.Tick((float)delta);
         _cameraController.Tick((float)delta);
     }
 
     // ── Input ────────────────────────────────────────────────────────────────
 
-    public override void _UnhandledInput(InputEvent @event)
+    // Raw input decoding lives in WorldInputRouter; this just forwards the event
+    // and reacts to the semantic intents wired up in _Ready.
+    public override void _UnhandledInput(InputEvent @event) => _input.Handle(@event);
+
+    // Cursor moved over the map (not panning, not animating). Refresh the move
+    // path / combat-odds preview for the selected unit, then feed the dwell timer.
+    private void OnHover(Vector2 screenPos)
     {
-        if (@event is InputEventKey { Pressed: true } key)
+        var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
+        if (_selection.Unit != null && !_animator.IsAnimating)
         {
-            HandleKeyPress(key.Keycode);
-            return;
+            UpdatePathPreview(axial);
+            UpdateCombatForecast(axial);
         }
-
-        if (@event is InputEventMouseMotion motion)
-        {
-            if (_cameraController.IsPanning)            // middle-mouse pan
-            {
-                _cameraController.ApplyMousePan(motion.Relative);
-                ClearHoverTooltip();
-            }
-            else if (_lmbDown && !_animator.IsAnimating
-                     && (_lmbPanning || (_lmbDragAccum += motion.Relative).Length() > DragThreshold))
-            {
-                // LMB held and dragged past the threshold → camera pan (Civ 5
-                // left-drag grab-pan), no tile tooltip while panning.
-                _lmbPanning = true;
-                _cameraController.ApplyMousePan(motion.Relative);
-                ClearHoverTooltip();
-            }
-            else
-            {
-                if (_selection.Unit != null && !_animator.IsAnimating)
-                {
-                    var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
-                    UpdatePathPreview(axial);
-                    UpdateCombatForecast(axial);
-                }
-                RegisterHover(motion.Position);
-            }
-            return;
-        }
-
-        // Touchpad gestures. Reliable on macOS; on Windows precision touchpads
-        // two-finger scroll usually arrives as wheel events (handled below) and
-        // these may never fire — harmless to handle anyway.
-        if (@event is InputEventPanGesture pan)        // two-finger drag
-        {
-            _cameraController.ApplyMousePan(pan.Delta * PanGestureScale);
-            return;
-        }
-        if (@event is InputEventMagnifyGesture magnify) // pinch-to-zoom
-        {
-            _cameraController.Zoom(magnify.Factor);
-            return;
-        }
-
-        if (@event is not InputEventMouseButton mb) return;
-        if (mb.Pressed)
-        {
-            switch (mb.ButtonIndex)
-            {
-                case MouseButton.WheelUp:    _cameraController.Zoom(1.15f); break;
-                case MouseButton.WheelDown:  _cameraController.Zoom(0.87f); break;
-                // Horizontal two-finger scroll on a touchpad → pan sideways.
-                case MouseButton.WheelRight: _cameraController.ApplyMousePan(new Vector2(-WheelPanStep, 0)); break;
-                case MouseButton.WheelLeft:  _cameraController.ApplyMousePan(new Vector2( WheelPanStep, 0)); break;
-                case MouseButton.Left when !_animator.IsAnimating:
-                    // Defer select/move to release so we can tell a click from a drag-pan.
-                    _lmbDown      = true;
-                    _lmbPanning   = false;
-                    _lmbDragAccum = Vector2.Zero;
-                    break;
-                case MouseButton.Right when !_animator.IsAnimating:
-                    HandleRightPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
-                    break;
-                case MouseButton.Middle:
-                    _cameraController.IsPanning = true;
-                    break;
-            }
-        }
-        else if (mb.ButtonIndex == MouseButton.Middle)
-        {
-            _cameraController.IsPanning = false;
-        }
-        else if (mb.ButtonIndex == MouseButton.Left)
-        {
-            // Released without dragging past the threshold → treat as a click.
-            if (_lmbDown && !_lmbPanning && !_animator.IsAnimating)
-                HandleLeftPress(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
-            _lmbDown    = false;
-            _lmbPanning = false;
-        }
+        _tooltip.RegisterHover(axial, screenPos);
     }
 
     private void HandleKeyPress(Key keycode)
@@ -278,8 +194,7 @@ public partial class WorldMap : Node2D
                     _ui.ToggleTechTree(_state, _viewerPlayer, OnSetResearch);
                 break;
             case Key.Escape:
-                _cameraController.IsPanning = false;
-                _lmbDown = _lmbPanning = false;
+                _input.CancelDrag();
                 _ui.HidePersistentNotification();
                 _ui.HideTechTree();
                 Deselect();
@@ -377,7 +292,7 @@ public partial class WorldMap : Node2D
             {
                 AudioManager.Instance?.Play(Sfx.Attack);
                 _renderer.FlashCombat(attackerPos, axial);
-                _ui.ShowNotification(FormatCombatResult(attacker, target, result));
+                _ui.ShowNotification(CombatMessages.ForUnitAttack(attacker, target, result));
                 Deselect();
                 _renderer.QueueRedraw();
                 BuildAndStartEndTurnQueue();
@@ -395,7 +310,7 @@ public partial class WorldMap : Node2D
             {
                 AudioManager.Instance?.Play(Sfx.Attack);
                 _renderer.FlashCombat(attackerPos, axial);
-                _ui.ShowNotification(FormatCityAttackResult(attacker, cityTarget, result));
+                _ui.ShowNotification(CombatMessages.ForCityAttack(attacker, cityTarget, result));
                 Deselect();
                 _renderer.QueueRedraw();
                 BuildAndStartEndTurnQueue();
@@ -414,27 +329,6 @@ public partial class WorldMap : Node2D
         _animator.Start(attacker, move.Path);
         Deselect();
     }
-
-    private static string FormatCityAttackResult(Unit attacker, City city, GameState.CityAttackResult r)
-    {
-        if (r.AttackerKilled)
-            return $"{attacker.Data.Name} was destroyed assaulting {city.Name}!";
-        if (r.CityConquerable)
-            return $"{city.Name} breached! Move a melee unit in to capture it.";
-        return $"{attacker.Data.Name} hits {city.Name} for {r.CityDamage} (took {r.AttackerDamage})";
-    }
-
-    private static string FormatCombatResult(Unit attacker, Unit target, GameState.AttackResult r) => r.Outcome switch
-    {
-        GameState.AttackOutcome.DefenderKilled =>
-            $"{attacker.Data.Name} killed {target.Data.Name}! (took {r.AttackerDmg})",
-        GameState.AttackOutcome.AttackerKilled =>
-            $"{attacker.Data.Name} died attacking {target.Data.Name} (dealt {r.DefenderDmg})",
-        GameState.AttackOutcome.BothKilled =>
-            $"{attacker.Data.Name} and {target.Data.Name} destroyed each other!",
-        _ =>
-            $"{attacker.Data.Name} hits {target.Data.Name} for {r.DefenderDmg} (took {r.AttackerDmg})",
-    };
 
     private void UpdatePathPreview(Vector2I axial)
     {
@@ -506,41 +400,8 @@ public partial class WorldMap : Node2D
         _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
     }
 
-    // Register the tile under the cursor for the dwell-delay tooltip. Crossing
-    // into a new tile (or onto an undiscovered/off-map tile) restarts the
-    // countdown and hides any shown tooltip; resting on the same tile lets the
-    // _Process countdown elapse and — once shown — keeps the tooltip following
-    // the cursor within that tile.
-    private void RegisterHover(Vector2 screenPos)
-    {
-        _hoverScreenPos = screenPos;
-        var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
-        if (!_state.Map.Tiles.ContainsKey(axial) || !_viewerFog.IsDiscovered(axial))
-        {
-            ClearHoverTooltip();
-            return;
-        }
-        if (_hoverTile != axial)
-        {
-            _hoverTile  = axial;
-            _hoverDwell = 0f;
-            if (_tooltipShown) { _ui.HideTileTooltip(); _tooltipShown = false; }
-        }
-        else if (_tooltipShown)
-        {
-            _ui.ShowTileTooltip(BuildTileInfo(axial), screenPos); // follow cursor within the tile
-        }
-    }
-
-    // Forget the hovered tile and hide any visible tooltip (cursor left the map,
-    // or the map is panning under the cursor).
-    private void ClearHoverTooltip()
-    {
-        _hoverTile  = null;
-        _hoverDwell = 0f;
-        if (_tooltipShown) { _ui.HideTileTooltip(); _tooltipShown = false; }
-    }
-
+    // Tooltip body for a tile (terrain, yields, revealed resource, improvement).
+    // Passed to TileTooltipController as its text builder.
     private string BuildTileInfo(Vector2I axial)
     {
         var terrain = _state.Map.Tiles[axial];
@@ -872,7 +733,7 @@ public partial class WorldMap : Node2D
         _ui.SetTurn(_state.TurnManager.TurnNumber);
         // The event log shows only this turn's events.
         _ui.ClearEventLog();
-        var events = FilterEventsForViewer(summary.Notifications);
+        var events = EventVisibilityFilter.ForViewer(summary.Notifications, _state, _viewerPlayer, _viewerFog);
         if (events.Count > 0)
             _ui.LogEvents(events);
         _renderer.QueueRedraw();
@@ -882,7 +743,7 @@ public partial class WorldMap : Node2D
         if (summary.Result != null)
         {
             GameLaunch.LastResult = summary.Result;
-            GetTree().ChangeSceneToFile("res://scenes/ui/VictoryScreen.tscn");
+            GetTree().ChangeSceneToFile(Scenes.VictoryScreen);
             return;
         }
 
@@ -899,27 +760,6 @@ public partial class WorldMap : Node2D
         var ownCity = _state.Cities.Find(c => c.Position == tile && c.Owner == _viewerPlayer);
         if (ownCity != null) SelectCity(ownCity);
         RecenterCameraWorld(WorldRenderer.AxialToWorld(tile));
-    }
-
-    // Apply per-viewer rules to the raw turn events before they hit the log:
-    //  - an enemy city growing is hidden entirely;
-    //  - any other enemy-city event is shown, but is only clickable (keeps its
-    //    Focus tile) once the player has discovered that city — otherwise the
-    //    tile reference is stripped so we don't reveal an unseen city's location.
-    // Player-owned cities and tile-less events pass through unchanged.
-    private List<GameEvent> FilterEventsForViewer(List<GameEvent> events)
-    {
-        var result = new List<GameEvent>();
-        foreach (var e in events)
-        {
-            if (e.Focus is not { } tile) { result.Add(e); continue; }
-            var city = _state.Cities.Find(c => c.Position == tile);
-            if (city == null || city.Owner == _viewerPlayer) { result.Add(e); continue; }
-
-            if (e.Kind == GameEventKind.CityGrew) continue; // hide enemy growth
-            result.Add(_viewerFog.IsDiscovered(tile) ? e : e with { Focus = null });
-        }
-        return result;
     }
 
     // Recenter on a world position (minimap click). Cancels any pending

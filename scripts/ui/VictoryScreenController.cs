@@ -9,8 +9,6 @@ namespace NWO.UI;
 // type, and the winner's score. "Main Menu" returns to the menu; "Quit" exits.
 public partial class VictoryScreenController : Control
 {
-    private const string MainMenuScene = "res://scenes/ui/MainMenu.tscn";
-
     public override void _Ready()
     {
         var title  = GetNode<Label>("CenterPanel/VBox/TitleLabel");
@@ -42,7 +40,7 @@ public partial class VictoryScreenController : Control
     private void OnMainMenu()
     {
         GameLaunch.LastResult = null;
-        GetTree().ChangeSceneToFile(MainMenuScene);
+        GetTree().ChangeSceneToFile(Scenes.MainMenu);
     }
 
     private void OnQuit() => GetTree().Quit();

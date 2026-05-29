@@ -10,8 +10,6 @@ namespace NWO.UI;
 // WorldMap.ResolveLaunch.
 public partial class MainMenuController : Control
 {
-    private const string WorldScene = "res://scenes/world/WorldMap.tscn";
-
     private SaveBrowserController _browser = null!;
 
     public override void _Ready()
@@ -31,7 +29,7 @@ public partial class MainMenuController : Control
     {
         GameLaunch.LoadedGame  = null;
         GameLaunch.NewGameSeed = (int)GD.Randi();
-        GetTree().ChangeSceneToFile(WorldScene);
+        GetTree().ChangeSceneToFile(Scenes.World);
     }
 
     private void OnLoadGame() => _browser.Open(saveMode: false);
@@ -39,6 +37,6 @@ public partial class MainMenuController : Control
     private void OnLoadChosen(string file)
     {
         GameLaunch.LoadedGame = SaveService.Load(file, DataCatalog.Load());
-        GetTree().ChangeSceneToFile(WorldScene);
+        GetTree().ChangeSceneToFile(Scenes.World);
     }
 }
