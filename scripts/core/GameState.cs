@@ -112,6 +112,7 @@ public class GameState
         if (defenderDead) Units.Remove(defender);
 
         attacker.MovementRemaining = 0;
+        attacker.ActedThisTurn     = true;
 
         AttackOutcome outcome =
             attackerDead && defenderDead ? AttackOutcome.BothKilled
@@ -124,6 +125,54 @@ public class GameState
         static AttackResult Invalid() => new(AttackOutcome.Invalid, 0, 0);
     }
 
+    public record CityAttackResult(
+        bool Success, int CityDamage, int AttackerDamage, bool CityConquerable, bool AttackerKilled);
+
+    // Bombard / assault a city: reduces its HP (never below 0) rather than killing
+    // it. A melee attacker takes retaliation scaled by the city's defense; ranged
+    // takes none. The city is captured separately, by moving a melee unit onto it
+    // once it's conquerable (HP == 0). Garrisoned units defend the tile normally
+    // (attack them with TryAttack) and also raise the city's defense strength.
+    public CityAttackResult TryAttackCity(Unit attacker, City city)
+    {
+        if (attacker.Owner == city.Owner)            return InvalidCity();
+        if (attacker.MovementRemaining <= 0)         return InvalidCity();
+        if (attacker.Data.Attack <= 0)               return InvalidCity();
+        if (city.HP <= 0)                            return InvalidCity(); // already conquerable
+        int dist = HexGrid.Distance(attacker.Position, city.Position);
+        if (dist <= 0 || dist > attacker.Data.Range) return InvalidCity();
+
+        bool isRanged    = attacker.Data.Range >= 2;
+        int  defStrength = city.CityDefenseStrength + GarrisonDefense(city);
+        var  combat      = CombatResolver.Resolve(
+            attacker.Data.Attack, attacker.HP, defStrength, city.HP, _combatRng, isRanged);
+
+        city.HP                = Math.Max(0, city.HP - combat.DefenderDamage);
+        city.AttackedSinceTurn = true;
+        attacker.HP           -= combat.AttackerDamage;
+
+        bool attackerDead = attacker.HP <= 0;
+        if (attackerDead) Units.Remove(attacker);
+
+        attacker.MovementRemaining = 0;
+        attacker.ActedThisTurn     = true;
+
+        return new CityAttackResult(true, combat.DefenderDamage, combat.AttackerDamage,
+            city.IsConquerable, attackerDead);
+
+        static CityAttackResult InvalidCity() => new(false, 0, 0, false, false);
+    }
+
+    // Highest Defense among friendly units standing on the city tile (the garrison).
+    public int GarrisonDefense(City city)
+    {
+        int best = 0;
+        foreach (var u in Units)
+            if (u.Owner == city.Owner && u.Position == city.Position)
+                best = Math.Max(best, u.Data.Defense);
+        return best;
+    }
+
     // Transfer a city to the captor's player. Captor's own movement bookkeeping
     // (zeroing remaining moves) is done by the caller's normal move flow.
     public void CaptureCity(Unit captor, City city)
@@ -131,6 +180,8 @@ public class GameState
         city.Owner              = captor.Owner;
         city.ProductionItem     = null;
         city.ProductionProgress = 0;
+        city.HP                 = City.MaxHP / 2; // captured cities start weakened
+        city.AttackedSinceTurn  = false;
         city.Workforce.Locked.Clear();
         CityWorkforceService.Recompute(this, city);
     }
@@ -172,16 +223,36 @@ public class GameState
                     notifications.Add($"{city.Name} completed {Catalog.ItemName(done)}!");
                 }
             }
+
+            city.RegenIfUnharassed();
         }
 
         foreach (var unit in Units)
-            if (unit.Owner == player) unit.ResetForNewTurn();
+        {
+            if (unit.Owner != player) continue;
+            HealUnit(unit, player);
+            unit.ResetForNewTurn();
+        }
 
         CivEconomyService.ProcessEndOfTurn(this, player, notifications);
 
         CurrentPlayerIndex = (CurrentPlayerIndex + 1) % Players.Count;
         if (CurrentPlayerIndex == 0) TurnManager.AdvanceTurn();
         return notifications;
+    }
+
+    private const int UnitHealPerTurn      = 10;
+    private const int UnitHealNearCityBonus = 5;
+
+    // Units that didn't move or attack this turn recover HP, more when resting on
+    // or next to a friendly city. Called before ResetForNewTurn clears ActedThisTurn.
+    private void HealUnit(Unit unit, Player player)
+    {
+        if (unit.ActedThisTurn || unit.HP >= Unit.MaxHP) return;
+        int heal = UnitHealPerTurn;
+        if (Cities.Exists(c => c.Owner == player && HexGrid.Distance(c.Position, unit.Position) <= 1))
+            heal += UnitHealNearCityBonus;
+        unit.HP = Math.Min(Unit.MaxHP, unit.HP + heal);
     }
 
     private void CompleteProduction(City city, string item)

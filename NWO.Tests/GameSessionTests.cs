@@ -56,7 +56,7 @@ public class GameSessionTests
     {
         var session = TestWorlds.StandardSession(out var human, out var ai);
         var captor  = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5));
-        var city    = new City("Rome", ai, new Vector2I(6, 5));
+        var city    = new City("Rome", ai, new Vector2I(6, 5)) { HP = 0 }; // already battered down → conquerable
         session.State.Units.Add(captor);
         session.State.Cities.Add(city);
 

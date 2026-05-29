@@ -116,7 +116,11 @@ public partial class WorldMap : Node2D
             if (_cameraController.IsPanning)
                 _cameraController.ApplyMousePan(motion.Relative);
             else if (_selection.Unit != null && !_animator.IsAnimating)
-                UpdatePathPreview(WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+            {
+                var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
+                UpdatePathPreview(axial);
+                UpdateCombatForecast(axial);
+            }
             return;
         }
 
@@ -260,10 +264,11 @@ public partial class WorldMap : Node2D
         var target      = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
         int effectiveMP = attacker.Fortified ? attacker.Data.Movement : attacker.MovementRemaining;
 
-        if (target != null
-            && attacker.Data.Attack > 0
+        bool inRange = attacker.Data.Attack > 0
             && HexGrid.Distance(attacker.Position, axial) <= attacker.Data.Range
-            && effectiveMP > 0)
+            && effectiveMP > 0;
+
+        if (target != null && inRange)
         {
             var attackerPos = attacker.Position;
             var result      = _session.TryAttack(attacker, target);
@@ -271,6 +276,23 @@ public partial class WorldMap : Node2D
             {
                 _renderer.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(FormatCombatResult(attacker, target, result));
+                Deselect();
+                _renderer.QueueRedraw();
+                BuildAndStartEndTurnQueue();
+            }
+            return;
+        }
+
+        // Assault an enemy city in range (bombard its HP; capture is a separate move).
+        var cityTarget = _state.Cities.Find(c => c.Position == axial && c.Owner != _viewerPlayer && c.HP > 0);
+        if (cityTarget != null && inRange)
+        {
+            var attackerPos = attacker.Position;
+            var result      = _session.TryAttackCity(attacker, cityTarget);
+            if (result.Success)
+            {
+                _renderer.FlashCombat(attackerPos, axial);
+                _ui.ShowNotification(FormatCityAttackResult(attacker, cityTarget, result));
                 Deselect();
                 _renderer.QueueRedraw();
                 BuildAndStartEndTurnQueue();
@@ -289,8 +311,14 @@ public partial class WorldMap : Node2D
         Deselect();
     }
 
-    private bool IsBlockedByEnemyUnit(Vector2I tile)
-        => _state.Units.Any(u => u.Position == tile && u.Owner != _viewerPlayer);
+    private static string FormatCityAttackResult(Unit attacker, City city, GameState.CityAttackResult r)
+    {
+        if (r.AttackerKilled)
+            return $"{attacker.Data.Name} was destroyed assaulting {city.Name}!";
+        if (r.CityConquerable)
+            return $"{city.Name} breached! Move a melee unit in to capture it.";
+        return $"{attacker.Data.Name} hits {city.Name} for {r.CityDamage} (took {r.AttackerDamage})";
+    }
 
     private static string FormatCombatResult(Unit attacker, Unit target, GameState.AttackResult r) => r.Outcome switch
     {
@@ -310,7 +338,7 @@ public partial class WorldMap : Node2D
         if (_selection.ReachableTiles.Contains(axial))
         {
             var path = HexGrid.FindPath(_selection.Unit!.Position, axial,
-                tile => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile));
+                tile => _session.MoveCostFor(_selection.Unit!, tile));
             if (path.Count >= 2)
             {
                 _selection.PendingDestination = axial;
@@ -324,6 +352,41 @@ public partial class WorldMap : Node2D
             _selection.PendingPathPreview = null;
             _renderer.QueueRedraw();
         }
+    }
+
+    // Civ-5-style odds preview: while hovering an in-range enemy unit or city with
+    // a unit selected, show the expected damage to each side.
+    private void UpdateCombatForecast(Vector2I axial)
+    {
+        var attacker = _selection.Unit;
+        if (attacker == null || attacker.Data.Attack <= 0
+            || HexGrid.Distance(attacker.Position, axial) is var d && (d <= 0 || d > attacker.Data.Range))
+        {
+            _ui.ShowCombatForecast(null);
+            return;
+        }
+
+        bool isRanged = attacker.Data.Range >= 2;
+
+        var enemyUnit = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
+        if (enemyUnit != null)
+        {
+            var e = CombatResolver.Expected(attacker, enemyUnit, isRanged);
+            _ui.ShowCombatForecast($"Attack {enemyUnit.Data.Name}: deal ~{e.DefenderDamage}, take ~{e.AttackerDamage}");
+            return;
+        }
+
+        var enemyCity = _state.Cities.Find(c => c.Position == axial && c.Owner != _viewerPlayer && c.HP > 0);
+        if (enemyCity != null)
+        {
+            int def = enemyCity.CityDefenseStrength + _state.GarrisonDefense(enemyCity);
+            var e   = CombatResolver.Expected(attacker.Data.Attack, attacker.HP, def, enemyCity.HP, isRanged);
+            _ui.ShowCombatForecast(
+                $"Assault {enemyCity.Name} (def {def}, {enemyCity.HP} HP): deal ~{e.DefenderDamage}, take ~{e.AttackerDamage}");
+            return;
+        }
+
+        _ui.ShowCombatForecast(null);
     }
 
     private void CycleToNextUnitNeedingAttention()
@@ -342,7 +405,7 @@ public partial class WorldMap : Node2D
 
     private void SelectUnit(Unit unit)
     {
-        int Cost(Vector2I tile) => IsBlockedByEnemyUnit(tile) ? int.MaxValue : _state.MovementCost(tile);
+        int Cost(Vector2I tile) => _session.MoveCostFor(unit, tile);
         // Fortified units preview their full move range so right-click orders are validated as if awake.
         int effectiveMP = unit.Fortified ? unit.Data.Movement : unit.MovementRemaining;
         var reachable   = HexGrid.GetReachableTiles(unit.Position, effectiveMP, Cost).ToHashSet();
@@ -368,6 +431,7 @@ public partial class WorldMap : Node2D
         _ui.SetFoundCityVisible(false);
         _ui.HideCityPanel();
         _ui.HideUnitPanel();
+        _ui.ShowCombatForecast(null);
         _renderer.QueueRedraw();
     }
 

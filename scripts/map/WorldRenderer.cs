@@ -121,6 +121,8 @@ public partial class WorldRenderer : Node2D
             if (seen)
                 DrawString(ThemeDB.FallbackFont, pos + new Vector2(-HexSize * 0.35f, -HexSize * 0.45f),
                     $"{city.Name} ({city.Population})", HorizontalAlignment.Left, -1, 11, Colors.White);
+            if (seen && city.HP < City.MaxHP)
+                DrawHpBar(pos - new Vector2(0f, HexSize * 0.52f), city.HP / (float)City.MaxHP, HexSize * 0.72f);
         }
 
         // 4. Units
@@ -137,6 +139,8 @@ public partial class WorldRenderer : Node2D
                 DrawCircle(pos, HexSize * 0.32f, new Color(0f, 0f, 0f, 0.45f));
             if (unit.Fortified)
                 DrawArc(pos, HexSize * 0.38f, 0f, Mathf.Tau, 24, new Color(0.4f, 0.8f, 1f), 1.5f);
+            if (unit.HP < Unit.MaxHP)
+                DrawHpBar(pos - new Vector2(0f, HexSize * 0.46f), unit.HP / (float)Unit.MaxHP, HexSize * 0.6f);
         }
 
         // 4b. Combat flash
@@ -189,6 +193,17 @@ public partial class WorldRenderer : Node2D
         if      (dq > dr && dq > ds) rq = -rr - rs;
         else if (dr > ds)            rr = -rq - rs;
         return new Vector2I(rq, rr);
+    }
+
+    // Small HP bar centered horizontally at `topCenter`. frac in [0,1].
+    private void DrawHpBar(Vector2 topCenter, float frac, float width)
+    {
+        frac = Mathf.Clamp(frac, 0f, 1f);
+        const float h = 3f;
+        var bg = new Rect2(topCenter - new Vector2(width * 0.5f, 0f), new Vector2(width, h));
+        DrawRect(bg, new Color(0f, 0f, 0f, 0.7f));
+        var col = frac > 0.5f ? Colors.LimeGreen : frac > 0.25f ? Colors.Yellow : Colors.Red;
+        DrawRect(new Rect2(bg.Position, new Vector2(width * frac, h)), col);
     }
 
     private static Vector2[] HexVertices(Vector2 center, float size)

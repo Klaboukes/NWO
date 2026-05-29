@@ -54,8 +54,7 @@ public class GameSession
 
         WakeIfFortified(unit);
 
-        var path = HexGrid.FindPath(unit.Position, dest,
-            t => IsBlockedByEnemyUnit(t) ? int.MaxValue : State.MovementCost(t));
+        var path = HexGrid.FindPath(unit.Position, dest, t => MoveCostFor(unit, t));
         if (path.Count < 2) return Failed();
 
         int cost = 0;
@@ -64,13 +63,33 @@ public class GameSession
 
         unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - cost);
         unit.Position          = path[^1];
+        unit.ActedThisTurn     = true;
         State.RecomputeFog(Viewer);
 
-        var pendingCapture = State.Cities.Find(c => c.Position == dest && c.Owner != Viewer);
+        // Only a conquerable (HP-depleted) enemy city is captured on arrival.
+        var pendingCapture = State.Cities.Find(
+            c => c.Position == dest && c.Owner != Viewer && c.IsConquerable);
         return new MoveResult(true, path, pendingCapture);
 
         static MoveResult Failed() => new(false, new List<Vector2I>(), null);
     }
+
+    // Cost to enter `tile` for `unit`, or int.MaxValue if blocked. Enemy units
+    // block; an enemy city blocks unless it's conquerable and `unit` is a melee
+    // unit that can capture it. Shared by the move path, the reachable overlay,
+    // and the path preview so they all agree.
+    public int MoveCostFor(Unit unit, Vector2I tile)
+    {
+        if (State.Units.Any(u => u.Position == tile && u.Owner != unit.Owner))
+            return int.MaxValue;
+        var enemyCity = State.Cities.Find(c => c.Position == tile && c.Owner != unit.Owner);
+        if (enemyCity != null && !(enemyCity.IsConquerable && CanCapture(unit)))
+            return int.MaxValue;
+        return State.MovementCost(tile);
+    }
+
+    // Only melee combat units (Attack > 0, not ranged) may capture a city.
+    public static bool CanCapture(Unit unit) => unit.Data.Attack > 0 && unit.Data.Range < 2;
 
     // Applied by the scene when the move animation finishes; tests call inline.
     public void ResolveCapture(Unit captor, City city)
@@ -97,6 +116,18 @@ public class GameSession
 
         static GameState.AttackResult Invalid()
             => new(GameState.AttackOutcome.Invalid, 0, 0);
+    }
+
+    public GameState.CityAttackResult TryAttackCity(Unit attacker, City city)
+    {
+        if (attacker.Owner != Viewer)
+            return new GameState.CityAttackResult(false, 0, 0, false, false);
+
+        WakeIfFortified(attacker);
+        var result = State.TryAttackCity(attacker, city);
+        if (result.Success)
+            State.RecomputeFog(Viewer);
+        return result;
     }
 
     public GameState.FoundCityResult TryFoundCity(Unit settler, out City? city)
@@ -141,9 +172,6 @@ public class GameSession
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private bool IsBlockedByEnemyUnit(Vector2I tile)
-        => State.Units.Any(u => u.Position == tile && u.Owner != Viewer);
 
     private static void WakeIfFortified(Unit unit)
     {

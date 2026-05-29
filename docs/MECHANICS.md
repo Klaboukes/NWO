@@ -109,6 +109,14 @@ Start of Turn
 - Higher roll deals damage equal to `(attacker_roll / defender_roll) × 30` to the loser, proportionally less to the winner
 - Attacking costs all remaining movement points
 - Ranged units attack without retaliation (range 2)
+- **Combat-odds preview:** hovering an in-range enemy with a unit selected shows
+  the *expected* damage to each side (`CombatResolver.Expected`, jitter at its
+  1.0 mean — deterministic).
+
+### Healing
+- A unit that did **not** move or attack this turn recovers **+10 HP** at end of
+  turn (**+15** if on or adjacent to a friendly city), capped at 100. Fortifying
+  is the natural way to heal.
 
 ### MVP Unit Roster
 
@@ -135,6 +143,19 @@ resources aren't implemented yet those requirements aren't enforced.
 ---
 
 ## 4. Cities
+
+### City Defense & Capture
+- Each city has an **HP** pool (max 100) and a **defense strength** =
+  `6 + Population + Walls(+5) + best garrisoned unit's Defense`.
+- Attacking a city (a unit in range bombards/assaults it) reduces its HP via the
+  normal combat formula; a melee attacker takes retaliation scaled by the city's
+  defense, ranged takes none.
+- A city tile **blocks movement** until its HP reaches 0. Once depleted, a
+  **melee** unit moving onto the tile **captures** it (ranged/civilians cannot);
+  the captured city starts at half HP under its new owner.
+- A garrison unit on the city tile both defends the tile (attack it separately)
+  and raises the city's defense strength.
+- Cities **regenerate +10 HP/turn** when not attacked since the owner's last turn.
 
 ### Founding
 - A Settler unit can found a city on any non-Ocean, non-Mountain tile not within
@@ -180,12 +201,13 @@ resources aren't implemented yet those requirements aren't enforced.
 | Barracks | 100 | — | New units +15 XP | data only — no XP system |
 | Library | 90 | Writing | +2 Science | ✅ |
 | Market | 120 | — | +2 Gold | ✅ |
-| Walls | 130 | — | +5 City Defense | data only — no city combat |
+| Walls | 130 | — | +5 City Defense | ✅ |
 
-Only the Food / Science / Gold yields feed the simulation. Culture, unit XP, and
-city defense are declared in `data/buildings.json` but have **no gameplay effect
-yet [planned]**. The Monument requires **Philosophy** (its +2 Culture has no
-effect until a culture system exists).
+Food / Science / Gold yields and the Walls city-defense bonus feed the
+simulation. Culture (Monument) and unit XP (Barracks) are declared in
+`data/buildings.json` but have **no gameplay effect yet [planned]**. The Monument
+requires **Philosophy** (its +2 Culture has no effect until a culture system
+exists).
 
 ---
 

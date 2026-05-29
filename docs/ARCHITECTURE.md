@@ -186,6 +186,8 @@ class City : IEndTurnItem {
     Player          Owner;
     Vector2I        Position;
     bool            IsCapital;             // first city the player founds; kept on capture
+    int             HP;                    // 0..MaxHP; depleted by attacks, regen when calm
+    bool            AttackedSinceTurn;     // gates HP regen
     int             Population;
     float           FoodAccumulated;
     int             ProductionProgress;
@@ -214,8 +216,8 @@ GameSession.EndTurn()
   → GameState.EndPlayerTurn(viewer)
       → for each of the player's cities:
           recompute workforce/yields → ProcessFood (growth)
-          → AdvanceProduction (completion)
-      → reset the player's units' MovementRemaining
+          → AdvanceProduction (completion) → RegenIfUnharassed (city HP)
+      → heal idle units, then reset the player's units' MovementRemaining
       → CivEconomyService.ProcessEndOfTurn  (gold, science, research, disband)
       → advance CurrentPlayerIndex; wrap → TurnManager.AdvanceTurn()
   → while CurrentPlayer is not human:
@@ -259,7 +261,8 @@ overlay.
    tile (it does not seek out a site ≥3 tiles away — it just walks toward the
    enemy and settles when founding succeeds).
 3. **Advance**: otherwise step toward the nearest enemy unit or city, stopping
-   short of occupied tiles; capture an enemy city it steps onto.
+   short of occupied tiles. It bombards an enemy city in range and only captures
+   one once its HP is depleted (the same rule the player follows).
 
 Idle AI cities always queue a **Warrior**. The current AI does **not** build
 other units/buildings, does **not** manage city focus, and does **not** research

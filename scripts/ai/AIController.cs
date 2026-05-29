@@ -37,11 +37,19 @@ public class AIController
 
     private void Act(Player ai, Unit unit)
     {
-        // 1. Enemy in attack range? attack.
+        // 1. Enemy unit in attack range? attack.
         var target = NearestEnemyInRange(ai, unit);
         if (target != null)
         {
             _state.TryAttack(unit, target);
+            return;
+        }
+
+        // 1b. Enemy city in range with HP left? bombard / assault it.
+        var cityTarget = EnemyCityInRange(ai, unit);
+        if (cityTarget != null)
+        {
+            _state.TryAttackCity(unit, cityTarget);
             return;
         }
 
@@ -70,6 +78,22 @@ public class AIController
             int d = HexGrid.Distance(unit.Position, other.Position);
             if (d <= 0 || d > unit.Data.Range) continue;
             if (d < bestDist) { best = other; bestDist = d; }
+        }
+        return best;
+    }
+
+    private City? EnemyCityInRange(Player ai, Unit unit)
+    {
+        if (unit.Data.Attack <= 0) return null;
+
+        City? best     = null;
+        int   bestDist = int.MaxValue;
+        foreach (var city in _state.Cities)
+        {
+            if (city.Owner == ai || city.HP <= 0) continue;
+            int d = HexGrid.Distance(unit.Position, city.Position);
+            if (d <= 0 || d > unit.Data.Range) continue;
+            if (d < bestDist) { best = city; bestDist = d; }
         }
         return best;
     }
@@ -114,15 +138,23 @@ public class AIController
             // Don't walk onto another unit's tile (enemies blocked, friendlies overlap forbidden).
             if (_state.Units.Any(u => u != unit && u.Position == path[i])) break;
 
+            // Don't enter an enemy city unless it's conquerable and we can capture it.
+            var cityHere = _state.Cities.Find(c => c.Position == path[i] && c.Owner != unit.Owner);
+            if (cityHere != null && !(cityHere.IsConquerable && GameSession.CanCapture(unit))) break;
+
             if (spent + cost > budget) break;
             spent += cost;
             last   = path[i];
         }
 
+        if (last == unit.Position) return;
+
         unit.Position          = last;
         unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - spent);
+        unit.ActedThisTurn     = true;
 
-        var captured = _state.Cities.Find(c => c.Position == last && c.Owner != unit.Owner);
+        var captured = _state.Cities.Find(
+            c => c.Position == last && c.Owner != unit.Owner && c.IsConquerable);
         if (captured != null) _state.CaptureCity(unit, captured);
     }
 }

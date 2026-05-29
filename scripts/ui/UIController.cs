@@ -16,6 +16,7 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _goldLabelPath        = "Root/GoldLabel";
     [Export] private NodePath _scienceLabelPath     = "Root/ScienceLabel";
     [Export] private NodePath _notifLabelPath       = "Root/NotifLabel";
+    [Export] private NodePath _combatForecastPath   = "Root/CombatForecastLabel";
     [Export] private NodePath _endTurnButtonPath    = "Root/EndTurnButton";
     [Export] private NodePath _foundCityButtonPath  = "Root/FoundCityButton";
     [Export] private NodePath _cityPanelPath        = "Root/CityPanel";
@@ -34,6 +35,7 @@ public partial class UIController : CanvasLayer
     private Label         _goldLabel       = null!;
     private Label         _scienceLabel    = null!;
     private Label         _notifLabel      = null!;
+    private Label         _combatForecast  = null!;
     private Button        _endTurnButton   = null!;
     private Button        _foundCityButton = null!;
     private Panel         _cityPanel       = null!;
@@ -59,6 +61,7 @@ public partial class UIController : CanvasLayer
         _goldLabel       = GetNode<Label>(_goldLabelPath);
         _scienceLabel    = GetNode<Label>(_scienceLabelPath);
         _notifLabel      = GetNode<Label>(_notifLabelPath);
+        _combatForecast  = GetNode<Label>(_combatForecastPath);
         _endTurnButton   = GetNode<Button>(_endTurnButtonPath);
         _foundCityButton = GetNode<Button>(_foundCityButtonPath);
         _cityPanel       = GetNode<Panel>(_cityPanelPath);
@@ -124,6 +127,15 @@ public partial class UIController : CanvasLayer
         _notifLabel.Visible    = true;
         _notifPersistent       = persistent;
         _notifSecondsLeft      = persistent ? 0 : NotifDuration;
+    }
+
+    // Combat-odds preview shown while hovering an attackable target. Pass null to hide.
+    public void ShowCombatForecast(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) { _combatForecast.Visible = false; return; }
+        _combatForecast.Text     = text;
+        _combatForecast.Modulate = new Color(1f, 0.9f, 0.6f);
+        _combatForecast.Visible  = true;
     }
 
     public void HidePersistentNotification()

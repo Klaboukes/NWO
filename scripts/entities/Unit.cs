@@ -13,6 +13,9 @@ public class Unit : IEndTurnItem
     public int      HP                { get; set; } = 100;
     public int      MovementRemaining { get; set; }
     public bool     Fortified         { get; set; }
+    public bool     ActedThisTurn     { get; set; } // set on move/attack; gates end-of-turn healing
+
+    public const int MaxHP = 100;
 
     public Unit(UnitData data, Player owner, Vector2I position)
     {
@@ -24,6 +27,7 @@ public class Unit : IEndTurnItem
 
     public void ResetForNewTurn()
     {
+        ActedThisTurn = false;
         if (!Fortified)
             MovementRemaining = Data.Movement;
     }

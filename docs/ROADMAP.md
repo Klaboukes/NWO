@@ -99,6 +99,25 @@ Goal: Research feels meaningful. Gold matters.
 
 ---
 
+## Phase 5.5 — Pre-Phase-6 hardening (in progress)
+
+Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
+
+- **M1 — Combat & survivability ✅ COMPLETE**
+  - [x] Cities have HP + defense strength (base + population + Walls + garrison)
+  - [x] Capture is earned: bombard a city to 0 HP, then move a melee unit in
+        (ranged/civilians can't capture; captured cities start at half HP)
+  - [x] `Walls` finally grants its +5 city defense
+  - [x] Units heal when idle (+10, +15 near a friendly city)
+  - [x] Combat-odds preview on hover + on-map HP bars for units & cities
+- [ ] **M2 — Economy & expansion** (worker improvements, per-tile gold + buy,
+      strategic resources gating units)
+- [ ] **M3 — Readable HUD** (minimap, scrolling event log, city cycle, tile tooltip)
+- [ ] **M4 — Competent AI** (research, production mix, scored expansion,
+      non-suicidal attacks, garrison, retreat-to-heal)
+
+---
+
 ## Phase 6 — Win Conditions & Polish (Week 13–14)
 
 Goal: The game has a beginning, middle, and end.
