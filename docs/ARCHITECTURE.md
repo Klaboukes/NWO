@@ -225,11 +225,18 @@ GameSession.EndTurn()
   → while CurrentPlayer is not human:
       AIController.TakeTurn(aiPlayer)
       GameState.EndPlayerTurn(aiPlayer)
-  → RecomputeFog(viewer); return notifications + production completions
+  → RecomputeFog(viewer)
+  → VictoryService.Evaluate(state)   (win/loss check)
+  → return notifications + production completions + GameResult?
 ```
 
-Win-condition checking is **not** wired into this loop yet — see **[planned]**
-under Saving/Win below.
+`EndTurnSummary.Result` is non-null when the game is over. `VictoryService`
+(headless, in `scripts/core/`) reports a **domination** win (one non-eliminated
+player left — a player is eliminated only once they hold no city *and* no
+settler-capable unit, so the opening turns don't trigger it) or, at
+`ScoreVictoryTurn` (500), a **score** win ranked by `ScoreService.Score`
+(cities/population/techs/gold). `WorldMap.ProcessTurn` stashes the result in the
+`GameLaunch` static handoff and changes to `scenes/ui/VictoryScreen.tscn`.
 
 On the scene side, `WorldMap` adds a Civ-5-style "end-turn queue": before the
 turn actually ends it walks the player's idle units and idle cities
@@ -312,12 +319,24 @@ button are Phase 6 and not implemented yet.
 
 ---
 
-## Saving / Loading & Win Conditions **[planned]**
+## Win Conditions
 
-Not implemented yet (Phase 6). There is currently no serialization of
-`GameState`, no auto-save, and no victory/defeat detection. When added, the plan
-is to serialize `GameState` to JSON via Godot's `FileAccess` with one save slot
-and an auto-save at the start of each player turn.
+`VictoryService.Evaluate(GameState)` (headless) runs at the end of each
+`GameSession.EndTurn` and returns a `GameResult?` (winner, `VictoryType`
+Domination/Score, score). **Domination** fires when only one non-eliminated player
+remains; a player is eliminated only once they own no city *and* hold no
+settler-capable unit. **Score** fires at `ScoreVictoryTurn` (500), ranking players
+by `ScoreService.Score` (cities×10 + population×3 + techs×5 + gold/10, tunable
+constants). `WorldMap.ProcessTurn` routes a non-null result through the
+`GameLaunch` static handoff to `scenes/ui/VictoryScreen.tscn`.
+
+## Saving / Loading **[planned]**
+
+Not implemented yet (Phase 6.2). There is currently no serialization of
+`GameState` and no auto-save. The plan is a `SaveService` (System.Text.Json, a
+`Vector2I` converter, ownership stored by `Player.Id`, `DataCatalog` re-attached
+from `res://data` on load) writing named slots under `user://saves/` via Godot's
+`FileAccess`, reached from a main-menu / in-game save UI.
 
 ---
 

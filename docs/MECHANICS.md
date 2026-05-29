@@ -95,7 +95,8 @@ Start of Turn
 
 - Simultaneous movement is **not** in MVP — player goes first, then the AI runs
   synchronously inside `GameSession.EndTurn`.
-- **[planned]** Turn limit (500) and score-based winner are not implemented yet.
+- The turn-500 score limit and domination check run at the end of each
+  `GameSession.EndTurn` (see §7 Win Conditions).
 - The AI runs a single reactive pass (attack / settle / advance) and auto-queues
   Warriors; it does not have a real city or research phase (see ARCHITECTURE.md).
 
@@ -282,20 +283,27 @@ Mining → Bronze Working → Iron Working
 
 ---
 
-## 7. Win Conditions (MVP) **[planned]**
+## 7. Win Conditions
 
-Not implemented yet (Phase 6). City capture works mechanically, but no
-victory/defeat is detected or surfaced, and there is no turn limit or score
-computation in code. The intended conditions:
+Evaluated by `VictoryService.Evaluate(GameState)` at the end of every
+`GameSession.EndTurn`; a result routes to the victory screen.
+
+### Elimination
+A player is out of the game once they own **no city** *and* hold **no
+settler-capable unit** (`Special == "found_city"`). The settler clause keeps the
+opening turns — before anyone founds — from ending the game.
 
 ### Domination Victory
-- Capture the **capital city** of the opponent
-- The capital is the first city founded by a civilization (note: there is no
-  `IsCapital` flag in the model yet — this needs adding)
+- Triggered when exactly **one** non-eliminated player remains.
+- With two players this is the classic "wipe out the opponent": capture their
+  cities and destroy/deny any settler. `City.IsCapital` (the first city a civ
+  founds) is preserved through capture for display/flavour.
 
 ### Score Victory (fallback)
-- After 500 turns, the civilization with the highest score wins
-- Score = (population × 4) + (number of cities × 10) + (techs researched × 5)
+- At **turn 500** (`VictoryService.ScoreVictoryTurn`), if no one has won by
+  domination, the highest-scoring civilization wins.
+- Score = (cities × 10) + (population × 3) + (techs researched × 5) + (gold ÷ 10).
+  Weights are named constants in `ScoreService`, easy to retune.
 
 ---
 

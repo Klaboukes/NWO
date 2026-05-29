@@ -859,6 +859,15 @@ public partial class WorldMap : Node2D
             _ui.LogEvents(events);
         _renderer.QueueRedraw();
         _ui.SetCivStatus(_state, _viewerPlayer);
+
+        // A win or loss ends the match: hand the result to the victory screen.
+        if (summary.Result != null)
+        {
+            GameLaunch.LastResult = summary.Result;
+            GetTree().ChangeSceneToFile("res://scenes/ui/VictoryScreen.tscn");
+            return;
+        }
+
         BuildAndStartEndTurnQueue();
     }
 

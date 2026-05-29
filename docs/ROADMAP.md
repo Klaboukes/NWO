@@ -153,19 +153,57 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
 
 ---
 
-## Phase 6 — Win Conditions & Polish (Week 13–14)
+## Phase 6 — Win Conditions, Main Menu, Save/Load, Audio
 
-Goal: The game has a beginning, middle, and end.
+Goal: The game has a beginning, middle, and end — start from a menu, play to a
+win/loss, see a result screen, and save/reload without data loss.
 
-- [ ] Domination victory: detect when player captures AI capital → show victory screen
-- [ ] Score victory: at turn 500, compare scores → show result screen
-- [ ] Main menu scene (New Game, Load Game, Quit)
-- [ ] Save/load game state to JSON file
-- [ ] Mini-map
-- [ ] Notification bar (scrolling event log)
-- [ ] Basic sound effects (unit move, attack, city founded)
+> Mini-map and the scrolling event log (notification bar) already shipped in
+> Phase 5.5 (M3) and are dropped from this phase. Rolled out one milestone at a
+> time, each independently shippable: build (0 warnings) → tests green → docs
+> synced → commit. Save/load uses **named multi-slot** files; victory uses a
+> **dedicated result scene**; audio ships now with **placeholder sounds**.
 
-**Done when:** You can start a new game, play to a win or loss, and return to the main menu.
+### P6.1 — Win conditions + result scene ✅ COMPLETE
+- [x] `VictoryService` (headless): `VictoryType { Domination, Score }`,
+      `GameResult(Winner, Type, Score)`, `Evaluate(GameState) → GameResult?`.
+- [x] Elimination = owns zero cities **and** holds no settler-capable unit
+      (guards the opening turns before anyone founds).
+- [x] Domination: exactly one non-eliminated player remains (leans on the
+      existing `City.IsCapital`, preserved through `GameState.CaptureCity`).
+- [x] Score victory at turn 500 via `ScoreService.Score` (cities/population/
+      techs/gold, tunable named constants); highest score wins.
+- [x] `GameSession.EndTurn` returns the `GameResult?` on `EndTurnSummary`.
+- [x] `VictoryScreen.tscn` + controller (winner, type, score; Play Again / Quit —
+      P6.2 swaps Play Again for a route to the main menu); `WorldMap` routes to it
+      via `ChangeSceneToFile` on game over. Result crosses the scene boundary via
+      the `GameLaunch` static handoff.
+- [x] Tests: elimination rule, domination fires, opening turns yield nothing,
+      score victory at turn 500, score ranking.
+
+### P6.2 — Main menu + save/load (named slots)
+- [ ] Bootstrap refactor: static `GameLaunch` handoff (NewGame seed / LoadGame
+      state + last `GameResult`) and `GameFactory.NewGame(seed)` extracted from
+      `WorldMap._Ready()` so new-game and load share one path.
+- [ ] `MainMenu.tscn` (New Game / Load Game / Quit), set as `run/main_scene`.
+- [ ] `SaveService` (System.Text.Json): DTO layer with a `Vector2I` converter and
+      ownership stored by `Player.Id` (not object ref); `DataCatalog` re-attached
+      from `res://data` on load, not serialized. Captures workforce, worker tasks,
+      civ economy, turn number, current player, combat seed.
+- [ ] Named slots under `user://saves/*.json` (header: name, timestamp, turn);
+      save dialog + load/delete list UI.
+- [ ] Tests: full-state round-trip, `Vector2I` converter, ownership rebinding,
+      loaded state keeps playing.
+
+### P6.3 — Audio (placeholder sounds)
+- [ ] `AudioManager` autoload (pool of `AudioStreamPlayer`) with
+      `Play(Sfx { Click, Move, Attack, CityFound, Win, Lose })`.
+- [ ] Placeholder `.ogg` clips in `assets/audio/` (stand-ins, swap later).
+- [ ] Trigger points: UI clicks, move animation, attack resolution, city founded,
+      win/lose on the result screen.
+
+**Done when:** You can start a new game from the menu, found a city, build units,
+research techs, fight the AI to a capture-win or loss, and save/reload losslessly.
 
 ---
 

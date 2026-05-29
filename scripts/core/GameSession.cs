@@ -196,10 +196,13 @@ public class GameSession
 
     public record EndTurnSummary(
         List<GameEvent>                      Notifications,
-        List<GameState.ProductionCompletion> Completions);
+        List<GameState.ProductionCompletion> Completions,
+        VictoryService.GameResult?           Result);
 
     // Ends the viewer's turn, then runs every AI player's turn synchronously,
-    // stopping when control returns to the viewer.
+    // stopping when control returns to the viewer. After the loop it checks for a
+    // win/loss; a non-null Result means the game is over and the caller should
+    // route to the result screen.
     public EndTurnSummary EndTurn()
     {
         var completions   = new List<GameState.ProductionCompletion>();
@@ -212,7 +215,7 @@ public class GameSession
         }
 
         State.RecomputeFog(Viewer);
-        return new EndTurnSummary(notifications, completions);
+        return new EndTurnSummary(notifications, completions, VictoryService.Evaluate(State));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
