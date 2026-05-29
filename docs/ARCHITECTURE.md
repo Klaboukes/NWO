@@ -330,13 +330,39 @@ by `ScoreService.Score` (cities×10 + population×3 + techs×5 + gold/10, tunabl
 constants). `WorldMap.ProcessTurn` routes a non-null result through the
 `GameLaunch` static handoff to `scenes/ui/VictoryScreen.tscn`.
 
-## Saving / Loading **[planned]**
+## Bootstrap & Scene Flow
 
-Not implemented yet (Phase 6.2). There is currently no serialization of
-`GameState` and no auto-save. The plan is a `SaveService` (System.Text.Json, a
-`Vector2I` converter, ownership stored by `Player.Id`, `DataCatalog` re-attached
-from `res://data` on load) writing named slots under `user://saves/` via Godot's
-`FileAccess`, reached from a main-menu / in-game save UI.
+`MainMenu.tscn` is the boot scene (`run/main_scene`). All paths into a match
+converge in `WorldMap.ResolveLaunch`, which reads the `GameLaunch` static handoff:
+`LoadedGame` (a deserialized `GameState`) resumes that save, otherwise
+`GameFactory.NewGame(seed)` builds a fresh world (map generation, players, starting
+units, AI spawn — all extracted from the old `_Ready`). `GameLaunch` also carries
+`LastResult` to the victory screen. Scene changes use `GetTree().ChangeSceneToFile`;
+the static survives the transition since the project defines no autoloads.
+
+## Saving / Loading
+
+Split in two so the logic stays headless-testable:
+
+- **`SaveSerializer`** (no Godot file IO) maps `GameState` ↔ a flat DTO graph and
+  JSON via System.Text.Json. A `Vector2IJsonConverter` handles both values and
+  dictionary keys (`MapData`'s dicts are keyed by `Vector2I`); enums serialize as
+  strings. Ownership is stored by `Player.Id` and **rebound to the loaded `Player`
+  instances** on `Deserialize` so `Civ()`/`Fog()` lookups resolve. The full
+  `MapData` (tiles + resources + improvements) is serialized; `DataCatalog` is
+  re-attached from `res://data`, not stored; fog `Visible` and city yields are
+  recomputed rather than saved (only `Discovered` is persisted). Combat is
+  reproduced from the stored seed (deterministic from the seed, not a byte-exact
+  continuation of the pre-save RNG stream).
+- **`SaveService`** wraps the serializer with `user://saves/*.json` file IO
+  (`FileAccess`/`DirAccess`): `Save`, `Load`, `ListSaves`, `Delete`. Each file's
+  header (name, timestamp, turn) drives the slot list.
+
+UI: the reusable `SaveBrowser` modal lists slots (load/delete) and, in save mode,
+takes a name; it's opened from `MainMenu` (load) and from the in-game **HUD "Menu" →
+pause overlay** (save/load/main-menu/quit). Saving/loading needs the live state, so
+`UIController` raises `SaveRequested`/`LoadRequested`/`MainMenuRequested` and
+`WorldMap` performs the `SaveService` call (loading re-enters via `GameLaunch`).
 
 ---
 

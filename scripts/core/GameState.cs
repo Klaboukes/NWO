@@ -29,6 +29,10 @@ public class GameState
     public int    CurrentPlayerIndex { get; private set; }
     public Player CurrentPlayer      => Players[CurrentPlayerIndex];
 
+    // Seed the combat RNG was created from. Recorded so save/load can reproduce
+    // it (a fresh game with a null seed still gets a concrete, savable value).
+    public int CombatSeed { get; }
+
     private readonly Dictionary<Player, FogOfWar>     _fog  = new();
     private readonly Dictionary<Player, Civilization> _civs = new();
     private readonly Random                           _combatRng;
@@ -38,7 +42,22 @@ public class GameState
     {
         Map        = map;
         Catalog    = catalog;
-        _combatRng = combatSeed.HasValue ? new Random(combatSeed.Value) : new Random();
+        CombatSeed = combatSeed ?? new Random().Next();
+        _combatRng = new Random(CombatSeed);
+    }
+
+    // The rotating city-name counter, exposed for save/load round-tripping so a
+    // reloaded game keeps naming cities where it left off.
+    public int NextCityNameIndex => _nextCityName;
+
+    // Restores the turn cursor after a load. The combat seed and per-player state
+    // are set through the constructor / AddPlayer; this carries the remaining
+    // scalar bookkeeping that has no public setter. Save/load support only.
+    public void RestoreTurnPointer(int turnNumber, int currentPlayerIndex, int nextCityName)
+    {
+        TurnManager.SetTurn(turnNumber);
+        CurrentPlayerIndex = currentPlayerIndex;
+        _nextCityName      = nextCityName;
     }
 
     public Player AddPlayer(Player player)

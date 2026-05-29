@@ -34,6 +34,9 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _tileTooltipPath      = "Root/TileTooltip";
     [Export] private NodePath _tileTooltipLabelPath = "Root/TileTooltip/Label";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
+    [Export] private NodePath _menuButtonPath       = "Root/MenuButton";
+    [Export] private NodePath _pauseMenuPath        = "Root/PauseMenu";
+    [Export] private NodePath _saveBrowserPath      = "Root/SaveBrowser";
 
     private const double NotifDuration = 3.0;
 
@@ -58,6 +61,9 @@ public partial class UIController : CanvasLayer
     private Control                  _tileTooltip    = null!;
     private Label                    _tileTooltipLabel = null!;
     private TechTreePanelController  _techTreePanel  = null!;
+    private Button                   _menuButton     = null!;
+    private Control                  _pauseMenu      = null!;
+    private SaveBrowserController    _saveBrowser    = null!;
 
     private Unit?  _displayedUnit;
     private double _notifSecondsLeft;
@@ -67,6 +73,9 @@ public partial class UIController : CanvasLayer
     public event Action? FoundCityPressed;
     public event Action<ImprovementType>? BuildImprovementPressed;
     public event Action<Vector2I>? EventFocusRequested;
+    public event Action<string>? SaveRequested;     // slot display name
+    public event Action<string>? LoadRequested;     // save file name
+    public event Action?         MainMenuRequested;
 
     public override void _Ready()
     {
@@ -91,11 +100,35 @@ public partial class UIController : CanvasLayer
         _tileTooltip     = GetNode<Control>(_tileTooltipPath);
         _tileTooltipLabel = GetNode<Label>(_tileTooltipLabelPath);
         _techTreePanel   = GetNode<TechTreePanelController>(_techTreePanelPath);
+        _menuButton      = GetNode<Button>(_menuButtonPath);
+        _pauseMenu       = GetNode<Control>(_pauseMenuPath);
+        _saveBrowser     = GetNode<SaveBrowserController>(_saveBrowserPath);
 
         _endTurnButton.Pressed   += () => EndTurnPressed?.Invoke();
         _foundCityButton.Pressed += () => FoundCityPressed?.Invoke();
         _eventLog.FocusRequested += tile => EventFocusRequested?.Invoke(tile);
+
+        WirePauseMenu();
     }
+
+    // The HUD "Menu" button opens a pause overlay; Save/Load route through the
+    // SaveBrowser. Saving/loading needs the live GameState (held by WorldMap), so
+    // this raises events rather than touching SaveService for those two.
+    private void WirePauseMenu()
+    {
+        _menuButton.Pressed += () => _pauseMenu.Visible = !_pauseMenu.Visible;
+        Btn("Root/PauseMenu/CenterPanel/VBox/ResumeButton").Pressed   += () => _pauseMenu.Visible = false;
+        Btn("Root/PauseMenu/CenterPanel/VBox/SaveButton").Pressed     += () => { _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: true); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/LoadButton").Pressed     += () => { _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: false); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/MainMenuButton").Pressed += () => MainMenuRequested?.Invoke();
+        Btn("Root/PauseMenu/CenterPanel/VBox/QuitButton").Pressed     += () => GetTree().Quit();
+
+        _saveBrowser.SaveChosen     += name => { _saveBrowser.Hide(); SaveRequested?.Invoke(name); ShowNotification($"Saved \"{name}\"."); };
+        _saveBrowser.LoadChosen     += file => LoadRequested?.Invoke(file);
+        _saveBrowser.CloseRequested += () => _saveBrowser.Hide();
+    }
+
+    private Button Btn(string path) => GetNode<Button>(path);
 
     public override void _Process(double delta)
     {

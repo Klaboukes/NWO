@@ -5,11 +5,10 @@ namespace NWO.UI;
 
 // End-of-match result screen. Reads the GameResult handed across the scene change
 // via GameLaunch.LastResult and shows whether the human won or lost, the victory
-// type, and the winner's score. "Play Again" starts a fresh match; "Quit" exits.
-// (P6.2 replaces "Play Again" with a route back to the main menu.)
+// type, and the winner's score. "Main Menu" returns to the menu; "Quit" exits.
 public partial class VictoryScreenController : Control
 {
-    private const string WorldScene = "res://scenes/world/WorldMap.tscn";
+    private const string MainMenuScene = "res://scenes/ui/MainMenu.tscn";
 
     public override void _Ready()
     {
@@ -32,14 +31,14 @@ public partial class VictoryScreenController : Control
             detail.Text = $"{how}\n{result.Winner.Name} wins with {result.Score} points.";
         }
 
-        GetNode<Button>("CenterPanel/VBox/Buttons/PlayAgainButton").Pressed += OnPlayAgain;
+        GetNode<Button>("CenterPanel/VBox/Buttons/MainMenuButton").Pressed += OnMainMenu;
         GetNode<Button>("CenterPanel/VBox/Buttons/QuitButton").Pressed     += OnQuit;
     }
 
-    private void OnPlayAgain()
+    private void OnMainMenu()
     {
         GameLaunch.LastResult = null;
-        GetTree().ChangeSceneToFile(WorldScene);
+        GetTree().ChangeSceneToFile(MainMenuScene);
     }
 
     private void OnQuit() => GetTree().Quit();

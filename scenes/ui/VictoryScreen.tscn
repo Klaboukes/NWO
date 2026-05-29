@@ -58,9 +58,9 @@ layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="PlayAgainButton" type="Button" parent="CenterPanel/VBox/Buttons"]
+[node name="MainMenuButton" type="Button" parent="CenterPanel/VBox/Buttons"]
 layout_mode = 2
-text = "Play Again"
+text = "Main Menu"
 
 [node name="QuitButton" type="Button" parent="CenterPanel/VBox/Buttons"]
 layout_mode = 2

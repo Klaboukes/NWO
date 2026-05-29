@@ -1,0 +1,61 @@
+[gd_scene load_steps=3 format=3 uid="uid://b1nwo_main_menu"]
+
+[ext_resource type="Script" path="res://scripts/ui/MainMenuController.cs" id="1_ctrl"]
+[ext_resource type="PackedScene" uid="uid://b1nwo_save_browser" path="res://scenes/ui/SaveBrowser.tscn" id="2_browser"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_ctrl")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.05, 0.06, 0.1, 1)
+
+[node name="CenterPanel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -170.0
+offset_right = 180.0
+offset_bottom = 170.0
+
+[node name="VBox" type="VBoxContainer" parent="CenterPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = 28.0
+offset_right = -28.0
+offset_bottom = -28.0
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="CenterPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "NWO"
+horizontal_alignment = 1
+
+[node name="NewGameButton" type="Button" parent="CenterPanel/VBox"]
+layout_mode = 2
+text = "New Game"
+
+[node name="LoadGameButton" type="Button" parent="CenterPanel/VBox"]
+layout_mode = 2
+text = "Load Game"
+
+[node name="QuitButton" type="Button" parent="CenterPanel/VBox"]
+layout_mode = 2
+text = "Quit"
+
+[node name="SaveBrowser" parent="." instance=ExtResource("2_browser")]
+visible = false

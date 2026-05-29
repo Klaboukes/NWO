@@ -13,10 +13,7 @@ namespace NWO.Map;
 // gameplay logic is testable without a scene running.
 public partial class WorldMap : Node2D
 {
-    private const int   MapWidth            = 60;
-    private const int   MapHeight           = 40;
     private const float SecondsPerTile      = 0.12f;
-    private const int   MinAISpawnDistance  = 10;
     private const float DragThreshold       = 8f;   // px the cursor must travel before LMB becomes a pan, not a click
     private const float WheelPanStep        = 80f;  // view shift per horizontal-wheel notch (touchpad two-finger horizontal scroll)
     private const float PanGestureScale     = 2.5f; // touchpad two-finger pan-gesture sensitivity
@@ -55,16 +52,9 @@ public partial class WorldMap : Node2D
 
     public override void _Ready()
     {
-        int seed = (int)GD.Randi();
-        GD.Print($"Map seed: {seed}  (pass to MapGenerator.Generate to reproduce)");
-        var map     = MapGenerator.Generate(MapWidth, MapHeight, seed);
-        var catalog = DataCatalog.Load();
-        _state      = new GameState(map, catalog);
-
-        _viewerPlayer = _state.AddPlayer(new Player { Id = 0, Name = "Player",     IsHuman = true,  Color = Colors.Blue });
-        var aiPlayer  = _state.AddPlayer(new Player { Id = 1, Name = "Barbarians", IsHuman = false, Color = Colors.Red  });
-        _viewerFog    = _state.Fog(_viewerPlayer);
-        _session      = new GameSession(_state, _viewerPlayer);
+        ResolveLaunch();
+        _viewerFog = _state.Fog(_viewerPlayer);
+        _session   = new GameSession(_state, _viewerPlayer);
 
         _renderer         = GetNode<WorldRenderer>("WorldRenderer");
         _ui               = GetNode<UIController>("UI");
@@ -78,32 +68,55 @@ public partial class WorldMap : Node2D
         _ui.FoundCityPressed  += () => { if (_selection.Unit != null) TryFoundCity(_selection.Unit); };
         _ui.BuildImprovementPressed += OnBuildImprovement;
         _ui.EventFocusRequested     += FocusCameraOn;
-
-        var warriorDef = catalog.Unit("warrior")!;
-        var settlerDef = catalog.Unit("settler")!;
-        var startPos   = _state.FindWalkableTileNear(MapCenterAxial());
-        _state.Units.Add(new Unit(warriorDef, _viewerPlayer, startPos));
-        _state.Units.Add(new Unit(settlerDef, _viewerPlayer,
-            _state.FindWalkableTileNear(new Vector2I(startPos.X + 3, startPos.Y))));
-
-        // Confine the AI to the player's landmass for MVP. Cross-continent /
-        // island AI is a Phase 5+ concern (needs naval movement). See
-        // ROADMAP.md → Post-MVP.
-        var landmass       = _state.GetConnectedLandmass(startPos);
-        var aiStart        = PickAISpawn(startPos, landmass);
-        var aiSettlerStart = FindNeighborOnLandmass(aiStart, landmass) ?? aiStart;
-        _state.Units.Add(new Unit(warriorDef, aiPlayer, aiStart));
-        _state.Units.Add(new Unit(settlerDef, aiPlayer, aiSettlerStart));
+        _ui.SaveRequested           += OnSaveRequested;
+        _ui.LoadRequested           += OnLoadRequested;
+        _ui.MainMenuRequested       += OnMainMenuRequested;
 
         _renderer.Initialize(_state, _selection, _animator, _viewerPlayer);
         _ui.InitializeMinimap(_state, _viewerPlayer, camera2D, RecenterCameraWorld);
-        _cameraController.Position = WorldRenderer.AxialToWorld(MapCenterAxial());
+        _cameraController.Position = WorldRenderer.AxialToWorld(GameFactory.MapCenterAxial());
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
         _ui.SetCivStatus(_state, _viewerPlayer);
         _renderer.QueueRedraw();
         BuildAndStartEndTurnQueue();
     }
+
+    // Resolves the pending GameLaunch request into _state + _viewerPlayer: resume
+    // a loaded game if one was handed across the scene change, else start a fresh
+    // match. Clears the request so a later scene reload doesn't reuse it.
+    private void ResolveLaunch()
+    {
+        if (GameLaunch.LoadedGame is { } loaded)
+        {
+            _state        = loaded;
+            _viewerPlayer = _state.Players.First(p => p.IsHuman);
+        }
+        else
+        {
+            int seed = GameLaunch.NewGameSeed ?? (int)GD.Randi();
+            GD.Print($"Map seed: {seed}  (pass to MapGenerator.Generate to reproduce)");
+            var (state, viewer) = GameFactory.NewGame(seed);
+            _state        = state;
+            _viewerPlayer = viewer;
+        }
+        GameLaunch.LoadedGame  = null;
+        GameLaunch.NewGameSeed = null;
+    }
+
+    // ── Save / load / menu (HUD pause overlay) ─────────────────────────────────
+
+    private const string MainMenuScene = "res://scenes/ui/MainMenu.tscn";
+
+    private void OnSaveRequested(string slotName) => SaveService.Save(_state, slotName);
+
+    private void OnLoadRequested(string file)
+    {
+        GameLaunch.LoadedGame = SaveService.Load(file, _state.Catalog);
+        GetTree().ChangeSceneToFile("res://scenes/world/WorldMap.tscn");
+    }
+
+    private void OnMainMenuRequested() => GetTree().ChangeSceneToFile(MainMenuScene);
 
     // ── Per-frame ────────────────────────────────────────────────────────────
 
@@ -920,43 +933,4 @@ public partial class WorldMap : Node2D
         _state.RecomputeFog(_viewerPlayer, overrides);
     }
 
-    private static Vector2I MapCenterAxial()
-    {
-        int col = MapWidth  / 2;
-        int row = MapHeight / 2;
-        return new Vector2I(col, row - (col - (col & 1)) / 2);
-    }
-
-    // Picks an AI starting tile on `landmass` (the player's continent).
-    // Preference order:
-    //   1. Tiles at least MinAISpawnDistance away (avoids spawning adjacent).
-    //   2. Whatever's farthest if the island is too small for that rule.
-    // Falls back to playerStart only if the landmass is empty (player landed
-    // on a lone unwalkable tile — shouldn't happen in practice).
-    private static Vector2I PickAISpawn(Vector2I playerStart, HashSet<Vector2I> landmass)
-    {
-        if (landmass.Count == 0) return playerStart;
-
-        Vector2I best        = playerStart;
-        int      bestDist    = -1;
-        Vector2I farFromMin  = playerStart;
-        int      farFromMinD = -1;
-
-        foreach (var tile in landmass)
-        {
-            int d = HexGrid.Distance(playerStart, tile);
-            if (d > farFromMinD) { farFromMinD = d; farFromMin = tile; }
-            if (d >= MinAISpawnDistance && d > bestDist) { bestDist = d; best = tile; }
-        }
-        return bestDist >= 0 ? best : farFromMin;
-    }
-
-    // Walkable neighbour of `tile` that's on the same landmass, used to place
-    // the AI settler one hex from the warrior without leaving the continent.
-    private static Vector2I? FindNeighborOnLandmass(Vector2I tile, HashSet<Vector2I> landmass)
-    {
-        foreach (var n in HexGrid.GetNeighbors(tile))
-            if (landmass.Contains(n)) return n;
-        return null;
-    }
 }

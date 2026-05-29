@@ -181,19 +181,22 @@ win/loss, see a result screen, and save/reload without data loss.
 - [x] Tests: elimination rule, domination fires, opening turns yield nothing,
       score victory at turn 500, score ranking.
 
-### P6.2 — Main menu + save/load (named slots)
-- [ ] Bootstrap refactor: static `GameLaunch` handoff (NewGame seed / LoadGame
+### P6.2 — Main menu + save/load (named slots) ✅ COMPLETE
+- [x] Bootstrap refactor: static `GameLaunch` handoff (NewGame seed / LoadGame
       state + last `GameResult`) and `GameFactory.NewGame(seed)` extracted from
-      `WorldMap._Ready()` so new-game and load share one path.
-- [ ] `MainMenu.tscn` (New Game / Load Game / Quit), set as `run/main_scene`.
-- [ ] `SaveService` (System.Text.Json): DTO layer with a `Vector2I` converter and
-      ownership stored by `Player.Id` (not object ref); `DataCatalog` re-attached
-      from `res://data` on load, not serialized. Captures workforce, worker tasks,
+      `WorldMap._Ready()` so new-game and load share one path (`ResolveLaunch`).
+- [x] `MainMenu.tscn` (New Game / Load Game / Quit), set as `run/main_scene`.
+- [x] Split save layer: `SaveSerializer` (headless, System.Text.Json — DTOs, a
+      `Vector2I` converter for values + dict keys, string enums; ownership stored by
+      `Player.Id` and rebound on load; `DataCatalog` re-attached from `res://data`,
+      not serialized; fog Visible + city yields recomputed). `SaveService` wraps it
+      with `user://saves/` file IO. Captures the full map, workforce, worker tasks,
       civ economy, turn number, current player, combat seed.
-- [ ] Named slots under `user://saves/*.json` (header: name, timestamp, turn);
-      save dialog + load/delete list UI.
-- [ ] Tests: full-state round-trip, `Vector2I` converter, ownership rebinding,
-      loaded state keeps playing.
+- [x] Named slots under `user://saves/*.json` (header: name, timestamp, turn);
+      reusable `SaveBrowser` save dialog + load/delete list, reached in-game via a
+      HUD "Menu" → pause overlay.
+- [x] Tests: full-state round-trip, `Vector2I` converter (values + keys), ownership
+      rebinding, loaded state keeps playing.
 
 ### P6.3 — Audio (placeholder sounds)
 - [ ] `AudioManager` autoload (pool of `AudioStreamPlayer`) with

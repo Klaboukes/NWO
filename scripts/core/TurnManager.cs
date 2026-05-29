@@ -7,4 +7,7 @@ public class TurnManager
     public int TurnNumber { get; private set; } = 1;
 
     public void AdvanceTurn() => TurnNumber++;
+
+    // Restores the turn number on load. Save/load support only.
+    public void SetTurn(int turnNumber) => TurnNumber = turnNumber;
 }
