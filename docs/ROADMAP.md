@@ -110,11 +110,39 @@ Foundational gameplay/UX work so Phase 6 lands on solid systems. Sequenced:
   - [x] `Walls` finally grants its +5 city defense
   - [x] Units heal when idle (+10, +15 near a friendly city)
   - [x] Combat-odds preview on hover + on-map HP bars for units & cities
-- [ ] **M2 — Economy & expansion** (worker improvements, per-tile gold + buy,
-      strategic resources gating units)
-- [ ] **M3 — Readable HUD** (minimap, scrolling event log, city cycle, tile tooltip)
-- [ ] **M4 — Competent AI** (research, production mix, scored expansion,
-      non-suicidal attacks, garrison, retreat-to-heal)
+- **M2 — Economy & expansion** (next up)
+  - [ ] Tile improvements: `enum ImprovementType { None, Farm, Mine, Road, Pasture }`
+        in `MapData`; worker gets a multi-turn build task (`Unit.CurrentTask`)
+        processed in `EndPlayerTurn`. Yields via `TerrainYields`/`CityWorkforceService`:
+        Farm +1 food, Mine +1 prod, Pasture +1 prod (Animal Husbandry), Road halves
+        move cost. Tech-gated (Mining→Mine, etc.).
+  - [ ] Per-tile gold: add Gold to `TerrainYields`, sum worked-tile gold in
+        `CivEconomyService.GoldPerTurn` (currently buildings-only). "Buy" button in
+        city panel spends treasury to finish production (cost ∝ remaining).
+  - [ ] Strategic resources: `MapGenerator` scatters horses (Plains/Grassland) and
+        iron (Hills) into `MapData`; `ResourceService` answers "does this civ work
+        resource X"; enforce `UnitData.RequiredResource` in the build-list filter
+        (`UIController.ShowCityPanel`); reveal only after the revealing tech.
+- **M3 — Readable HUD**
+  - [ ] Minimap: new `MinimapController` (+ `UI.tscn` node) drawing scaled map with
+        fog, unit/city dots, camera viewport rect; click to recenter.
+  - [ ] Event log: replace `List<string>` notifications with
+        `GameEvent { string Text; Vector2I? Focus }` out of `EndPlayerTurn`/session;
+        `EventLogController` shows last N, click focuses the tile.
+  - [ ] City list/cycle hotkey (`C`) to jump between own cities.
+  - [ ] Tile hover tooltip: terrain + yields + improvement/resource.
+- **M4 — Competent AI** (rework `AIController.TakeTurn`)
+  - [ ] Research an available tech via `CivEconomyService.SetResearch` when idle.
+  - [ ] Production mix: early Settler/Worker when safe; defenders for undefended
+        cities; attackers gated by tech/resources; Walls when threatened.
+  - [ ] Expansion: move Settlers to scored valid sites (≥ MinCityDistance), found there.
+  - [ ] Military: use `CombatResolver.Expected` to avoid suicidal attacks; garrison
+        cities; retreat damaged units toward a friendly city to heal.
+  - [ ] City focus set by need (growth vs. production).
+
+> Sequencing M2 → M3 → M4. Each milestone: implement → `dotnet build` (0 warnings)
+> → `dotnet test` (green, add tests) → sync `docs/` (drop matching **[planned]**
+> flags) → commit. M3 also needs a manual Godot run (new draw code).
 
 ---
 
