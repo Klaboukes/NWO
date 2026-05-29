@@ -2,14 +2,18 @@
 
 ---
 
-## Engine: Godot 4.x
+## Engine: Godot 4.6 (.NET / C#)
 
 **Why Godot 4:**
-- Built-in `TileMap` node with hex grid support (offset and axial coordinates)
-- Scene/Node system maps cleanly to game entities (each Unit, City, Tile is a scene)
 - Free and open-source, exports natively to Windows and macOS
-- C# support via .NET 8 — full language features, good IDE integration
+- C# support via .NET — full language features, good IDE integration
 - Lightweight — no runtime royalties, no launcher, no account required
+
+**Rendering note:** the original plan was a `TileMap` with each Unit/City/Tile as
+its own scene. The implementation instead renders the map, units, and cities in
+**immediate mode** (`WorldRenderer._Draw` with coloured polygons). Only the HUD
+(`UI.tscn`), tech tree (`TechTreePanel.tscn`), and world root (`WorldMap.tscn`)
+are scenes. A `TileMap` migration is deferred until art assets exist.
 
 **Why not Unity:** recent licensing changes make it risky for indie projects; heavier setup overhead.  
 **Why not Unreal:** C++ complexity and 3D focus are overkill for a 2D hex strategy MVP.
@@ -36,33 +40,40 @@
 
 ---
 
-## Project Structure (Godot)
+## Project Structure (actual)
 
 ```
 NWO/
 ├── project.godot
-├── addons/            # Third-party Godot plugins (if any)
-├── assets/
-│   ├── art/           # Sprites, tilesets, UI textures
-│   ├── audio/         # SFX and music
-│   └── fonts/
+├── NWO.sln  NWO.csproj          # game project
+├── NWO.Tests/                   # xUnit test project (headless gameplay tests)
+├── addons/                      # (empty placeholder)
 ├── scenes/
-│   ├── world/         # HexMap, WorldGenerator
-│   ├── entities/      # Unit.tscn, City.tscn, Tile.tscn
-│   ├── ui/            # HUD, menus, panels
-│   └── game/          # GameManager, TurnManager
+│   ├── world/   WorldMap.tscn   # main scene / coordinator
+│   ├── ui/      UI.tscn, TechTreePanel.tscn
+│   ├── entities/ game/          # (empty — entities are drawn, not scened)
 ├── scripts/
-│   ├── core/          # GameState, TurnSystem, EventBus
-│   ├── map/           # HexGrid, MapGenerator, FogOfWar
-│   ├── entities/      # Unit.cs, City.cs, Civilization.cs
-│   ├── ai/            # AIController, AIStrategy
-│   └── ui/            # HUDController, SelectionPanel
+│   ├── core/    # GameState, GameSession, TurnManager, DataCatalog, DataLoader,
+│   │            # CombatResolver, CivEconomyService, CityWorkforceService,
+│   │            # FogOfWar, EndTurnQueue, SelectionState, MovementAnimator,
+│   │            # CameraController, IEndTurnItem
+│   ├── map/     # HexGrid, MapData, MapGenerator, TerrainType, TerrainYields,
+│   │            # WorldMap, WorldRenderer
+│   ├── entities/# Unit, UnitData, City, CityWorkforce, Civilization, Player,
+│   │            # BuildingData, TechData
+│   ├── ai/      # AIController
+│   └── ui/      # UIController, TechTreePanelController
 ├── data/
-│   ├── units.json     # Unit definitions (stats, cost, movement)
-│   ├── buildings.json # Building definitions
-│   └── techs.json     # Tech tree nodes
-└── docs/              # This folder
+│   ├── units.json      # Unit definitions (stats, cost, tech/resource reqs)
+│   ├── buildings.json  # Building definitions (cost, yields, effects)
+│   └── techs.json      # Tech tree nodes (cost, prereqs, unlocks)
+└── docs/               # This folder
 ```
+
+There is no `assets/` directory or `terrain.json` yet — terrain numbers live in
+`TerrainYields.cs`, and there are no art/audio assets (immediate-mode rendering).
+Gameplay logic in `scripts/` is engine-light and exercised by `NWO.Tests`
+without a running scene.
 
 ---
 

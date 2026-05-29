@@ -53,6 +53,19 @@
       "requiredResource": "horses"
     },
     {
+      "id": "swordsman",
+      "name": "Swordsman",
+      "productionCost": 90,
+      "attack": 14,
+      "defense": 14,
+      "movement": 2,
+      "range": 1,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": "iron_working",
+      "requiredResource": "iron"
+    },
+    {
       "id": "settler",
       "name": "Settler",
       "productionCost": 100,

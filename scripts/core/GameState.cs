@@ -70,8 +70,12 @@ public class GameState
             if (HexGrid.Distance(existing.Position, pos) < MinCityDistance)
                 return FoundCityResult.TooClose;
 
+        // The first city a player founds is its capital (Phase 6 domination
+        // victory targets it). Checked before the new city is added.
+        bool isCapital = !Cities.Exists(c => c.Owner == settler.Owner);
+
         Units.Remove(settler);
-        city = new City(NextCityName(), settler.Owner, pos);
+        city = new City(NextCityName(), settler.Owner, pos) { IsCapital = isCapital };
         Cities.Add(city);
         CityWorkforceService.Recompute(this, city);
         // Founding a new city can shift tile control near neighbours.

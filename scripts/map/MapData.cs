@@ -3,6 +3,8 @@ using Godot;
 
 namespace NWO.Map;
 
+// The hex map: terrain keyed by axial (q, r) coordinate. Populated by
+// MapGenerator and read (never structurally mutated) during play.
 public class MapData
 {
     public int Width  { get; }

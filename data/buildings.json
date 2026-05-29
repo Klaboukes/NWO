@@ -4,7 +4,7 @@
       "id": "monument",
       "name": "Monument",
       "productionCost": 60,
-      "requiredTech": null,
+      "requiredTech": "philosophy",
       "yields": { "culture": 2 }
     },
     {

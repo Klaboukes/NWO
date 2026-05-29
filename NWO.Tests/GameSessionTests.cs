@@ -98,6 +98,36 @@ public class GameSessionTests
     }
 
     [Fact]
+    public void TryFoundCity_FirstCityIsCapital_SecondIsNot()
+    {
+        var session  = TestWorlds.StandardSession(out var human, out _);
+        var settler1 = new Unit(TestWorlds.Settler(), human, new Vector2I(5, 5));
+        var settler2 = new Unit(TestWorlds.Settler(), human, new Vector2I(15, 15)); // far past MinCityDistance
+        session.State.Units.Add(settler1);
+        session.State.Units.Add(settler2);
+
+        Assert.Equal(GameState.FoundCityResult.Success, session.TryFoundCity(settler1, out var capital));
+        Assert.Equal(GameState.FoundCityResult.Success, session.TryFoundCity(settler2, out var second));
+
+        Assert.True(capital!.IsCapital);
+        Assert.False(second!.IsCapital);
+    }
+
+    [Fact]
+    public void CaptureCity_PreservesCapitalFlag()
+    {
+        var session = TestWorlds.StandardSession(out var human, out var ai);
+        var capital = new City("Rome", ai, new Vector2I(8, 8)) { IsCapital = true };
+        var captor  = new Unit(TestWorlds.Warrior(), human, new Vector2I(8, 8));
+        session.State.Cities.Add(capital);
+
+        session.State.CaptureCity(captor, capital);
+
+        Assert.Same(human, capital.Owner);
+        Assert.True(capital.IsCapital); // captured capital stays flagged for domination victory
+    }
+
+    [Fact]
     public void EndTurn_RunsAIAndReturnsControlToHuman()
     {
         var session = TestWorlds.StandardSession(out _, out _);

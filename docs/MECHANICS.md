@@ -1,5 +1,10 @@
 # Core Game Mechanics (MVP)
 
+> **Status:** Reflects the implementation through Phase 5 (tech tree & economy).
+> Numbers below match the code (`TerrainYields`, `CityWorkforceService`,
+> `CivEconomyService`, `CombatResolver`, the JSON in `data/`). Features not yet
+> built are flagged **[planned]**.
+
 ---
 
 ## 1. Map
@@ -7,32 +12,47 @@
 ### Hex Grid
 - Map size: 60×40 tiles (MVP default, configurable)
 - Coordinate system: axial (q, r) — see TECH_STACK.md
-- Each tile has exactly one **terrain type** and zero or one **feature**
+- Each tile currently has exactly one **terrain type**. Tile **features** (e.g.
+  oases, floodplains) are **[planned]** — `MapData` stores only terrain today.
 
 ### Terrain Types
 
-| Terrain | Movement Cost | Food | Production | Gold |
-|---------|--------------|------|------------|------|
-| Grassland | 1 | +2 | +0 | +0 |
-| Plains | 1 | +1 | +1 | +0 |
-| Desert | 1 | +0 | +0 | +0 |
-| Tundra | 1 | +1 | +0 | +0 |
-| Snow | 1 | +0 | +0 | +0 |
-| Hills | 2 | +0 | +2 | +0 |
-| Forest | 2 | +1 | +1 | +0 |
-| Mountain | impassable | — | — | — |
-| Ocean | 3 (naval only) | +1 | +0 | +1 |
-| Coast | 2 (naval only) | +1 | +0 | +1 |
+Yields per `TerrainYields`. There is **no per-tile Gold** in the code yet — gold
+comes only from buildings (see §9), so the Gold column is **[planned]**.
 
-### Resources (MVP — 3 types)
-- **Luxury**: +4 gold when connected to a city; happiness bonus (not implemented in MVP)
+| Terrain | Movement Cost | Food | Production |
+|---------|--------------|------|------------|
+| Grassland | 1 | +2 | +0 |
+| Plains | 1 | +1 | +1 |
+| Desert | 1 | +0 | +1 |
+| Tundra | 1 | +1 | +0 |
+| Snow | 1 | +0 | +0 |
+| Hills | 2 | +1 | +2 |
+| Forest | 2 | +1 | +2 |
+| Mountain | impassable | — | — |
+| Ocean | impassable | +1 | +0 |
+| Coast | impassable | +2 | +0 |
+
+Ocean and Coast are currently **impassable** (no naval units yet); their food
+values only matter to coastal cities working those tiles. Naval movement costs
+are **[planned]**.
+
+### Resources **[planned]**
+No resource system is implemented yet — `MapGenerator` places terrain only, and
+`MapData` stores nothing but terrain. The data files already reference resources
+(`horses` for Horseman, `iron` revealed by Bronze Working), and techs list
+`revealedResources`, but nothing scatters or grants them. Planned types:
+- **Luxury**: gold + happiness when connected to a city
 - **Strategic**: required to build certain units (e.g., Horses → Horseman)
 - **Bonus**: +yield to the tile (e.g., Wheat +1 Food)
 
 ### Map Generation (Procedural)
-- Algorithm: fractal heightmap → terrain assignment → resource scatter
+- Algorithm: two layers of simplex noise (`FastNoiseLite`) blended 70/30, with a
+  radial falloff that pushes map edges to ocean → island-like continents.
 - Rivers: not in MVP
-- Continents: at least 2 per map
+- Continents: the falloff tends to produce multiple landmasses, but a minimum
+  count is **not** enforced.
+- Resource scatter: **[planned]** (see above).
 
 ---
 
@@ -54,8 +74,11 @@ Start of Turn
     └── AI takes its turn
 ```
 
-- Turn limit: 500 turns (configurable). Score-based winner if limit reached.
-- Simultaneous movement is **not** in MVP — player goes first, then AI.
+- Simultaneous movement is **not** in MVP — player goes first, then the AI runs
+  synchronously inside `GameSession.EndTurn`.
+- **[planned]** Turn limit (500) and score-based winner are not implemented yet.
+- The AI runs a single reactive pass (attack / settle / advance) and auto-queues
+  Warriors; it does not have a real city or research phase (see ARCHITECTURE.md).
 
 ---
 
@@ -74,10 +97,12 @@ Start of Turn
 | `Owner` | Civilization that controls the unit |
 
 ### Movement
-- Each unit has `MovementPoints` reset at start of its civ's turn
+- Each unit has `MovementRemaining`, reset to its `Movement` at the start of its
+  civ's turn (fortified units stay at 0 until woken by an order)
 - Moving onto a tile costs the tile's movement cost
-- Cannot move through enemy units
-- Can move through friendly units (stacking: 1 military + 1 civilian max per tile in MVP)
+- Enemy units block pathfinding (treated as impassable)
+- **[planned]** Stacking rules: there is currently no enforced 1-military +
+  1-civilian-per-tile limit. The AI avoids stepping onto any occupied tile.
 
 ### Combat (Simplified)
 - Attacker and defender each roll: `strength × (HP/100) × random(0.85, 1.15)`
@@ -91,34 +116,55 @@ Start of Turn
 |------|------------------|-----|-----|------|-------|
 | Warrior | 40 | 8 | 8 | 2 | 1 |
 | Archer | 70 | 7 | 4 | 2 | 2 |
-| Spearman | 60 | 6 | 12 | 2 | 1 |
-| Horseman | 80 (needs Horses) | 12 | 7 | 4 | 1 |
+| Spearman | 60 (needs Bronze Working) | 6 | 12 | 2 | 1 |
+| Horseman | 80 (needs Horseback Riding) | 12 | 7 | 4 | 1 |
+| Swordsman | 90 (needs Iron Working) | 14 | 14 | 2 | 1 |
 | Settler | 100 | 0 | 0 | 2 | — |
 | Worker | 70 | 0 | 0 | 2 | — |
 
+All units have sight radius 2 and 1 gold maintenance (Settler/Worker cost 0).
+The Horseman/Swordsman list a `requiredResource` (`horses`/`iron`), but since
+resources aren't implemented yet those requirements aren't enforced.
+
 ### Special Units
-- **Settler**: Can found a city. Consumed on use.
-- **Worker**: Can build tile improvements (Road, Farm, Mine). Takes 3 turns per improvement.
+- **Settler**: Can found a city (`special: "found_city"`). Consumed on use.
+- **Worker**: Carries `special: "build_improvement"`, but **tile improvements
+  (Road, Farm, Mine) are not implemented yet [planned]** — a Worker currently
+  has no action it can perform.
 
 ---
 
 ## 4. Cities
 
 ### Founding
-- A Settler unit can found a city on any non-water, non-mountain tile not within 3 tiles of another city
-- The city claims the surrounding 3-tile radius as its **territory**
-- The 6 tiles immediately adjacent are worked automatically at founding
+- A Settler unit can found a city on any non-Ocean, non-Mountain tile not within
+  3 tiles of another city (`MinCityDistance = 3`)
+- Cities work tiles within a radius of **2** (`CityWorkforceService.WorkRadius`),
+  excluding the city center. There is no separate stored "territory" — a tile
+  belongs to the nearest city center within work radius (earlier-founded city
+  wins ties).
+- Citizens are auto-assigned to the best workable tiles by the city's focus at
+  founding; the player can lock/unlock specific tiles (see Phase 4 / §4 below).
 
-### City Yields
-- Each turn a city produces: **Food**, **Production**, **Gold**, **Science**
-- Yields come from worked tiles + buildings + base city values
-- Base city values: +1 Food, +1 Production, +1 Gold, +1 Science
+### City Yields (Food & Production)
+- Each turn a city's worked tiles drive its **Food** and **Production** yields,
+  recomputed by `CityWorkforceService` (on found, capture, building completion,
+  growth, and end of turn).
+- Yields = city-center floor + worked tiles + building bonuses.
+- **City-center floor:** at least **2 Food / 1 Production** at the city tile
+  (Civ 5 rule), regardless of the center terrain.
+- **Science** is +1 per city plus building science (summed civ-wide each turn by
+  `CivEconomyService`, not stored per city). **Gold** comes only from buildings
+  (see §9). Neither is computed from worked tiles yet.
 
 ### Growth
-- Food surplus accumulates in a **Food Basket**
-- Basket threshold: `15 + (6 × population)`
-- When threshold reached: population +1, basket resets to 0
-- Population starves (−1 pop) if Food yield < 0 for 3 consecutive turns
+- Each turn: `FoodAccumulated += FoodYield − Population` (each citizen eats 1
+  food). `FoodAccumulated` is clamped at ≥ 0.
+- Growth threshold: `15 + (6 × population)`
+- When threshold reached: population +1, surplus carries over (threshold
+  subtracted, not reset to 0)
+- **[planned]** Starvation: there is no pop loss when food is negative yet —
+  `FoodAccumulated` simply can't drop below 0.
 
 ### Production Queue
 - One item produced at a time
@@ -127,29 +173,39 @@ Start of Turn
 
 ### Buildings (MVP set)
 
-| Building | Cost | Effect |
-|----------|------|--------|
-| Monument | 60 | +2 Culture |
-| Granary | 80 | +2 Food |
-| Barracks | 100 | New units start with +15 XP |
-| Library | 90 | +2 Science |
-| Market | 120 | +2 Gold |
-| Walls | 130 | +5 City Defense |
+| Building | Cost | Req. Tech | Effect | Implemented? |
+|----------|------|-----------|--------|--------------|
+| Monument | 60 | — | +2 Culture | data only — no culture system |
+| Granary | 80 | Pottery | +2 Food | ✅ |
+| Barracks | 100 | — | New units +15 XP | data only — no XP system |
+| Library | 90 | Writing | +2 Science | ✅ |
+| Market | 120 | — | +2 Gold | ✅ |
+| Walls | 130 | — | +5 City Defense | data only — no city combat |
+
+Only the Food / Science / Gold yields feed the simulation. Culture, unit XP, and
+city defense are declared in `data/buildings.json` but have **no gameplay effect
+yet [planned]**. The Monument requires **Philosophy** (its +2 Culture has no
+effect until a culture system exists).
 
 ---
 
 ## 5. Civilizations
 
-### MVP: 2 Civilizations
-- **Player Civilization**: human-controlled
-- **AI Civilization**: one opponent
+### MVP: 2 Players
+- **Player** (`IsHuman = true`): human-controlled, color blue
+- **Barbarians** (`IsHuman = false`): one AI opponent, color red
 
-### Civilization Properties
-- Name, color, starting unit set (1× Warrior, 1× Settler)
-- Starting position: placed on opposite sides of the map
+Identity (`Player`: id/name/human/color) is separate from civ-wide state
+(`Civilization`: treasury, science, research) — see ARCHITECTURE.md.
+
+### Starting Setup
+- Each player begins with 1× Warrior + 1× Settler.
+- The AI spawns on the **same landmass** as the player, at least 10 tiles away
+  (`MinAISpawnDistance`) — not on the opposite side of the map. Cross-continent
+  spawning waits on naval units (see ROADMAP Post-MVP).
 
 ### Unique Abilities (MVP — placeholder, implement in post-MVP)
-- Both civs use identical stats in MVP for simplicity
+- Both players use identical unit/building stats in MVP for simplicity
 
 ---
 
@@ -174,14 +230,23 @@ Mining → Bronze Working → Iron Working
 
 - Only one tech can be researched at a time
 - Prerequisites must be completed before a tech is available
+- **Building/unit unlocks work** (a researched tech enables its building/unit in
+  the city build menu). The **improvement** unlocks (Pasture, Mine) and
+  **revealed resources** (Horse, Iron) are data only — those systems aren't built
+  yet **[planned]**.
 
 ---
 
-## 7. Win Conditions (MVP)
+## 7. Win Conditions (MVP) **[planned]**
+
+Not implemented yet (Phase 6). City capture works mechanically, but no
+victory/defeat is detected or surfaced, and there is no turn limit or score
+computation in code. The intended conditions:
 
 ### Domination Victory
 - Capture the **capital city** of the opponent
-- The capital is the first city founded by a civilization
+- The capital is the first city founded by a civilization (note: there is no
+  `IsCapital` flag in the model yet — this needs adding)
 
 ### Score Victory (fallback)
 - After 500 turns, the civilization with the highest score wins
@@ -200,19 +265,38 @@ Mining → Bronze Working → Iron Working
 
 ## 9. Gold & Economy
 
-- Gold accumulates each turn from city yields and trade
-- Gold is spent on: unit maintenance, buying buildings/units instantly
-- Unit maintenance: each military unit costs 1 gold/turn
-- If gold goes negative: units are disbanded (cheapest first) until balanced
+Handled civ-wide by `CivEconomyService` each turn:
+
+- Each civ starts with a treasury of **50** gold (`StartingTreasury`).
+- **Income**: sum of building Gold yields (Market +2). There is no per-tile or
+  trade gold yet **[planned]**.
+- **Maintenance**: each unit's `maintenanceGold` (1 for military, 0 for
+  Settler/Worker), minus a **2-gold free grace** (`FreeUnitMaintenance`) — so a
+  Warrior + Settler opening costs 0/turn.
+- **Negative treasury**: units are disbanded until the treasury is non-negative,
+  cheapest by **production cost** first, then lowest HP. Disbanding refunds the
+  unit's maintenance for the turn but no production.
+- **[planned]** Buying buildings/units instantly with gold is not implemented.
+
+### Research
+- Science accumulates civ-wide each turn (1 per city + building science).
+- When `ScienceAccumulated ≥ tech.scienceCost`, the current research completes,
+  the cost is subtracted (overflow carries over), and the tech is added to
+  `ResearchedTechs`. Switching research keeps banked science.
+- Prerequisites must be researched first. The AI does not research.
 
 ---
 
 ## 10. Notifications & Events
 
-Events the player must be informed of each turn:
+Notifications currently emitted:
 - City grew (population +1)
 - Production complete
 - Tech research complete
-- Unit under attack
-- City captured
-- Score victory warning (last 50 turns)
+- Treasury depleted → unit disbanded
+- City founded / city captured
+- Combat result (hit / kill / both killed)
+
+**[planned]:** "unit under attack" alerts and the score-victory warning (last 50
+turns) aren't implemented. The notification surface is a single transient/
+persistent label, not yet a scrolling event log (Phase 6).

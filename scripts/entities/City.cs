@@ -4,11 +4,15 @@ using NWO.Core;
 
 namespace NWO.Entities;
 
+// Runtime state for one city instance. Food/Production yields are recomputed by
+// CityWorkforceService from worked tiles + buildings; civ-wide economy (gold,
+// science, research) lives on Civilization, not here.
 public class City : IEndTurnItem
 {
     public string         Name               { get; set; }
     public Player         Owner              { get; set; }
     public Vector2I       Position           { get; set; }
+    public bool           IsCapital          { get; set; } // first city a player founds; kept on capture
     public int            Population         { get; set; } = 1;
     public float          FoodAccumulated    { get; set; }
     public int            ProductionProgress { get; set; }

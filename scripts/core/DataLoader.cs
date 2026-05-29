@@ -5,6 +5,9 @@ using NWO.Entities;
 
 namespace NWO.Core;
 
+// Loads the JSON data files (units/buildings/techs) from res://data at startup
+// and deserializes them into the immutable record types. DataCatalog indexes the
+// results for O(1) lookup; nothing here is called after startup.
 public static class DataLoader
 {
     private static readonly JsonSerializerOptions Options = new()

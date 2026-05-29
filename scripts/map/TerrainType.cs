@@ -1,5 +1,7 @@
 namespace NWO.Map;
 
+// The terrain kinds a tile can be. Gameplay numbers (yields, movement cost) are
+// looked up in TerrainYields, not stored on the enum.
 public enum TerrainType
 {
     Grassland,
