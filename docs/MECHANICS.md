@@ -7,6 +7,28 @@
 
 ---
 
+## 0. Direction (where these mechanics are heading) [planned]
+
+The sections below describe the **Civ5-style MVP as built**. The spin-off reframe
+(see [OVERVIEW.md](OVERVIEW.md), [LORE.md](LORE.md), [FACTIONS.md](FACTIONS.md), and
+ROADMAP Phase 8) layers on top of them — it does not throw them away:
+
+- **Capped / contested settlement.** Infinite settler-spam (§1, §4) gives way to a small
+  number of cities and **pre-placed sites factions fight over**, cutting expansion micro.
+- **Tech-regression arc.** The antiquity roster (§3) and tech tree (§6) are reframed as the
+  *first tier* of a re-climb — **salvaged-primitive → recovered colony tech → new planetary
+  tech** — so existing units are reskins and later tiers go sci-fi.
+- **Faction asymmetry.** A fixed cast of ideological factions (player-chosen 2–8 per match)
+  adds signature passives + unique-unit variants, mostly via `data/*.json` and small hooks
+  in the existing static services. The current single "Barbarians" AI becomes **the Reavers**.
+- **Objective victory + shorter clock.** Alongside Domination/Score (§7), an *Establish the
+  New World Order* key-site-control win, with a turn cap well below 500 and more lethal
+  combat (§3) so matches resolve faster.
+
+Everything in §0 is `[planned]`; the rest of this document is the current implementation.
+
+---
+
 ## 1. Map
 
 ### Hex Grid

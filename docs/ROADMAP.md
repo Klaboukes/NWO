@@ -60,15 +60,54 @@ de-risked with runtime placeholders first (mirrors the `AudioManager` pattern).
 
 ---
 
+## Phase 8 — "The Sundering" (factions & fast-warfare reframe) 🔭 PLANNED
+
+Goal: turn the Civ5-style MVP into the **NWO spin-off** — ideological factions, decisive
+fast warfare, and an objective victory tied to the lore. Setting & design intent:
+[LORE.md](LORE.md), [OVERVIEW.md](OVERVIEW.md), [FACTIONS.md](FACTIONS.md). Most of this is
+**data + small hooks** on the existing headless core, not new subsystems. Can run alongside
+or after Phase 7 (visuals) — they're independent.
+
+- [ ] **8.1 — Faction data model.** Add `FactionData` (loaded via `DataLoader`/`DataCatalog`)
+      + a faction id and signature-passive hooks on `Player`/`Civilization`. Replace the
+      hard-coded "Barbarians" AI with **The Reavers**. *Done when:* a match can be seeded
+      with a named faction whose passive is read by the core.
+- [ ] **8.2 — Match setup (player-chosen factions).** Setup screen to choose faction
+      **count (2–8)** and which factions; wire through `GameFactory.NewGame` and
+      `WorldMap.ResolveLaunch` / `PickAISpawn`. *Done when:* the player picks the roster and
+      it spawns correctly.
+- [ ] **8.3 — Faction asymmetry (v1: 6 + Reavers).** Implement signature passives +
+      unique-unit variants per [FACTIONS.md](FACTIONS.md) in `data/*.json` and the static
+      services they touch (`CombatResolver`, `CivEconomyService`, movement/sight). Piety &
+      Aesthetics stay shelved. *Done when:* each faction plays to its one-sentence identity.
+- [ ] **8.4 — Anti-micro settlement model.** Capped cities / pre-placed contested sites
+      (`MinCityDistance`, `MapGenerator`, settle rules). *Done when:* a match is decided by
+      fighting over sites, not by settler-carpeting.
+- [ ] **8.5 — Objective victory + shorter clock.** *Establish the New World Order*
+      key-site-control win in `VictoryService`/`ScoreService`; lower the turn cap; tune
+      combat lethality via the `tune-mechanics` skill. *Done when:* a typical match resolves
+      well under the old 500-turn limit.
+- [ ] **8.6 — Light diplomacy/economy.** Alliances / non-aggression; **hire-Reavers** via
+      gold. *Done when:* gold and stance choices meaningfully affect a war without becoming
+      its focus.
+
+> Tech-regression art/flavour (salvaged → colony → planetary tiers) rides on Phase 7's
+> sprite pipeline as factions and tiers land — see [LORE.md](LORE.md).
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
-After the visual overhaul, candidate directions:
+Beyond Phase 7 (visuals) and Phase 8 (factions & fast-warfare reframe), candidate
+directions. Factions, light diplomacy, and the objective victory now live in **Phase 8**,
+not here.
 
-- Additional civilizations with unique abilities
-- Diplomacy (peace, war, trade deals)
-- Full tech tree (50+ techs)
-- Culture and borders; Religion
-- More unit types (naval, siege)
+- **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve
+  the two trees held back from the Phase 8 roster (see [FACTIONS.md](FACTIONS.md)).
+- Full tech tree (50+ techs), extending the salvaged → colony → planetary regression arc
+- Deeper diplomacy (trade deals beyond the Phase 8 alliance/non-aggression basics)
+- Culture and borders; Religion (currently out of scope)
+- More unit types (naval, siege; plus the sci-fi late-tier units from the regression arc)
 - **Cross-continent / multi-island AI spawning** — once naval units exist, drop the
   `WorldMap.PickAISpawn` same-landmass constraint and spawn players on separate
   continents.
