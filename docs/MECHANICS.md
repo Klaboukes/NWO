@@ -150,6 +150,7 @@ Start of Turn
 | Spearman | 60 (needs Bronze Working) | 6 | 12 | 2 | 1 |
 | Horseman | 80 (needs Horseback Riding) | 12 | 7 | 4 | 1 |
 | Swordsman | 90 (needs Iron Working) | 14 | 14 | 2 | 1 |
+| Catapult | 100 (needs Iron Working) | 14 | 4 | 1 | 2 |
 | Settler | 100 | 0 | 0 | 2 | — |
 | Worker | 70 | 0 | 0 | 2 | — |
 
@@ -272,7 +273,7 @@ Mining → Bronze Working → Iron Working
 | Horseback Riding | 100 | Horseman unit |
 | Mining | 35 | Mine improvement |
 | Bronze Working | 55 | Spearman unit, reveals Iron resource |
-| Iron Working | 100 | Swordsman unit |
+| Iron Working | 100 | Swordsman unit, Catapult unit |
 
 - Only one tech can be researched at a time
 - Prerequisites must be completed before a tech is available

@@ -12,6 +12,7 @@ public class TechCatalogTests
         {
             new UnitData     { Id = "warrior",  Name = "Warrior",  ProductionCost = 40 },
             new UnitData     { Id = "horseman", Name = "Horseman", ProductionCost = 80, RequiredTech = "horseback_riding" },
+            new UnitData     { Id = "catapult", Name = "Catapult", ProductionCost = 100, Range = 2, RequiredTech = "iron_working" },
         },
         new[]
         {
@@ -36,6 +37,11 @@ public class TechCatalogTests
                 Id = "horseback_riding", Name = "Horseback Riding", ScienceCost = 100,
                 Prerequisites = new List<string> { "pottery" },
                 Unlocks = new TechUnlocks { Units = new List<string> { "horseman" } },
+            },
+            new TechData
+            {
+                Id = "iron_working", Name = "Iron Working", ScienceCost = 100,
+                Unlocks = new TechUnlocks { Units = new List<string> { "swordsman", "catapult" } },
             },
         });
 
@@ -67,6 +73,10 @@ public class TechCatalogTests
     [Fact]
     public void UnlockingTech_ReturnsNullForFreeItems()
         => Assert.Null(Make().UnlockingTech("unit:warrior"));
+
+    [Fact]
+    public void UnlockingTech_FindsTech_WhenManyUnitsShareOneTech()
+        => Assert.Equal("iron_working", Make().UnlockingTech("unit:catapult")!.Id);
 
     [Fact]
     public void Catalog_DefaultsToEmptyTechs_WhenNotProvided()

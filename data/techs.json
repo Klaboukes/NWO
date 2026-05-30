@@ -60,7 +60,7 @@
       "name": "Iron Working",
       "scienceCost": 100,
       "prerequisites": ["bronze_working"],
-      "unlocks": { "units": ["swordsman"] }
+      "unlocks": { "units": ["swordsman", "catapult"] }
     }
   ]
 }

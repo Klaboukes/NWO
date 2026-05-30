@@ -66,6 +66,19 @@
       "requiredResource": "iron"
     },
     {
+      "id": "catapult",
+      "name": "Catapult",
+      "productionCost": 100,
+      "attack": 14,
+      "defense": 4,
+      "movement": 1,
+      "range": 2,
+      "sight": 2,
+      "maintenanceGold": 1,
+      "requiredTech": "iron_working",
+      "requiredResource": null
+    },
+    {
       "id": "settler",
       "name": "Settler",
       "productionCost": 100,
