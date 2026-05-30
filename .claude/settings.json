@@ -3,7 +3,13 @@
     "allow": [
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Read(//c/Users/barth/AppData/Local/Temp/**)"
+      "Read(//c/Users/barth/AppData/Local/Temp/**)",
+      "Edit(/.claude/skills/run-checks/**)",
+      "Edit(/.claude/skills/add-content/**)",
+      "Edit(/.claude/skills/tune-mechanics/**)",
+      "Edit(/.claude/skills/add-art-asset/**)",
+      "Edit(/.claude/skills/hud-ui/**)",
+      "Edit(/.claude/skills/finish-phase/**)"
     ]
   }
 }

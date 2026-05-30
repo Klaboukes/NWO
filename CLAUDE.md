@@ -15,6 +15,21 @@ design doc in `docs/`:
 These docs are the source of truth for design intent. Keep `docs/ROADMAP.md`
 checkboxes in sync as phases complete (ties into the auto-commit rule below).
 
+## Skills
+
+Repo-specific workflows are encoded as skills in `.claude/skills/` — invoke the one
+matching the task instead of re-deriving the procedure:
+
+- `run-checks` — build + test + headless scene check (the verify loop; bundled `.ps1`).
+- `add-content` — add a unit/building/tech in `data/*.json`.
+- `tune-mechanics` — change gameplay numbers/balance in the headless core.
+- `add-art-asset` — drop in Phase 7 terrain tiles / sprites.
+- `hud-ui` — HUD / UI / controls work (Civ 5 conventions).
+- `finish-phase` — tick the roadmap, sync docs, verify, commit+push.
+
+Skills run commands in **PowerShell**. They keep improving: when a procedure drifts,
+update the relevant `SKILL.md` (each has a `## Maintenance` note).
+
 ## Git & GitHub
 
 - Auto-commit and push to `origin/main` when a roadmap phase is marked complete.
