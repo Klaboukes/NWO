@@ -15,13 +15,13 @@ run/main_scene="res://scenes/ui/MainMenu.tscn"
 config/features=PackedStringArray("4.6", "C#", "GL Compatibility")
 config/icon="res://icon.svg"
 
-[dotnet]
-
-project/assembly_name="NWO"
-
 [autoload]
 
 AudioManager="*res://scripts/audio/AudioManager.cs"
+
+[dotnet]
+
+project/assembly_name="NWO"
 
 [physics]
 
@@ -29,6 +29,7 @@ AudioManager="*res://scripts/audio/AudioManager.cs"
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

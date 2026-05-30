@@ -44,7 +44,7 @@ public partial class MinimapController : Control
         var max = new Vector2(float.MinValue, float.MinValue);
         foreach (var axial in _state.Map.Tiles.Keys)
         {
-            var w = WorldRenderer.AxialToWorld(axial);
+            var w = Flatten(WorldRenderer.AxialToWorld(axial));
             _tiles.Add((axial, w));
             min = new Vector2(Mathf.Min(min.X, w.X), Mathf.Min(min.Y, w.Y));
             max = new Vector2(Mathf.Max(max.X, w.X), Mathf.Max(max.Y, w.Y));
@@ -93,7 +93,7 @@ public partial class MinimapController : Control
         foreach (var city in _state.Cities)
         {
             if (!fog.IsDiscovered(city.Position)) continue;
-            var p = ToLocal(WorldRenderer.AxialToWorld(city.Position));
+            var p = ToLocal(Flatten(WorldRenderer.AxialToWorld(city.Position)));
             DrawRect(new Rect2(p - new Vector2(2.5f, 2.5f), new Vector2(5f, 5f)), city.Owner.Color);
             DrawRect(new Rect2(p - new Vector2(2.5f, 2.5f), new Vector2(5f, 5f)), Colors.White, false, 1f);
         }
@@ -102,14 +102,14 @@ public partial class MinimapController : Control
         foreach (var unit in _state.Units)
         {
             if (!fog.IsVisible(unit.Position)) continue;
-            DrawCircle(ToLocal(WorldRenderer.AxialToWorld(unit.Position)), 1.8f, unit.Owner.Color);
+            DrawCircle(ToLocal(Flatten(WorldRenderer.AxialToWorld(unit.Position))), 1.8f, unit.Owner.Color);
         }
 
-        // 4. Camera viewport outline.
+        // 4. Camera viewport outline (flattened into the un-squashed minimap space).
         var center  = _camera.GetScreenCenterPosition();
         var halfView = GetViewportRect().Size * 0.5f / _camera.Zoom;
-        var tl = ToLocal(center - halfView);
-        var br = ToLocal(center + halfView);
+        var tl = ToLocal(Flatten(center - halfView));
+        var br = ToLocal(Flatten(center + halfView));
         DrawRect(new Rect2(tl, br - tl), Colors.White, false, 1.5f);
 
         // Frame.
@@ -120,7 +120,8 @@ public partial class MinimapController : Control
     {
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mb)
         {
-            _onRecenter(ToWorld(mb.Position));
+            // ToWorld yields flattened space; the camera lives in foreshortened space.
+            _onRecenter(Unflatten(ToWorld(mb.Position)));
             AcceptEvent();
         }
     }
@@ -133,4 +134,11 @@ public partial class MinimapController : Control
 
     private Vector2 ToLocal(Vector2 world) => (world - _worldMin) * _scale + _offset;
     private Vector2 ToWorld(Vector2 local) => (local - _offset) / _scale + _worldMin;
+
+    // The main view is vertically foreshortened (WorldRenderer.VerticalScale) for the
+    // tilted look; the minimap undoes that so it reads as a flat top-down overview.
+    // All minimap layout happens in this "flattened" space — only the recenter
+    // callback converts back to the camera's (foreshortened) world space.
+    private static Vector2 Flatten(Vector2 world)  => new(world.X, world.Y / WorldRenderer.VerticalScale);
+    private static Vector2 Unflatten(Vector2 flat) => new(flat.X,  flat.Y * WorldRenderer.VerticalScale);
 }
