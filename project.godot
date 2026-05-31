@@ -27,6 +27,14 @@ project/assembly_name="NWO"
 
 3d/physics_engine="Jolt Physics"
 
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/mode=2
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0

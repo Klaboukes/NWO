@@ -21,6 +21,7 @@ public static class EventVisibilityFilter
         var result = new List<GameEvent>();
         foreach (var e in events)
         {
+            if (e.Owner != null && e.Owner != viewer) continue;
             if (e.Focus is not { } tile) { result.Add(e); continue; }
             var city = state.Cities.Find(c => c.Position == tile);
             if (city == null || city.Owner == viewer) { result.Add(e); continue; }

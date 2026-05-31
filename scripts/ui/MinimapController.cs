@@ -124,8 +124,15 @@ public partial class MinimapController : Control
             quad[i] = ToLocal(Flatten(g.Value));
         }
         if (ok)
-            for (int i = 0; i < 4; i++)
-                DrawLine(quad[i], quad[(i + 1) % 4], Colors.White, 1.5f);
+        {
+            var bounds = new[] {
+                Vector2.Zero, new Vector2(Size.X, 0),
+                Size,         new Vector2(0, Size.Y),
+            };
+            foreach (var poly in Geometry2D.IntersectPolygons(quad, bounds))
+                for (int i = 0; i < poly.Length; i++)
+                    DrawLine(poly[i], poly[(i + 1) % poly.Length], Colors.White, 1.5f);
+        }
 
         // Frame.
         DrawRect(new Rect2(Vector2.Zero, Size), new Color(1, 1, 1, 0.6f), false, 1f);

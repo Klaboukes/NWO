@@ -78,11 +78,39 @@ public class CameraController
         _pivot.Position -= GroundDelta(relative * WorldPerPixel());
     }
 
-    public void Zoom(float factor)
+    public void Zoom(float factor) => ZoomToward(factor, null);
+
+    // Zoom while keeping the world point under `mouseScreen` stationary.
+    // If the ray misses the ground (e.g. pointing above the horizon) it falls
+    // back to plain centre-zoom.
+    public void ZoomToward(float factor, Vector2? mouseScreen)
     {
-        // factor > 1 zooms in (closer = smaller distance).
+        float distBefore = _distance;
         _distance = Mathf.Clamp(_distance / factor, MinDistance, MaxDistance);
         ApplyDistance();
+
+        if (mouseScreen is not { } screen) return;
+
+        var hit = GroundUnderScreen(screen);
+        if (hit is not { } cursor) return;
+
+        // Shift the pivot so `cursor` stays fixed on screen.
+        // The world-per-pixel scale is proportional to _distance, so the pivot
+        // offset from cursor must scale by the same ratio.
+        float ratio = _distance / distBefore;
+        var   p     = _pivot.Position;
+        _pivot.Position = new Vector3(
+            cursor.X - (cursor.X - p.X) * ratio,
+            0f,
+            cursor.Z - (cursor.Z - p.Z) * ratio);
+        _target = null; // cancel any in-progress smooth-center tween
+    }
+
+    private Vector3? GroundUnderScreen(Vector2 screen)
+    {
+        var from = _camera.ProjectRayOrigin(screen);
+        var dir  = _camera.ProjectRayNormal(screen);
+        return new Plane(Vector3.Up, 0f).IntersectsRay(from, dir);
     }
 
     public void Tick(float delta)

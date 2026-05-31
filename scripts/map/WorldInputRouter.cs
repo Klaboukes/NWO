@@ -60,7 +60,7 @@ public sealed class WorldInputRouter
                 _camera.ApplyMousePan(pan.Delta * PanGestureScale);
                 return;
             case InputEventMagnifyGesture magnify:
-                _camera.Zoom(magnify.Factor);
+                _camera.ZoomToward(magnify.Factor, magnify.Position);
                 return;
 
             case InputEventMouseButton mb:
@@ -105,8 +105,8 @@ public sealed class WorldInputRouter
         {
             switch (mb.ButtonIndex)
             {
-                case MouseButton.WheelUp:    _camera.Zoom(1.15f); break;
-                case MouseButton.WheelDown:  _camera.Zoom(0.87f); break;
+                case MouseButton.WheelUp:   _camera.ZoomToward(1.15f, mb.Position); break;
+                case MouseButton.WheelDown: _camera.ZoomToward(0.87f, mb.Position); break;
                 // Horizontal two-finger scroll on a touchpad → pan sideways.
                 case MouseButton.WheelRight: _camera.ApplyMousePan(new Vector2(-WheelPanStep, 0)); break;
                 case MouseButton.WheelLeft:  _camera.ApplyMousePan(new Vector2( WheelPanStep, 0)); break;

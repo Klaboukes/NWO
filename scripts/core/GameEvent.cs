@@ -1,4 +1,5 @@
 using Godot;
+using NWO.Entities;
 
 namespace NWO.Core;
 
@@ -14,7 +15,8 @@ public enum GameEventKind { Generic, CityGrew, CityProduced }
 public readonly record struct GameEvent(
     string Text,
     Vector2I? Focus = null,
-    GameEventKind Kind = GameEventKind.Generic)
+    GameEventKind Kind = GameEventKind.Generic,
+    Player? Owner = null)
 {
     // Implicit lift from a bare message keeps producers that have no tile to
     // point at terse: `notifications.Add("Researched Pottery!")`.

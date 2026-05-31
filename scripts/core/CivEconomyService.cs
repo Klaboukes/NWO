@@ -29,7 +29,7 @@ public static class CivEconomyService
         civ.Treasury           += goldPerTurn;
         civ.ScienceAccumulated += sciencePerTurn;
 
-        AdvanceResearch(state, civ, notifications);
+        AdvanceResearch(state, player, civ, notifications);
         EnforceTreasury(state, civ, notifications);
     }
 
@@ -107,7 +107,7 @@ public static class CivEconomyService
         return SetResearchResult.Ok;
     }
 
-    private static void AdvanceResearch(GameState state, Civilization civ, List<GameEvent> notifications)
+    private static void AdvanceResearch(GameState state, Player player, Civilization civ, List<GameEvent> notifications)
     {
         if (civ.CurrentResearch == null) return;
         var tech = state.Catalog.Tech(civ.CurrentResearch);
@@ -117,7 +117,7 @@ public static class CivEconomyService
         civ.ScienceAccumulated -= tech.ScienceCost;
         civ.ResearchedTechs.Add(tech.Id);
         civ.CurrentResearch = null;
-        notifications.Add($"Researched {tech.Name}!");
+        notifications.Add(new GameEvent($"Researched {tech.Name}!", Owner: player));
     }
 
     // While treasury is negative, disband the player's cheapest-production-cost
