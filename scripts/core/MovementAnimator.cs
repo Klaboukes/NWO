@@ -11,14 +11,14 @@ namespace NWO.Core;
 public class MovementAnimator
 {
     private readonly float _secondsPerTile;
-    private readonly Func<Vector2I, Vector2> _axialToWorld;
+    private readonly Func<Vector2I, Vector3> _axialToWorld;
 
     private Unit?           _unit;
     private List<Vector2I>? _path;
     private int             _index;
     private float           _t;
 
-    public Vector2  CurrentWorldPos { get; private set; }
+    public Vector3  CurrentWorldPos { get; private set; }
     public Vector2I CurrentTile     { get; private set; }
     public Unit?    AnimatingUnit   => _unit;
     public bool     IsAnimating     => _unit != null;
@@ -31,7 +31,7 @@ public class MovementAnimator
     // refresh fog of war so revealed tiles appear as the unit moves.
     public event Action? TileEntered;
 
-    public MovementAnimator(float secondsPerTile, Func<Vector2I, Vector2> axialToWorld)
+    public MovementAnimator(float secondsPerTile, Func<Vector2I, Vector3> axialToWorld)
     {
         _secondsPerTile = secondsPerTile;
         _axialToWorld   = axialToWorld;

@@ -30,14 +30,18 @@ Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
 └── MapGenerator       — procedural map generation
 
 Godot scene layer (scripts, scenes)
-├── WorldMap (Node2D)  — scene coordinator: owns GameState, wires input,
+├── WorldMap (Node3D)  — scene coordinator: owns GameState, wires input,
 │                         camera, animation, selection, queue, renderer, UI
 ├── WorldInputRouter   — decodes raw input into semantic intents for WorldMap
 ├── TileTooltipController — tile-tooltip dwell timer (driven from WorldMap._Process)
-├── WorldRenderer      — immediate-mode (_Draw) rendering of map/units/cities
+├── HexProjection      — axial ↔ 3D-world math (AxialToWorld/WorldToAxial/TopHeight)
+├── WorldRenderer (Node3D) — 3D world: hex-prism terrain + unit/city billboards
+├── WorldOverlay (Node2D)  — screen-space overlay (range/path/HP/selection/glyphs/fog)
+│                            drawn over the 3D view via Camera3D.UnprojectPosition
+├── TerrainMeshFactory — builds the per-terrain hex-prism meshes
 ├── UIController       — HUD widgets (top bar, city/unit panels, notifications)
 ├── TechTreePanelController — tech tree panel
-├── CameraController   — pan/zoom/centering + post-anim delay
+├── CameraController   — fixed-tilt Camera3D pan/zoom/centering + post-anim delay
 ├── MovementAnimator   — tweens a unit along its path
 ├── SelectionState     — current selection + reachable/preview tiles
 └── EndTurnQueue       — ordered "needs attention" items for end-turn flow
@@ -87,8 +91,10 @@ the coordinator: `MovementAnimator.Completed`, `UIController.EndTurnPressed`,
 ### Deferred, not rejected
 
 - **Scene-per-entity rendering.** The original plan had each Unit/City/Tile as its
-  own scene; the implementation draws them in immediate mode
-  (`WorldRenderer._Draw`). Revisit when art assets land (also see TECH_STACK.md).
+  own scene. As of Phase 7 the terrain is 3D hex-prism `MeshInstance3D`s and
+  units/cities are `Sprite3D` billboards (`WorldRenderer`, a `Node3D`), while
+  selection/HP/range overlays are drawn in screen space by `WorldOverlay._Draw`.
+  Real per-type art replaces the placeholder meshes/tokens with no structural change.
 
 ### Capital tracking
 
@@ -107,8 +113,9 @@ A captured capital **keeps** the flag — `CaptureCity` changes only `Owner` —
 - **Model**: plain C# runtime state held in `GameState` (no Godot `Node`s).
   - `Unit`, `City`, `Civilization`, `Player`
 - **Visuals**: the entities are **not** separate Godot scenes. `WorldRenderer`
-  draws the map, units, and cities in immediate mode (`_Draw`). Only the HUD,
-  tech tree, and world root are `.tscn` scenes.
+  (Node3D) builds the map as hex-prism meshes and units/cities as `Sprite3D`
+  billboards; `WorldOverlay` (Node2D) paints range/path/HP/selection/fog on top.
+  Only the HUD, tech tree, and world root are `.tscn` scenes.
 
 A `Unit` holds a `UnitData` reference (its type) plus runtime state (HP,
 position, owner, fortified).
@@ -309,7 +316,7 @@ The HUD (`UIController`, `scenes/ui/UI.tscn`) currently provides:
 │  Top bar: Turn # | Treasury (+/turn) | Science (+/turn)  │
 ├─────────────────────────────────────────────────────────┤
 │                                                           │
-│           HEX MAP (WorldRenderer, immediate mode)         │
+│      HEX MAP (3D prisms + billboards; 2D overlay)         │
 │   [selection highlight] [movement overlay] [path preview] │
 │   [worked/locked tile tints when a city is selected]      │
 │                                                           │

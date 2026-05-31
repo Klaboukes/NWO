@@ -14,7 +14,7 @@ namespace NWO.Map;
 // dwell timer (TileTooltipController), combat result text (CombatMessages), and
 // event-log visibility (EventVisibilityFilter) — so this file stays a thin
 // coordinator and the gameplay logic is testable without a scene running.
-public partial class WorldMap : Node2D
+public partial class WorldMap : Node3D
 {
     private const float SecondsPerTile = 0.12f;
 
@@ -31,6 +31,8 @@ public partial class WorldMap : Node2D
     private City?            _pendingCapture;
 
     private WorldRenderer _renderer = null!;
+    private WorldOverlay  _overlay  = null!;
+    private Camera3D      _camera3D = null!;
     private UIController  _ui       = null!;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -42,15 +44,18 @@ public partial class WorldMap : Node2D
         _session   = new GameSession(_state, _viewerPlayer);
 
         _renderer         = GetNode<WorldRenderer>("WorldRenderer");
+        _overlay          = GetNode<WorldOverlay>("OverlayLayer/WorldOverlay");
         _ui               = GetNode<UIController>("UI");
-        var camera2D      = GetNode<Camera2D>("Camera2D");
-        _cameraController = new CameraController(camera2D);
-        _animator         = new MovementAnimator(SecondsPerTile, WorldRenderer.AxialToWorld);
+        var pivot         = GetNode<Node3D>("Pivot");
+        _camera3D         = GetNode<Camera3D>("Pivot/Camera3D");
+        GetNode<DirectionalLight3D>("Sun").RotationDegrees = new Vector3(-55f, -35f, 0f);
+        _cameraController = new CameraController(pivot, _camera3D);
+        _animator         = new MovementAnimator(SecondsPerTile, HexProjection.AxialToWorld);
 
         _input = new WorldInputRouter(
             _cameraController,
             () => _animator.IsAnimating,
-            () => WorldRenderer.WorldToAxial(GetGlobalMousePosition()));
+            () => ScreenToAxial(GetViewport().GetMousePosition()));
         _input.KeyPressed   += HandleKeyPress;
         _input.LeftClicked  += HandleLeftPress;
         _input.RightPressed += HandleRightPress;
@@ -64,7 +69,7 @@ public partial class WorldMap : Node2D
             hide:      _ui.HideTileTooltip);
 
         _animator.Completed   += OnAnimationCompleted;
-        _animator.TileEntered += () => { RecomputeFog(); _renderer.QueueRedraw(); };
+        _animator.TileEntered += () => { RecomputeFog(); Redraw(); };
         _ui.EndTurnPressed    += OnEndTurnPressed;
         _ui.FoundCityPressed  += () => { if (_selection.Unit != null) TryFoundCity(_selection.Unit); };
         _ui.BuildImprovementPressed += OnBuildImprovement;
@@ -73,13 +78,14 @@ public partial class WorldMap : Node2D
         _ui.LoadRequested           += OnLoadRequested;
         _ui.MainMenuRequested       += OnMainMenuRequested;
 
-        _renderer.Initialize(_state, _selection, _animator, _viewerPlayer);
-        _ui.InitializeMinimap(_state, _viewerPlayer, camera2D, RecenterCameraWorld);
-        _cameraController.Position = WorldRenderer.AxialToWorld(GameFactory.MapCenterAxial());
+        _renderer.Initialize(_state, _animator, _viewerPlayer);
+        _overlay.Initialize(_state, _selection, _animator, _viewerPlayer, _camera3D);
+        _ui.InitializeMinimap(_state, _viewerPlayer, _camera3D, RecenterCameraWorld);
+        _cameraController.Position = HexProjection.AxialToWorld(GameFactory.MapCenterAxial());
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
         _ui.SetCivStatus(_state, _viewerPlayer);
-        _renderer.QueueRedraw();
+        Redraw();
         BuildAndStartEndTurnQueue();
     }
 
@@ -132,7 +138,7 @@ public partial class WorldMap : Node2D
         if (_animator.Tick((float)delta))
         {
             _cameraController.CenterOn(_animator.CurrentWorldPos);
-            _renderer.QueueRedraw();
+            Redraw();
         }
 
         _tooltip.Tick((float)delta);
@@ -149,7 +155,7 @@ public partial class WorldMap : Node2D
     // path / combat-odds preview for the selected unit, then feed the dwell timer.
     private void OnHover(Vector2 screenPos)
     {
-        var axial = WorldRenderer.WorldToAxial(GetGlobalMousePosition());
+        var axial = ScreenToAxial(GetViewport().GetMousePosition());
         if (_selection.Unit != null && !_animator.IsAnimating)
         {
             UpdatePathPreview(axial);
@@ -252,12 +258,12 @@ public partial class WorldMap : Node2D
         if (clickedUnit != null)
         {
             SelectUnit(clickedUnit);
-            _cameraController.CenterOn(WorldRenderer.AxialToWorld(clickedUnit.Position));
+            _cameraController.CenterOn(HexProjection.AxialToWorld(clickedUnit.Position));
         }
         else if (clickedCity != null)
         {
             SelectCity(clickedCity);
-            _cameraController.CenterOn(WorldRenderer.AxialToWorld(clickedCity.Position));
+            _cameraController.CenterOn(HexProjection.AxialToWorld(clickedCity.Position));
         }
         else
         {
@@ -291,10 +297,10 @@ public partial class WorldMap : Node2D
             if (result.Outcome != GameState.AttackOutcome.Invalid)
             {
                 AudioManager.Instance?.Play(Sfx.Attack);
-                _renderer.FlashCombat(attackerPos, axial);
+                _overlay.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(CombatMessages.ForUnitAttack(attacker, target, result));
                 Deselect();
-                _renderer.QueueRedraw();
+                Redraw();
                 BuildAndStartEndTurnQueue();
             }
             return;
@@ -309,10 +315,10 @@ public partial class WorldMap : Node2D
             if (result.Success)
             {
                 AudioManager.Instance?.Play(Sfx.Attack);
-                _renderer.FlashCombat(attackerPos, axial);
+                _overlay.FlashCombat(attackerPos, axial);
                 _ui.ShowNotification(CombatMessages.ForCityAttack(attacker, cityTarget, result));
                 Deselect();
-                _renderer.QueueRedraw();
+                Redraw();
                 BuildAndStartEndTurnQueue();
             }
             return;
@@ -341,14 +347,14 @@ public partial class WorldMap : Node2D
             {
                 _selection.PendingDestination = axial;
                 _selection.PendingPathPreview = path;
-                _renderer.QueueRedraw();
+                Redraw();
             }
         }
         else if (_selection.PendingDestination != null)
         {
             _selection.PendingDestination = null;
             _selection.PendingPathPreview = null;
-            _renderer.QueueRedraw();
+            Redraw();
         }
     }
 
@@ -397,7 +403,7 @@ public partial class WorldMap : Node2D
         var next = cities[(currentIdx + 1) % cities.Count];
 
         SelectCity(next);
-        _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
+        _cameraController.CenterOn(HexProjection.AxialToWorld(next.Position));
     }
 
     // Tooltip body for a tile (terrain, yields, revealed resource, improvement).
@@ -432,7 +438,7 @@ public partial class WorldMap : Node2D
         var next = candidates[(currentIdx + 1) % candidates.Count];
 
         SelectUnit(next);
-        _cameraController.CenterOn(WorldRenderer.AxialToWorld(next.Position));
+        _cameraController.CenterOn(HexProjection.AxialToWorld(next.Position));
     }
 
     private void SelectUnit(Unit unit)
@@ -446,7 +452,7 @@ public partial class WorldMap : Node2D
         _ui.HideCityPanel();
         _ui.ShowUnitPanel(unit);
         RefreshWorkerActions(unit);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     // Show the build menu for an idle Worker (a busy one shows its task status
@@ -472,7 +478,7 @@ public partial class WorldMap : Node2D
         // Worker is now busy (no longer needs attention) — advance the queue.
         if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
         else                         Deselect();
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     private void SelectCity(City city)
@@ -481,7 +487,7 @@ public partial class WorldMap : Node2D
         _ui.SetFoundCityVisible(false);
         _ui.HideUnitPanel();
         RefreshCityPanel(city);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     private void Deselect()
@@ -491,7 +497,7 @@ public partial class WorldMap : Node2D
         _ui.HideCityPanel();
         _ui.HideUnitPanel();
         _ui.ShowCombatForecast(null);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     // ── Animation hook ───────────────────────────────────────────────────────
@@ -511,7 +517,7 @@ public partial class WorldMap : Node2D
         }
 
         RecomputeFog();
-        _renderer.QueueRedraw();
+        Redraw();
         _cameraController.StartPostAnimDelay();
 
         if (capturedCity != null)
@@ -519,7 +525,7 @@ public partial class WorldMap : Node2D
             // Open the city panel so the player can choose production immediately.
             // Queue advancement is suppressed so the capture event message isn't overwritten.
             SelectCity(capturedCity);
-            _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(capturedCity.Position));
+            _cameraController.DeferOrCenter(HexProjection.AxialToWorld(capturedCity.Position));
             _ui.ShowNotification($"{capturedCity.Name} captured!"); // event; the button prompts for production
             return;
         }
@@ -545,7 +551,7 @@ public partial class WorldMap : Node2D
         Deselect();
         AudioManager.Instance?.Play(Sfx.CityFound);
         _ui.ShowNotification($"{city!.Name} founded!");
-        _renderer.QueueRedraw();
+        Redraw();
         // Settler is gone; new city needs production. Rebuild the queue from
         // live state so the head and the button label both reflect that.
         BuildAndStartEndTurnQueue();
@@ -568,7 +574,7 @@ public partial class WorldMap : Node2D
         city.Workforce.Focus = focus;
         CityWorkforceService.Recompute(_state, city);
         RefreshCityPanel(city);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     private void ToggleWorkerLock(City city, Vector2I axial)
@@ -587,7 +593,7 @@ public partial class WorldMap : Node2D
         }
         CityWorkforceService.Recompute(_state, city);
         RefreshCityPanel(city);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     private void RefreshCityPanel(City city) =>
@@ -608,7 +614,7 @@ public partial class WorldMap : Node2D
         _ui.SetCivStatus(_state, _viewerPlayer);
         RecomputeFog(); // a bought unit may extend sight
         RefreshCityPanel(city);
-        _renderer.QueueRedraw();
+        Redraw();
     }
 
     // ── End-of-turn queue ────────────────────────────────────────────────────
@@ -691,11 +697,11 @@ public partial class WorldMap : Node2D
         {
             case Unit unit:
                 SelectUnit(unit);
-                _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(unit.Position));
+                _cameraController.DeferOrCenter(HexProjection.AxialToWorld(unit.Position));
                 break;
             case City city:
                 SelectCity(city);
-                _cameraController.DeferOrCenter(WorldRenderer.AxialToWorld(city.Position));
+                _cameraController.DeferOrCenter(HexProjection.AxialToWorld(city.Position));
                 break;
         }
         // The blocking state is shown on the End Turn button (RefreshEndTurnButton)
@@ -703,7 +709,7 @@ public partial class WorldMap : Node2D
         // reserved for combat results and one-shot game events. Clear any lingering
         // persistent banner as we surface the next item.
         _ui.HidePersistentNotification();
-        _renderer.QueueRedraw();
+        Redraw();
         RefreshEndTurnButton();
     }
 
@@ -736,7 +742,7 @@ public partial class WorldMap : Node2D
         var events = EventVisibilityFilter.ForViewer(summary.Notifications, _state, _viewerPlayer, _viewerFog);
         if (events.Count > 0)
             _ui.LogEvents(events);
-        _renderer.QueueRedraw();
+        Redraw();
         _ui.SetCivStatus(_state, _viewerPlayer);
 
         // A win or loss ends the match: hand the result to the victory screen.
@@ -759,15 +765,38 @@ public partial class WorldMap : Node2D
     {
         var ownCity = _state.Cities.Find(c => c.Position == tile && c.Owner == _viewerPlayer);
         if (ownCity != null) SelectCity(ownCity);
-        RecenterCameraWorld(WorldRenderer.AxialToWorld(tile));
+        RecenterCameraWorld(HexProjection.AxialToWorld(tile));
     }
 
     // Recenter on a world position (minimap click). Cancels any pending
     // post-animation centering so the camera goes where the player clicked.
-    private void RecenterCameraWorld(Vector2 world)
+    private void RecenterCameraWorld(Vector3 world)
     {
         _cameraController.CancelPostAnimDelay();
         _cameraController.CenterOn(world);
+    }
+
+    // Refresh the whole view: rebuild the 3D billboards/fog and repaint the 2D
+    // overlay. Replaces the old single-node QueueRedraw now that the view is split
+    // across a 3D world (WorldRenderer) and a 2D overlay (WorldOverlay).
+    private void Redraw()
+    {
+        _renderer.Refresh();
+        _overlay.QueueRedraw();
+    }
+
+    // Screen pixel → axial tile. Casts a ray from the fixed-tilt camera onto the
+    // ground plane (Y = 0) and inverts the hex projection — so picking lands on a
+    // tile's ground footprint regardless of its prism height (matches the old
+    // baked-2.5D "picking ignores elevation" contract). Returns an off-map sentinel
+    // when the ray misses the ground (callers gate on Map.Tiles.ContainsKey).
+    private Vector2I ScreenToAxial(Vector2 screen)
+    {
+        var from = _camera3D.ProjectRayOrigin(screen);
+        var dir  = _camera3D.ProjectRayNormal(screen);
+        var hit  = new Plane(Vector3.Up, 0f).IntersectsRay(from, dir);
+        return hit.HasValue ? HexProjection.WorldToAxial(hit.Value)
+                            : new Vector2I(int.MinValue, int.MinValue);
     }
 
     private void RecomputeFog()

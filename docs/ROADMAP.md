@@ -34,26 +34,39 @@ The MVP is finished and the game is fully playable end to end. What shipped:
 
 ---
 
-## Phase 7 — Visual overhaul (baked 2.5D pixel art) 🔜 NEXT
+## Phase 7 — Visual overhaul (true 3D tilted camera) 🔜 NEXT
 
 Goal: make the game *look* like a game. Replace flat top-down polygons with a
-tilted, Civ5-style **baked 2.5D pixel-art** look — the tilt is painted into the
-art + a foreshortened projection, keeping the `Camera2D` (no true 3D). Art is
-AI-generated and dropped into `assets/art/` with no code change. Pipeline is
-de-risked with runtime placeholders first (mirrors the `AudioManager` pattern).
+**true 3D, fixed-tilt Civ5-style camera**: terrain is 3D hex prisms (top face +
+cliff sides), units/cities are billboard sprites, all under a `Camera3D` (pan +
+zoom, no rotation). The fiddly 2D bits (range/path overlays, selection rings, HP
+bars, glyphs, fog dimming) are drawn in a screen-space overlay on top of the 3D
+world via `Camera3D.UnprojectPosition`. Art is AI-generated and dropped into
+`assets/art/` with no code change; the pipeline is de-risked with runtime
+placeholders first (mirrors the `AudioManager` pattern).
 
-- [x] **V7.1 — Projection + asset pipeline (placeholders).** Foreshorten the
-      (still-invertible) `AxialToWorld`/`WorldToAxial` projection; draw-only
-      elevation lift for hills/mountains; `TileTextureSet` registry (real PNG or
-      synthesized placeholder); nearest-neighbour filtering; painter's-order draw.
-      Projection round-trip regression test. *Done when:* the map renders tilted
-      with textured tiles on zero committed art, and picking/animation still land
-      correctly.
-- [ ] **V7.2 — Terrain art.** Drop in 10 AI-generated pixel hex tiles (top face +
-      cliff skirt); no code change. *Done when:* all terrain uses real tiles.
-- [ ] **V7.3 — Unit & city sprites.** Registry-driven billboard sprites anchored on
-      tile tops, owner-tinted; keep selection/fortify/HP overlays. *Done when:*
-      units and cities are sprites, not circles/rects.
+> Decision (was "baked 2.5D"): V7.1 originally shipped a foreshortened `Camera2D`
+> with the tilt painted into the art. We switched to a real 3D camera so the tilt,
+> elevation, and perspective are genuine geometry. Game logic was untouched (it
+> works in axial `Vector2I`); only the view layer changed.
+
+- [x] **V7.1 — 3D projection + asset pipeline (placeholders).** Flat-ground
+      `HexProjection.AxialToWorld`→`Vector3` / `WorldToAxial` (ray-to-ground
+      picking); real prism elevation via `TopHeight`; `TerrainMeshFactory`
+      hex-prism meshes (vertex-coloured placeholder, real PNG tops drop in at
+      V7.2); `WorldRenderer` (Node3D) + `WorldOverlay` (2D) split; fixed-tilt
+      `CameraController` over a pivot+`Camera3D`; nearest-neighbour filtering.
+      Projection round-trip + ground-pick regression tests. *Done when:* the map
+      renders as a tilted 3D board on zero committed art, and picking/animation
+      still land correctly.
+- [ ] **V7.2 — Terrain art.** Drop in AI-generated pixel hex **top-face** tiles
+      (cliffs are now real geometry, so no baked skirt); wire the top surface's
+      material/texture in `TerrainMeshFactory`. *Done when:* all terrain uses real
+      tiles.
+- [ ] **V7.3 — Unit & city sprites.** Replace the placeholder billboard tokens with
+      real per-type `Sprite3D` textures anchored on tile tops, owner-tinted; keep
+      the selection/fortify/HP overlays. *Done when:* units and cities are real
+      sprites, not placeholder tokens.
 - [ ] **V7.4 — HUD / UI polish.** A Godot `Theme` (pixel font, restyled
       panels/buttons/bars), framed minimap. Independent of the renderer. *Done
       when:* the HUD reads as a cohesive styled UI.
@@ -112,4 +125,6 @@ not here.
   `WorldMap.PickAISpawn` same-landmass constraint and spawn players on separate
   continents.
 - Map editor; Multiplayer (hot-seat → network); Mod support (data-driven JSON helps)
-- Possible later: true 3D / free camera rotation if 2.5D proves limiting.
+- Possible later: **free camera rotation** (the world is already true 3D as of
+  Phase 7, but the tilt/heading is fixed Civ5-style — orbiting would add picking,
+  overlay, and billboard-facing work).

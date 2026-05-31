@@ -4,10 +4,10 @@ using Xunit;
 
 namespace NWO.Tests;
 
-// Guards the baked-2.5D projection (docs/ROADMAP.md V7.1). The vertical
-// foreshortening lives inside AxialToWorld, so WorldToAxial must invert it
-// exactly — otherwise the tilt would silently break mouse picking and the
-// movement animation, which both round-trip through these two methods.
+// Guards the axial-hex ↔ 3D-world projection (docs/ROADMAP.md V7.1). Mouse picking
+// casts a ray onto the ground plane and feeds the hit to WorldToAxial, while the
+// movement animation round-trips axial → world → axial — so the inverse must land
+// back on the tile AxialToWorld placed.
 public class ProjectionTests
 {
     [Fact]
@@ -17,29 +17,39 @@ public class ProjectionTests
         for (int r = -12; r <= 12; r++)
         {
             var axial = new Vector2I(q, r);
-            var round = WorldRenderer.WorldToAxial(WorldRenderer.AxialToWorld(axial));
+            var round = HexProjection.WorldToAxial(HexProjection.AxialToWorld(axial));
             Assert.Equal(axial, round);
         }
     }
 
     [Fact]
-    public void AxialToWorld_ForeshortensVerticalAxis()
+    public void AxialToWorld_LiesOnGroundPlane()
     {
-        // Same row spacing in axial maps to a squashed vertical span in world space.
-        float spanY = WorldRenderer.AxialToWorld(new Vector2I(0, 1)).Y
-                    - WorldRenderer.AxialToWorld(new Vector2I(0, 0)).Y;
-        float unscaled = WorldRenderer.HexSize * Mathf.Sqrt(3f);
-        Assert.Equal(unscaled * WorldRenderer.VerticalScale, spanY, 0.001f);
-        Assert.True(WorldRenderer.VerticalScale < 1f);
+        // The projection itself places tiles on Y = 0; elevation is added by the
+        // renderer via TopHeight, not by AxialToWorld.
+        Assert.Equal(0f, HexProjection.AxialToWorld(new Vector2I(3, -2)).Y);
     }
 
     [Fact]
-    public void ElevationLift_RaisesTallTerrainMore()
+    public void WorldToAxial_IgnoresElevation()
     {
-        Assert.Equal(0f, WorldRenderer.ElevationLift(TerrainType.Grassland));
-        Assert.True(WorldRenderer.ElevationLift(TerrainType.Forest)
-                  < WorldRenderer.ElevationLift(TerrainType.Hills));
-        Assert.True(WorldRenderer.ElevationLift(TerrainType.Hills)
-                  < WorldRenderer.ElevationLift(TerrainType.Mountain));
+        // A point above a tile (any Y) still picks that tile — picking happens on
+        // the ground footprint regardless of prism height.
+        var axial   = new Vector2I(4, 1);
+        var ground  = HexProjection.AxialToWorld(axial);
+        var raised  = ground + new Vector3(0f, 999f, 0f);
+        Assert.Equal(axial, HexProjection.WorldToAxial(raised));
+    }
+
+    [Fact]
+    public void TopHeight_RaisesTallTerrainMore()
+    {
+        Assert.Equal(0f, HexProjection.Elevation(TerrainType.Grassland));
+        Assert.True(HexProjection.TopHeight(TerrainType.Grassland)
+                  < HexProjection.TopHeight(TerrainType.Forest));
+        Assert.True(HexProjection.TopHeight(TerrainType.Forest)
+                  < HexProjection.TopHeight(TerrainType.Hills));
+        Assert.True(HexProjection.TopHeight(TerrainType.Hills)
+                  < HexProjection.TopHeight(TerrainType.Mountain));
     }
 }

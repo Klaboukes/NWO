@@ -9,11 +9,13 @@
 - C# support via .NET — full language features, good IDE integration
 - Lightweight — no runtime royalties, no launcher, no account required
 
-**Rendering note:** the original plan was a `TileMap` with each Unit/City/Tile as
-its own scene. The implementation instead renders the map, units, and cities in
-**immediate mode** (`WorldRenderer._Draw` with coloured polygons). Only the HUD
-(`UI.tscn`), tech tree (`TechTreePanel.tscn`), and world root (`WorldMap.tscn`)
-are scenes. A `TileMap` migration is deferred until art assets exist.
+**Rendering note:** the MVP rendered the map in immediate mode (flat polygons under
+a `Camera2D`). As of Phase 7 the world is **true 3D, fixed-tilt**: terrain is
+hex-prism `MeshInstance3D`s and units/cities are `Sprite3D` billboards
+(`WorldRenderer`, a `Node3D`) under a `Camera3D`; the range/path/HP/selection/fog
+overlays are drawn in a screen-space `WorldOverlay` (Node2D, `_Draw`) projected via
+`Camera3D.UnprojectPosition`. Only the HUD (`UI.tscn`), tech tree
+(`TechTreePanel.tscn`), and world root (`WorldMap.tscn`) are scenes.
 
 **Why not Unity:** recent licensing changes make it risky for indie projects; heavier setup overhead.  
 **Why not Unreal:** C++ complexity and 3D focus are overkill for a 2D hex strategy MVP.
@@ -109,10 +111,11 @@ NWO/
 └── docs/               # This folder
 ```
 
-There is no `assets/` directory or `terrain.json` yet — terrain numbers live in
-`TerrainYields.cs`, and there are no art/audio assets (immediate-mode rendering).
-Gameplay logic in `scripts/` is engine-light and exercised by `NWO.Tests`
-without a running scene.
+Terrain numbers live in `TerrainYields.cs`. Committed art is optional: the 3D
+terrain prisms and unit/city billboards render from synthesized placeholders until
+real PNGs are dropped into `assets/art/` (see the `add-art-asset` skill). Gameplay
+logic in `scripts/` is engine-light and exercised by `NWO.Tests` without a running
+scene.
 
 ---
 

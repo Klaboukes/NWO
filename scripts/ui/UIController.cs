@@ -193,7 +193,7 @@ public partial class UIController : CanvasLayer
     public void ClearEventLog() => _eventLog.Clear();
 
     // One-time minimap setup (needs the world camera + a recenter callback).
-    public void InitializeMinimap(GameState state, Player viewer, Camera2D camera, Action<Vector2> onRecenter)
+    public void InitializeMinimap(GameState state, Player viewer, Camera3D camera, Action<Vector3> onRecenter)
         => _minimap.Initialize(state, viewer, camera, onRecenter);
 
     // Hovered-tile tooltip (terrain/yields/resource/improvement). Positioned just

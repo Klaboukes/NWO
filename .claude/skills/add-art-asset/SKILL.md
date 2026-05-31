@@ -6,41 +6,51 @@ allowed-tools: Read, Edit, PowerShell, Glob
 
 # add-art-asset
 
-NWO Phase 7 replaces flat polygons with a baked **2.5D pixel-art** look. The pipeline
-(mirroring the `AudioManager` placeholder policy) is: code synthesizes a placeholder
-so the game always renders, and a real PNG dropped into `assets/art/` overrides it
-with **no code change**. See Phase 7 in [docs/ROADMAP.md](../../../docs/ROADMAP.md).
+NWO Phase 7 renders a **true 3D, fixed-tilt** world (hex prisms + billboard sprites
+under a `Camera3D`). The pipeline (mirroring the `AudioManager` placeholder policy)
+is: code synthesizes a placeholder so the game always renders, and real art drops
+into `assets/art/` to override it with **minimal/no code change**. See Phase 7 in
+[docs/ROADMAP.md](../../../docs/ROADMAP.md).
 
 ## Terrain tiles (V7.2)
 
-- Drop `res://assets/art/tiles/<terrain>.png` (lowercase `TerrainType` name, e.g.
-  `grassland.png`, `hills.png`). `TileTextureSet.Resolve` picks it up automatically;
-  no registry edit needed for an existing terrain.
-- **Anchoring contract** (`scripts/map/TileTextureSet.cs`): each texture is `TileW`
-  wide and `TopFaceH + SkirtH` tall; the hex top-face **center** sits at
-  `(TileW/2, TopFaceH/2)`. The top face is a foreshortened flat-top hex; a darker
-  cliff skirt hangs below. Match these dimensions or the tile won't register on the
-  grid. Add a new `TerrainType` enum value only if introducing genuinely new terrain.
+- Each terrain is a hex **prism**: a top-face hexagon raised to
+  `HexProjection.TopHeight(terrain)` with six cliff side walls dropping to the
+  ground plane. Cliffs are **real geometry now** — art only needs the **top face**
+  (no baked skirt).
+- Geometry + placeholder material live in `scripts/map/TerrainMeshFactory.cs`
+  (vertex-coloured prism). To use a real top-face texture, give the top surface UVs
+  and an `AlbedoTexture` from `res://assets/art/tiles/<terrain>.png` (lowercase
+  `TerrainType` name, e.g. `grassland.png`). Keep the prism geometry contract (top
+  hex at `TopHeight`, cliffs to `Y = 0`) so picking and anchoring stay correct.
+- Add a new `TerrainType` enum value only if introducing genuinely new terrain.
 
 ## Unit & city sprites (V7.3)
 
-- Registry-driven billboard sprites anchored on tile tops, owner-tinted. Keep the
-  selection / fortify / HP overlays intact. Add the sprite registry alongside
-  `TileTextureSet` following the same "real PNG else placeholder" resolve pattern.
+- Units/cities are `Sprite3D` billboards anchored on tile tops, owner-tinted via
+  `Sprite3D.Modulate` (see `WorldRenderer.Ensure`). Placeholder tokens are
+  synthesized (`MakeDiscToken` / `MakeSquareToken`).
+- To use real art, resolve a per-type PNG (e.g. `assets/art/units/<id>.png`) in the
+  same "real PNG else placeholder" pattern and assign it to the sprite's `Texture`.
+  Keep the selection / fortify / HP / letter overlays (drawn in `WorldOverlay`) intact.
 
 ## Rendering invariants (don't break these)
 
-- **Nearest-neighbour** filtering (pixel art must stay crisp — no bilinear blur).
-- **Painter's order** draw (back-to-front) so elevation/overlap reads correctly.
-- The projection must stay **invertible**: picking and movement animation rely on
-  `AxialToWorld`/`WorldToAxial` round-tripping. `WorldRenderer` holds the projection;
-  `ProjectionTests` pins the round-trip. Run them after any projection/anchor change.
+- **Nearest-neighbour** filtering everywhere (pixel art must stay crisp — set it on
+  materials/sprites/overlays, no bilinear blur).
+- The projection must stay **invertible**: picking (ray → ground plane) and movement
+  animation rely on `HexProjection.AxialToWorld` / `WorldToAxial` round-tripping.
+  `HexProjection` holds the math; `ProjectionTests` pins the round-trip and the
+  ground-pick contract (picking ignores prism height). Run them after any
+  projection/anchor change.
+- The 2D overlay (`WorldOverlay`) positions everything via `Camera3D.UnprojectPosition`
+  — keep tile/sprite anchors (`TileTop`, `TopHeight`) in sync with the 3D geometry.
 
 ## Procedure
 
 1. Place the PNG under `assets/art/...` with the exact name the resolver expects, or
-   extend the registry following the existing resolve pattern.
-2. Respect the anchoring contract and rendering invariants above.
+   extend the resolve pattern in `TerrainMeshFactory` / `WorldRenderer`.
+2. Respect the geometry/anchoring contract and rendering invariants above.
 3. Run the **`run-checks`** skill (the scene check + `ProjectionTests` catch
    mis-anchored or non-round-tripping art). Note: the *look* still needs a human F5
    run — flag that, don't claim the visuals are verified headless.
@@ -48,5 +58,6 @@ with **no code change**. See Phase 7 in [docs/ROADMAP.md](../../../docs/ROADMAP.
 
 ## Maintenance
 
-If the asset path convention, anchoring contract, or registry changes, update this
-file and keep it aligned with `TileTextureSet` and `WorldRenderer`.
+If the asset path convention, prism/anchoring contract, or resolve pattern changes,
+update this file and keep it aligned with `TerrainMeshFactory`, `WorldRenderer`,
+`WorldOverlay`, and `HexProjection`.
