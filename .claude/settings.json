@@ -9,7 +9,9 @@
       "Edit(/.claude/skills/tune-mechanics/**)",
       "Edit(/.claude/skills/add-art-asset/**)",
       "Edit(/.claude/skills/hud-ui/**)",
-      "Edit(/.claude/skills/finish-phase/**)"
+      "Edit(/.claude/skills/finish-phase/**)",
+      "Skill(run-checks)",
+      "Skill(run-checks:*)"
     ]
   }
 }

@@ -12,7 +12,9 @@
 **Rendering note:** the MVP rendered the map in immediate mode (flat polygons under
 a `Camera2D`). As of Phase 7 the world is **true 3D, fixed-tilt**: terrain is
 hex-prism `MeshInstance3D`s and units/cities are `Sprite3D` billboards
-(`WorldRenderer`, a `Node3D`) under a `Camera3D`; the range/path/HP/selection/fog
+(`WorldRenderer`, a `Node3D`) under a `Camera3D` (a Civ5-style telephoto lens —
+narrow FOV, ~45° oblique tilt — so hex tiles read near-uniformly across the
+viewport); the range/path/HP/selection/fog
 overlays are drawn in a screen-space `WorldOverlay` (Node2D, `_Draw`) projected via
 `Camera3D.UnprojectPosition`. Only the HUD (`UI.tscn`), tech tree
 (`TechTreePanel.tscn`), and world root (`WorldMap.tscn`) are scenes.

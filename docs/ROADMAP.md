@@ -50,6 +50,15 @@ placeholders first (mirrors the `AudioManager` pattern).
 > elevation, and perspective are genuine geometry. Game logic was untouched (it
 > works in axial `Vector2I`); only the view layer changed.
 
+> Lens (V7.1 follow-up): the `Camera3D` uses a **Civ5-style telephoto lens** — a
+> narrow (~30°) FOV with the camera dollied far back, at a ~45° oblique tilt. A wide
+> FOV ballooned the near/edge hex tiles; the long lens keeps them near-uniform
+> across the viewport while preserving a subtle depth cue (Civ5 is perspective, not
+> orthographic). FOV / tilt / dolly distance are constants in `CameraController`.
+> **Impact on the art still to come:** top-face terrain tiles (V7.2) and billboards
+> (V7.3) are viewed at a fixed ~45° oblique angle, *not* top-down — author and judge
+> that art at the oblique angle, not flat-on.
+
 - [x] **V7.1 — 3D projection + asset pipeline (placeholders).** Flat-ground
       `HexProjection.AxialToWorld`→`Vector3` / `WorldToAxial` (ray-to-ground
       picking); real prism elevation via `TopHeight`; `TerrainMeshFactory`
@@ -61,8 +70,9 @@ placeholders first (mirrors the `AudioManager` pattern).
       still land correctly.
 - [ ] **V7.2 — Terrain art.** Drop in AI-generated pixel hex **top-face** tiles
       (cliffs are now real geometry, so no baked skirt); wire the top surface's
-      material/texture in `TerrainMeshFactory`. *Done when:* all terrain uses real
-      tiles.
+      material/texture in `TerrainMeshFactory`. Tiles are seen through the ~45°
+      oblique telephoto lens, so author them to read at that angle (not top-down).
+      *Done when:* all terrain uses real tiles.
 - [ ] **V7.3 — Unit & city sprites.** Replace the placeholder billboard tokens with
       real per-type `Sprite3D` textures anchored on tile tops, owner-tinted; keep
       the selection/fortify/HP overlays. *Done when:* units and cities are real

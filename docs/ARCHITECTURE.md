@@ -41,7 +41,7 @@ Godot scene layer (scripts, scenes)
 ├── TerrainMeshFactory — builds the per-terrain hex-prism meshes
 ├── UIController       — HUD widgets (top bar, city/unit panels, notifications)
 ├── TechTreePanelController — tech tree panel
-├── CameraController   — fixed-tilt Camera3D pan/zoom/centering + post-anim delay
+├── CameraController   — Civ5-style telephoto Camera3D (narrow FOV, ~45° oblique tilt) pan/zoom/centering + post-anim delay
 ├── MovementAnimator   — tweens a unit along its path
 ├── SelectionState     — current selection + reachable/preview tiles
 └── EndTurnQueue       — ordered "needs attention" items for end-turn flow

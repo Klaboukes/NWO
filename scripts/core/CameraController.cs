@@ -14,16 +14,21 @@ public class CameraController
     private const float KeyPanPxPerSec     = 900f; // screen px/sec at the focal plane
     public  const float PostAnimCenterDelay = 0.5f;
 
-    private const float TiltDegFromGround = 55f;   // 90 = straight down, 0 = horizon
-    private const float MinDistance       = 150f;
-    private const float MaxDistance       = 1600f;
+    // Telephoto lens (Civ5-style): a narrow FOV with the camera dollied far back
+    // keeps hex tiles near-uniform across the viewport instead of stretching the
+    // near/edge tiles like a wide-angle lens. Distances are scaled up from the old
+    // ~75 deg framing by tan(37.5)/tan(15) ~= 2.86 so the same map area stays in view.
+    private const float CameraFov         = 30f;
+    private const float TiltDegFromGround = 45f;   // Civ5-style oblique view (90 = straight down, 0 = horizon)
+    private const float MinDistance       = 450f;
+    private const float MaxDistance       = 4600f;
 
     private readonly Node3D   _pivot;
     private readonly Camera3D _camera;
     private readonly float    _tiltRad;
     private readonly Vector3  _dir;   // unit offset from pivot to camera
 
-    private float    _distance = 520f;
+    private float    _distance = 1500f;
     private Vector3? _target;
     private float    _postAnimDelay;
     private Vector3? _deferredCenter;
@@ -36,6 +41,11 @@ public class CameraController
         _camera  = camera;
         _tiltRad = Mathf.DegToRad(TiltDegFromGround);
         _dir     = new Vector3(0f, Mathf.Sin(_tiltRad), Mathf.Cos(_tiltRad)).Normalized();
+        // Telephoto lens; widen the depth range so the dollied-back camera (up to
+        // MaxDistance, plus tilt reach to the far horizon) never clips the board.
+        _camera.Fov  = CameraFov;
+        _camera.Near = 1f;
+        _camera.Far  = 12000f;
         ApplyDistance();
     }
 

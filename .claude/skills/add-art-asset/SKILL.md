@@ -18,6 +18,11 @@ into `assets/art/` to override it with **minimal/no code change**. See Phase 7 i
   `HexProjection.TopHeight(terrain)` with six cliff side walls dropping to the
   ground plane. Cliffs are **real geometry now** — art only needs the **top face**
   (no baked skirt).
+- The camera is a Civ5-style telephoto lens at a fixed **~45° oblique tilt** (narrow
+  FOV, dollied far back — constants in `CameraController`). Top faces are therefore
+  always seen at that angle, foreshortened along the view axis, *never* straight
+  down. Author and judge tile art at the oblique angle; designs that only read
+  top-down will look wrong in-game.
 - Geometry + placeholder material live in `scripts/map/TerrainMeshFactory.cs`
   (vertex-coloured prism). To use a real top-face texture, give the top surface UVs
   and an `AlbedoTexture` from `res://assets/art/tiles/<terrain>.png` (lowercase
