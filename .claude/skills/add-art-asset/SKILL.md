@@ -23,11 +23,16 @@ into `assets/art/` to override it with **minimal/no code change**. See Phase 7 i
   always seen at that angle, foreshortened along the view axis, *never* straight
   down. Author and judge tile art at the oblique angle; designs that only read
   top-down will look wrong in-game.
-- Geometry + placeholder material live in `scripts/map/TerrainMeshFactory.cs`
-  (vertex-coloured prism). To use a real top-face texture, give the top surface UVs
-  and an `AlbedoTexture` from `res://assets/art/tiles/<terrain>.png` (lowercase
-  `TerrainType` name, e.g. `grassland.png`). Keep the prism geometry contract (top
-  hex at `TopHeight`, cliffs to `Y = 0`) so picking and anchoring stay correct.
+- Top faces are UV-mapped and textured per terrain in
+  `scripts/map/TerrainMeshFactory.cs` (two-surface prism: textured top + vertex-
+  coloured cliffs), resolved through `TerrainTextureRegistry`. The committed tiles
+  live at `res://assets/art/tiles/<terrain>.png` (lowercase `TerrainType` name, e.g.
+  `grassland.png`) and are **procedurally generated** — to change how terrain looks,
+  use the **`generate-terrain-art`** skill (edits `TerrainArtGenerator` + re-bakes).
+- To override one terrain with hand-drawn or AI-generated art, just drop a real
+  `assets/art/tiles/<terrain>.png` over the baked one — the registry prefers a present
+  PNG with no code change. Keep the prism geometry contract (top hex at `TopHeight`,
+  cliffs to `Y = 0`) so picking and anchoring stay correct.
 - Add a new `TerrainType` enum value only if introducing genuinely new terrain.
 
 ## Unit & city sprites (V7.3)

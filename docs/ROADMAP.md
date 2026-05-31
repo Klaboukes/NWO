@@ -41,8 +41,9 @@ Goal: make the game *look* like a game. Replace flat top-down polygons with a
 cliff sides), units/cities are billboard sprites, all under a `Camera3D` (pan +
 zoom, no rotation). The fiddly 2D bits (range/path overlays, selection rings, HP
 bars, glyphs, fog dimming) are drawn in a screen-space overlay on top of the 3D
-world via `Camera3D.UnprojectPosition`. Art is AI-generated and dropped into
-`assets/art/` with no code change; the pipeline is de-risked with runtime
+world via `Camera3D.UnprojectPosition`. Terrain art is **procedurally generated**
+(`TerrainArtGenerator`, baked into `assets/art/`); a real hand-drawn/AI PNG still
+overrides any tile with no code change. The pipeline is de-risked with runtime
 placeholders first (mirrors the `AudioManager` pattern).
 
 > Decision (was "baked 2.5D"): V7.1 originally shipped a foreshortened `Camera2D`
@@ -68,11 +69,16 @@ placeholders first (mirrors the `AudioManager` pattern).
       Projection round-trip + ground-pick regression tests. *Done when:* the map
       renders as a tilted 3D board on zero committed art, and picking/animation
       still land correctly.
-- [ ] **V7.2 — Terrain art.** Drop in AI-generated pixel hex **top-face** tiles
-      (cliffs are now real geometry, so no baked skirt); wire the top surface's
-      material/texture in `TerrainMeshFactory`. Tiles are seen through the ~45°
-      oblique telephoto lens, so author them to read at that angle (not top-down).
-      *Done when:* all terrain uses real tiles.
+- [x] **V7.2 — Terrain art.** UV-mapped, textured **top-face** tiles wired in
+      `TerrainMeshFactory` (two-surface prism: textured top + vertex-coloured cliffs)
+      via `TerrainTextureRegistry` (real `assets/art/tiles/<terrain>.png` if present,
+      else a synthesized fallback). Art is **procedurally generated** —
+      `TerrainArtGenerator` bakes all ten 128px detailed-pixel-art tiles (6-tone
+      naturalistic ramp, ordered dither, outlined trees/rocks/cacti/peaks, decorative
+      props, hex-edge ambient-occlusion rim) via the headless `BakeTerrainTiles` tool;
+      see the `generate-terrain-art` skill. A real hand-drawn/AI PNG still overrides
+      any tile with no code change. *Done:* all terrain uses real baked tiles (art may
+      be refined further later).
 - [ ] **V7.3 — Unit & city sprites.** Replace the placeholder billboard tokens with
       real per-type `Sprite3D` textures anchored on tile tops, owner-tinted; keep
       the selection/fortify/HP overlays. *Done when:* units and cities are real

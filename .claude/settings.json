@@ -11,7 +11,10 @@
       "Edit(/.claude/skills/hud-ui/**)",
       "Edit(/.claude/skills/finish-phase/**)",
       "Skill(run-checks)",
-      "Skill(run-checks:*)"
+      "Skill(run-checks:*)",
+      "Edit(/.claude/skills/generate-terrain-art/**)",
+      "Skill(finish-phase)",
+      "Skill(finish-phase:*)"
     ]
   }
 }
