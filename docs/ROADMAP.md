@@ -89,13 +89,30 @@ placeholders first (mirrors the `AudioManager` pattern).
 
 ---
 
-## Phase 8 — Map Generation Overhaul & Terrain Features 🔭 PLANNED
+## Phase 8 — Standalone Distribution ✅ COMPLETE
+
+Goal: ship a playable Windows build that requires no Godot installation or developer
+tooling. Players can double-click `NWO.exe` on a bare Windows machine.
+
+- [x] **8.1 — Export configuration.** Download the Godot 4.6 Mono export templates
+      (*Editor → Manage Export Templates* in the Godot editor). Create
+      `export_presets.cfg` via *Project → Export → Windows Desktop* (x86\_64,
+      embed PCK, self-contained .NET). Commit the preset file.
+- [x] **8.2 — Build skill & artifact.** Wire the `build-standalone` skill
+      (`godot --headless --export-release "Windows Desktop" build/NWO.exe`).
+      `build/` excluded from git. Verify: launch `build/NWO.exe` on a machine without
+      Godot; start a game, play a turn, save, reload. Optional: GitHub Actions job that
+      exports on version tags and attaches the zip to a GitHub Release.
+
+---
+
+## Phase 9 — Map Generation Overhaul & Terrain Features 🔭 PLANNED
 
 Goal: replace the single-noise `MapGenerator` with a geologically-layered pipeline and
 expand the resource system into three Civ5-style tiers (bonus / strategic / luxury).
 See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific notes.
 
-- [ ] **8.1 — Layered terrain generation.** Replace the two-noise flat pass in
+- [ ] **9.1 — Layered terrain generation.** Replace the two-noise flat pass in
       `MapGenerator.cs` with three independent layers: (1) continental shape mask
       (existing low-freq FBM + radial falloff — keep as-is); (2) domain-warped ridged
       Simplex for coherent mountain chains; (3) moisture noise axis (separate low-freq
@@ -104,19 +121,19 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
       elevation, colour, and procedural art (`TerrainArtGenerator`) for the new types.
       *Done when:* maps show coherent mountain arcs and 2–3 distinct biome transitions
       per seed.
-- [ ] **8.2 — Bonus resources.** Add 7 always-visible bonus resources to `ResourceType`
+- [ ] **9.2 — Bonus resources.** Add 7 always-visible bonus resources to `ResourceType`
       (Wheat, Fish, Cattle, Sheep, Deer, Stone, Banana). Scatter with per-type terrain
       affinity and density targets in `ScatterResources()`. Update `TerrainYields` with
       resource yield bonuses (+1 Food or +1 Prod). No tech reveal required. *Done when:*
       maps populate with bonus resources and city yields reflect them when tiles are worked.
-- [ ] **8.3 — Luxury resources.** Add 9 luxury resources to `ResourceType` (Gems,
+- [ ] **9.3 — Luxury resources.** Add 9 luxury resources to `ResourceType` (Gems,
       GoldOre, Silver, Silk, Spices, Dyes, Cotton, Incense, Ivory). Each scatters very
       sparsely (1–3 per map) on appropriate terrain, is tech-revealed, and yields +1 Gold
       on the worked tile. Wire reveal techs in `data/techs.json`. Scaffold a
       "unique luxury controlled" count on `Player` for future happiness consumption (Phase
-      9 / post-MVP). *Done when:* luxury resources are hidden until the reveal tech and
+      10 / post-MVP). *Done when:* luxury resources are hidden until the reveal tech and
       yield correctly when worked.
-- [ ] **8.4 — Rivers (basic).** Store rivers as a `HashSet<(Vector2I tile, int dir)>`
+- [ ] **9.4 — Rivers (basic).** Store rivers as a `HashSet<(Vector2I tile, int dir)>`
       edge-set on `MapData`. Trace 3–5 rivers per map downhill from mountain/hill tiles
       to coast in `MapGenerator`. Grant +1 Food to all tiles adjacent to a river edge
       (floodplain modifier in `TerrainYields`). Render river edges as thin coloured lines
@@ -125,7 +142,7 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
 
 ---
 
-## Phase 9 — "The Sundering" (factions & fast-warfare reframe) 🔭 PLANNED
+## Phase 10 — "The Sundering" (factions & fast-warfare reframe) 🔭 PLANNED
 
 Goal: turn the Civ5-style MVP into the **NWO spin-off** — ideological factions, decisive
 fast warfare, and an objective victory tied to the lore. Setting & design intent:
@@ -133,26 +150,26 @@ fast warfare, and an objective victory tied to the lore. Setting & design intent
 **data + small hooks** on the existing headless core, not new subsystems. Can run alongside
 or after Phase 7 (visuals) — they're independent.
 
-- [ ] **9.1 — Faction data model.** Add `FactionData` (loaded via `DataLoader`/`DataCatalog`)
+- [ ] **10.1 — Faction data model.** Add `FactionData` (loaded via `DataLoader`/`DataCatalog`)
       + a faction id and signature-passive hooks on `Player`/`Civilization`. Replace the
       hard-coded "Barbarians" AI with **The Reavers**. *Done when:* a match can be seeded
       with a named faction whose passive is read by the core.
-- [ ] **9.2 — Match setup (player-chosen factions).** Setup screen to choose faction
+- [ ] **10.2 — Match setup (player-chosen factions).** Setup screen to choose faction
       **count (2–8)** and which factions; wire through `GameFactory.NewGame` and
       `WorldMap.ResolveLaunch` / `PickAISpawn`. *Done when:* the player picks the roster and
       it spawns correctly.
-- [ ] **9.3 — Faction asymmetry (v1: 6 + Reavers).** Implement signature passives +
+- [ ] **10.3 — Faction asymmetry (v1: 6 + Reavers).** Implement signature passives +
       unique-unit variants per [FACTIONS.md](FACTIONS.md) in `data/*.json` and the static
       services they touch (`CombatResolver`, `CivEconomyService`, movement/sight). Piety &
       Aesthetics stay shelved. *Done when:* each faction plays to its one-sentence identity.
-- [ ] **9.4 — Anti-micro settlement model.** Capped cities / pre-placed contested sites
+- [ ] **10.4 — Anti-micro settlement model.** Capped cities / pre-placed contested sites
       (`MinCityDistance`, `MapGenerator`, settle rules). *Done when:* a match is decided by
       fighting over sites, not by settler-carpeting.
-- [ ] **9.5 — Objective victory + shorter clock.** *Establish the New World Order*
+- [ ] **10.5 — Objective victory + shorter clock.** *Establish the New World Order*
       key-site-control win in `VictoryService`/`ScoreService`; lower the turn cap; tune
       combat lethality via the `tune-mechanics` skill. *Done when:* a typical match resolves
       well under the old 500-turn limit.
-- [ ] **9.6 — Light diplomacy/economy.** Alliances / non-aggression; **hire-Reavers** via
+- [ ] **10.6 — Light diplomacy/economy.** Alliances / non-aggression; **hire-Reavers** via
       gold. *Done when:* gold and stance choices meaningfully affect a war without becoming
       its focus.
 
@@ -161,33 +178,16 @@ or after Phase 7 (visuals) — they're independent.
 
 ---
 
-## Phase 10 — Standalone Distribution 🔭 PLANNED
-
-Goal: ship a playable Windows build that requires no Godot installation or developer
-tooling. Players can double-click `NWO.exe` on a bare Windows machine.
-
-- [x] **10.1 — Export configuration.** Download the Godot 4.6 Mono export templates
-      (*Editor → Manage Export Templates* in the Godot editor). Create
-      `export_presets.cfg` via *Project → Export → Windows Desktop* (x86\_64,
-      embed PCK, self-contained .NET). Commit the preset file.
-- [x] **10.2 — Build skill & artifact.** Wire the `build-standalone` skill
-      (`godot --headless --export-release "Windows Desktop" build/NWO.exe`).
-      `build/` excluded from git. Verify: launch `build/NWO.exe` on a machine without
-      Godot; start a game, play a turn, save, reload. Optional: GitHub Actions job that
-      exports on version tags and attaches the zip to a GitHub Release.
-
----
-
 ## Post-MVP backlog (unscheduled)
 
-Beyond Phase 7 (visuals), Phase 8 (map generation & terrain features), and Phase 9
+Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), and Phase 10
 (factions & fast-warfare reframe), candidate directions. Factions, light diplomacy, and
-the objective victory now live in **Phase 9**, not here.
+the objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve
-  the two trees held back from the Phase 9 roster (see [FACTIONS.md](FACTIONS.md)).
+  the two trees held back from the Phase 10 roster (see [FACTIONS.md](FACTIONS.md)).
 - Full tech tree (50+ techs), extending the salvaged → colony → planetary regression arc
-- Deeper diplomacy (trade deals beyond the Phase 9 alliance/non-aggression basics)
+- Deeper diplomacy (trade deals beyond the Phase 10 alliance/non-aggression basics)
 - Culture and borders; Religion (currently out of scope)
 - More unit types (naval, siege; plus the sci-fi late-tier units from the regression arc)
 - **Cross-continent / multi-island AI spawning** — once naval units exist, drop the

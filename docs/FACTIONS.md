@@ -3,7 +3,7 @@
 > Setting and the Sundering: [LORE.md](LORE.md). Design intent: [OVERVIEW.md](OVERVIEW.md).
 > Current mechanics & numbers: [MECHANICS.md](MECHANICS.md).
 >
-> Status: **direction doc**. Faction asymmetry is **[planned]** (ROADMAP Phase 9). The
+> Status: **direction doc**. Faction asymmetry is **[planned]** (ROADMAP Phase 10). The
 > table doubles as an **implementation index** — each hook names the system it touches.
 
 ---
@@ -17,7 +17,7 @@ identity. That is the engine for **easy to learn / hard to master** and for repl
 
 - **Match setup is player-chosen:** the player picks **how many factions (2–8)** play and
   **which**, then the rest are AI. (Today's single hard-coded "Barbarians" AI is the
-  starting point for this — see Phase 9.2.)
+  starting point for this — see Phase 10.2.)
 - **v1 roster = 6 factions + the Reavers.** Two trees (**Piety**, **Aesthetics**) are
   **shelved** because they need systems we don't have yet (morale, influence).
 

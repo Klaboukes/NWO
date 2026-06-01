@@ -11,7 +11,7 @@ design doc in `docs/`:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — singletons + EventBus, key classes, turn flow, AI
 - [docs/MECHANICS.md](docs/MECHANICS.md) — terrain/unit/city/tech/combat rules and numbers
 - [docs/LORE.md](docs/LORE.md) — setting, tone, and world canon (planet Cradle, ark Exodus, the Sundering)
-- [docs/FACTIONS.md](docs/FACTIONS.md) — faction identities, signature passives, and unique-unit hooks (Phase 9 implementation index)
+- [docs/FACTIONS.md](docs/FACTIONS.md) — faction identities, signature passives, and unique-unit hooks (Phase 10 implementation index)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — phased plan; current progress tracked via checkboxes
 - [docs/MAP_GENERATION.md](docs/MAP_GENERATION.md) — procedural terrain generation patterns; NWO-specific notes on the layered noise pipeline, moisture biome axis, and resource placement tiers
 - [docs/CONTROLS.md](docs/CONTROLS.md) — full mouse/keyboard spec, camera centering rules, end-turn queue flow
@@ -31,7 +31,7 @@ matching the task instead of re-deriving the procedure:
 - `generate-terrain-art` — re-bake procedural pixel-art terrain tiles (`assets/art/tiles/`); use after adding a terrain type or tweaking palette/motif.
 - `hud-ui` — HUD / UI / controls work (Civ 5 conventions).
 - `finish-phase` — tick the roadmap, sync docs, verify, commit+push.
-- `build-standalone` — export a Windows standalone build to `build/NWO.exe` (requires export templates + `export_presets.cfg`; see Phase 10).
+- `build-standalone` — export a Windows standalone build to `build/NWO.exe` (requires export templates + `export_presets.cfg`; see Phase 8).
 
 Skills run commands in **PowerShell**. They keep improving: when a procedure drifts,
 update the relevant `SKILL.md` (each has a `## Maintenance` note).
