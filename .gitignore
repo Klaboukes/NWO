@@ -6,5 +6,8 @@
 **/bin/
 **/obj/
 
+# Standalone export output
+/build/
+
 # Claude scheduled-task internals
 .claude/scheduled_tasks.lock

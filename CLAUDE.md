@@ -31,6 +31,7 @@ matching the task instead of re-deriving the procedure:
 - `generate-terrain-art` — re-bake procedural pixel-art terrain tiles (`assets/art/tiles/`); use after adding a terrain type or tweaking palette/motif.
 - `hud-ui` — HUD / UI / controls work (Civ 5 conventions).
 - `finish-phase` — tick the roadmap, sync docs, verify, commit+push.
+- `build-standalone` — export a Windows standalone build to `build/NWO.exe` (requires export templates + `export_presets.cfg`; see Phase 10).
 
 Skills run commands in **PowerShell**. They keep improving: when a procedure drifts,
 update the relevant `SKILL.md` (each has a `## Maintenance` note).

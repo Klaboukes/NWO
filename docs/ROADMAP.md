@@ -161,6 +161,23 @@ or after Phase 7 (visuals) — they're independent.
 
 ---
 
+## Phase 10 — Standalone Distribution 🔭 PLANNED
+
+Goal: ship a playable Windows build that requires no Godot installation or developer
+tooling. Players can double-click `NWO.exe` on a bare Windows machine.
+
+- [ ] **10.1 — Export configuration.** Download the Godot 4.6 Mono export templates
+      (*Editor → Manage Export Templates* in the Godot editor). Create
+      `export_presets.cfg` via *Project → Export → Windows Desktop* (x86\_64,
+      embed PCK, self-contained .NET). Commit the preset file.
+- [ ] **10.2 — Build skill & artifact.** Wire the `build-standalone` skill
+      (`godot --headless --export-release "Windows Desktop" build/NWO.exe`).
+      `build/` excluded from git. Verify: launch `build/NWO.exe` on a machine without
+      Godot; start a game, play a turn, save, reload. Optional: GitHub Actions job that
+      exports on version tags and attaches the zip to a GitHub Release.
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
 Beyond Phase 7 (visuals), Phase 8 (map generation & terrain features), and Phase 9
