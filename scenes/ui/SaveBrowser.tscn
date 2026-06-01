@@ -39,7 +39,7 @@ theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="CenterPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 32
 text = "Load Game"
 horizontal_alignment = 1
 

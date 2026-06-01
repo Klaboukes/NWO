@@ -134,8 +134,8 @@ public partial class MinimapController : Control
                     DrawLine(poly[i], poly[(i + 1) % poly.Length], Colors.White, 1.5f);
         }
 
-        // Frame.
-        DrawRect(new Rect2(Vector2.Zero, Size), new Color(1, 1, 1, 0.6f), false, 1f);
+        // The blue frame around the minimap is the themed HudCluster Panel behind
+        // this control (see UI.tscn); the map draws no border of its own.
     }
 
     public override void _GuiInput(InputEvent @event)

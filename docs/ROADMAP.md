@@ -83,7 +83,7 @@ placeholders first (mirrors the `AudioManager` pattern).
       real per-type `Sprite3D` textures anchored on tile tops, owner-tinted; keep
       the selection/fortify/HP overlays. *Done when:* units and cities are real
       sprites, not placeholder tokens.
-- [ ] **V7.4 — HUD / UI polish.** A Godot `Theme` (pixel font, restyled
+- [x] **V7.4 — HUD / UI polish.** A Godot `Theme` (pixel font, restyled
       panels/buttons/bars), framed minimap. Independent of the renderer. *Done
       when:* the HUD reads as a cohesive styled UI.
 

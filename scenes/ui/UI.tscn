@@ -16,29 +16,61 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="TurnLabel" type="Label" parent="Root"]
+[node name="TopBar" type="Panel" parent="Root"]
+layout_mode = 1
+anchor_right = 1.0
+offset_bottom = 48.0
+
+[node name="MenuButton" type="Button" parent="Root/TopBar"]
 layout_mode = 0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 200.0
-offset_bottom = 36.0
+offset_left = 8.0
+offset_top = 7.0
+offset_right = 92.0
+offset_bottom = 41.0
+focus_mode = 0
+text = "Menu"
+
+[node name="TurnLabel" type="Label" parent="Root/TopBar"]
+layout_mode = 0
+offset_left = 108.0
+offset_right = 248.0
+offset_bottom = 48.0
+vertical_alignment = 1
 text = "Turn 1"
 
-[node name="GoldLabel" type="Label" parent="Root"]
+[node name="GoldIcon" type="TextureRect" parent="Root/TopBar"]
 layout_mode = 0
-offset_left = 10.0
-offset_top = 36.0
-offset_right = 400.0
-offset_bottom = 56.0
-text = "Treasury: 0  (+0/turn)"
+offset_left = 260.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 40.0
+expand_mode = 1
+stretch_mode = 5
 
-[node name="ScienceLabel" type="Label" parent="Root"]
+[node name="GoldLabel" type="Label" parent="Root/TopBar"]
 layout_mode = 0
-offset_left = 10.0
-offset_top = 56.0
-offset_right = 500.0
-offset_bottom = 76.0
-text = "Science: No research  (+0/turn)"
+offset_left = 298.0
+offset_right = 470.0
+offset_bottom = 48.0
+vertical_alignment = 1
+text = "0  (+0/turn)"
+
+[node name="ScienceIcon" type="TextureRect" parent="Root/TopBar"]
+layout_mode = 0
+offset_left = 486.0
+offset_top = 8.0
+offset_right = 518.0
+offset_bottom = 40.0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ScienceLabel" type="Label" parent="Root/TopBar"]
+layout_mode = 0
+offset_left = 524.0
+offset_right = 1000.0
+offset_bottom = 48.0
+vertical_alignment = 1
+text = "No research  (+0/turn)"
 
 [node name="NotifLabel" type="Label" parent="Root"]
 visible = false
@@ -65,20 +97,6 @@ offset_bottom = -64.0
 horizontal_alignment = 1
 text = ""
 
-[node name="EndTurnButton" type="Button" parent="Root"]
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -50.0
-offset_right = -10.0
-offset_bottom = -10.0
-focus_mode = 0
-text = "End Turn  [Enter]"
-
 [node name="FoundCityButton" type="Button" parent="Root"]
 visible = false
 layout_mode = 1
@@ -99,18 +117,29 @@ layout_mode = 1
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -250.0
+offset_left = -320.0
+offset_top = 58.0
+offset_right = -10.0
+offset_bottom = -10.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/CityPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 16.0
+offset_right = -12.0
+offset_bottom = -10.0
 theme_override_constants/separation = 4
 
 [node name="CityNameLabel" type="Label" parent="Root/CityPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+
+[node name="NameSeparator" type="HSeparator" parent="Root/CityPanel/VBox"]
+layout_mode = 2
 
 [node name="CityStatsLabel" type="Label" parent="Root/CityPanel/VBox"]
 layout_mode = 2
@@ -121,7 +150,7 @@ layout_mode = 2
 
 [node name="ProductionTitle" type="Label" parent="Root/CityPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 20
 text = "Production"
 
 [node name="BuildList" type="VBoxContainer" parent="Root/CityPanel/VBox"]
@@ -133,8 +162,10 @@ visible = false
 layout_mode = 1
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -210.0
-offset_right = 230.0
+offset_left = 10.0
+offset_top = -224.0
+offset_right = 320.0
+offset_bottom = -10.0
 
 [node name="VBox" type="VBoxContainer" parent="Root/UnitPanel"]
 layout_mode = 1
@@ -149,7 +180,7 @@ theme_override_constants/separation = 4
 
 [node name="UnitNameLabel" type="Label" parent="Root/UnitPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 26
 
 [node name="UnitHPLabel" type="Label" parent="Root/UnitPanel/VBox"]
 layout_mode = 2
@@ -172,15 +203,33 @@ mouse_filter = 2
 theme_override_constants/separation = 2
 script = ExtResource("3_eventlog")
 
-[node name="Minimap" type="Control" parent="Root"]
+[node name="HudCluster" type="Panel" parent="Root"]
 layout_mode = 1
-anchors_preset = 1
+anchors_preset = 3
 anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
-offset_left = -230.0
-offset_top = 10.0
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = -224.0
 offset_right = -10.0
-offset_bottom = 160.0
+offset_bottom = -10.0
+
+[node name="EndTurnButton" type="Button" parent="Root/HudCluster"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 302.0
+offset_bottom = 48.0
+focus_mode = 0
+text = "End Turn  [Enter]"
+
+[node name="Minimap" type="Control" parent="Root/HudCluster"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 56.0
+offset_right = 302.0
+offset_bottom = 206.0
 mouse_filter = 0
 script = ExtResource("4_minimap")
 
@@ -193,21 +242,10 @@ mouse_filter = 2
 
 [node name="Label" type="Label" parent="Root/TileTooltip"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 18
 
 [node name="TechTreePanel" parent="Root" instance=ExtResource("2_techtree")]
 visible = false
-
-[node name="MenuButton" type="Button" parent="Root"]
-layout_mode = 1
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = -50.0
-offset_right = 100.0
-offset_bottom = -10.0
-focus_mode = 0
-text = "Menu"
 
 [node name="PauseMenu" type="Control" parent="Root"]
 visible = false
@@ -247,7 +285,7 @@ alignment = 1
 
 [node name="TitleLabel" type="Label" parent="Root/PauseMenu/CenterPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 32
 text = "Paused"
 horizontal_alignment = 1
 

@@ -1,7 +1,7 @@
 # Technical Architecture
 
-> **Status:** Reflects the implementation through Phase 5 (tech tree & economy).
-> Items still on the roadmap are flagged **[planned]**.
+> **Status:** Reflects the implementation through Phase 7 (3D board + HUD/UI
+> polish). Items still on the roadmap are flagged **[planned]**.
 
 ---
 
@@ -39,8 +39,13 @@ Godot scene layer (scripts, scenes)
 ├── WorldOverlay (Node2D)  — screen-space overlay (range/path/HP/selection/glyphs/fog)
 │                            drawn over the 3D view via Camera3D.UnprojectPosition
 ├── TerrainMeshFactory — builds the per-terrain hex-prism meshes
-├── UIController       — HUD widgets (top bar, city/unit panels, notifications)
+├── UIController       — HUD widgets (top bar, city/unit panels, notifications,
+│                         and the bottom-right End-Turn + minimap cluster)
 ├── TechTreePanelController — tech tree panel
+├── MinimapController — framed whole-map overview, click-to-recenter the camera
+├── EventLogController — scrolling end-of-turn event log (clickable rows)
+├── HudIconGenerator / HudIconRegistry — procedural HUD status icons (coin/flask),
+│                         PNG override under assets/art/ui/ (same pattern as units)
 ├── CameraController   — Civ5-style telephoto Camera3D (narrow FOV, ~45° oblique tilt) pan/zoom/centering + post-anim delay
 ├── MovementAnimator   — tweens a unit along its path
 ├── SelectionState     — current selection + reachable/preview tiles
@@ -327,23 +332,39 @@ confined to the player's landmass (`GetConnectedLandmass` + `PickAISpawn`).
 The HUD (`UIController`, `scenes/ui/UI.tscn`) currently provides:
 
 ``` text
-┌─────────────────────────────────────────────────────────┐
-│  Top bar: Turn # | Treasury (+/turn) | Science (+/turn)  │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│      HEX MAP (3D prisms + billboards; 2D overlay)         │
-│   [selection highlight] [movement overlay] [path preview] │
-│   [worked/locked tile tints when a city is selected]      │
-│                                                           │
-│  Notification label (transient or persistent)             │
-│                                                           │
-│  Side panels: Unit panel / City panel (build + focus)     │
-│  Buttons: [End Turn]  [Found City]  •  Tech tree on [T]   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ [Menu]  Turn #    (gold) Treasury (+/turn)  (flask) Science…  │  top bar
+├──────────────────────────────────────────────────────────────┤
+│ Event log (top-left, clickable rows)                          │
+│                                                               │
+│         HEX MAP (3D prisms + billboards; 2D overlay)          │
+│   [selection highlight] [movement overlay] [path preview]     │
+│   [worked/locked tile tints when a city is selected]          │
+│                                                               │
+│                  Notification label   [Found City]            │
+│ ┌─Unit panel────┐                       ┌─ HudCluster ─────┐  │
+│ │ name / HP /   │                       │   [End Turn]      │  │
+│ │ stats / build │                       │  ┌─ Minimap ───┐  │  │
+│ └───────────────┘                       │  └─────────────┘  │  │
+│                                         └──────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-**[planned]** Mini-map, scrolling event log, score readout, and a city-list
-button are Phase 6 and not implemented yet.
+The top bar is fixed-position: Menu button (far left), turn counter, then a gold
+coin + treasury and a science flask + research, each with its `(+/turn)` rate. The
+two bottom panels are equal-sized framed boxes (310×214, 10px off their corner):
+the **unit panel** (bottom-left) and the **`HudCluster`** (bottom-right), which
+frames the **End Turn** button stacked above the click-to-recenter **minimap**. The
+right-edge **city panel** matches the cluster's width and replaces it while a city
+is selected (the whole cluster — End Turn *and* minimap — hides). Tech tree opens
+on **[T]**; the pause overlay opens from the **Menu** button.
+
+**Styling.** Every `Control` inherits a single global theme,
+`assets/theme/NwoTheme.tres` (V7.4), wired via `project.godot` `[gui]
+theme/custom`. It's a dark sci-fi look — slate-blue panels, a cool cyan-blue accent
+border, soft off-white text — using the bundled CC0 pixel font *PixelOperator*
+(`assets/fonts/`). The palette lives in that one `.tres` so it stays tunable in
+one place.
 
 ---
 

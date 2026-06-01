@@ -14,12 +14,15 @@ namespace NWO.UI;
 // just grabs node references in _Ready() and exposes a typed surface.
 public partial class UIController : CanvasLayer
 {
-    [Export] private NodePath _turnLabelPath        = "Root/TurnLabel";
-    [Export] private NodePath _goldLabelPath        = "Root/GoldLabel";
-    [Export] private NodePath _scienceLabelPath     = "Root/ScienceLabel";
+    [Export] private NodePath _turnLabelPath        = "Root/TopBar/TurnLabel";
+    [Export] private NodePath _goldLabelPath        = "Root/TopBar/GoldLabel";
+    [Export] private NodePath _goldIconPath         = "Root/TopBar/GoldIcon";
+    [Export] private NodePath _scienceLabelPath     = "Root/TopBar/ScienceLabel";
+    [Export] private NodePath _scienceIconPath      = "Root/TopBar/ScienceIcon";
     [Export] private NodePath _notifLabelPath       = "Root/NotifLabel";
     [Export] private NodePath _combatForecastPath   = "Root/CombatForecastLabel";
-    [Export] private NodePath _endTurnButtonPath    = "Root/EndTurnButton";
+    [Export] private NodePath _hudClusterPath       = "Root/HudCluster";
+    [Export] private NodePath _endTurnButtonPath    = "Root/HudCluster/EndTurnButton";
     [Export] private NodePath _foundCityButtonPath  = "Root/FoundCityButton";
     [Export] private NodePath _cityPanelPath        = "Root/CityPanel";
     [Export] private NodePath _cityNameLabelPath    = "Root/CityPanel/VBox/CityNameLabel";
@@ -31,11 +34,11 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _unitStatsLabelPath   = "Root/UnitPanel/VBox/UnitStatsLabel";
     [Export] private NodePath _workerActionsPath    = "Root/UnitPanel/VBox/WorkerActions";
     [Export] private NodePath _eventLogPath         = "Root/EventLog";
-    [Export] private NodePath _minimapPath          = "Root/Minimap";
+    [Export] private NodePath _minimapPath          = "Root/HudCluster/Minimap";
     [Export] private NodePath _tileTooltipPath      = "Root/TileTooltip";
     [Export] private NodePath _tileTooltipLabelPath = "Root/TileTooltip/Label";
     [Export] private NodePath _techTreePanelPath    = "Root/TechTreePanel";
-    [Export] private NodePath _menuButtonPath       = "Root/MenuButton";
+    [Export] private NodePath _menuButtonPath       = "Root/TopBar/MenuButton";
     [Export] private NodePath _pauseMenuPath        = "Root/PauseMenu";
     [Export] private NodePath _saveBrowserPath      = "Root/SaveBrowser";
 
@@ -43,9 +46,12 @@ public partial class UIController : CanvasLayer
 
     private Label         _turnLabel       = null!;
     private Label         _goldLabel       = null!;
+    private TextureRect   _goldIcon        = null!;
     private Label         _scienceLabel    = null!;
+    private TextureRect   _scienceIcon     = null!;
     private Label         _notifLabel      = null!;
     private Label         _combatForecast  = null!;
+    private Panel         _hudCluster      = null!;
     private Button        _endTurnButton   = null!;
     private Button        _foundCityButton = null!;
     private Panel         _cityPanel       = null!;
@@ -82,9 +88,15 @@ public partial class UIController : CanvasLayer
     {
         _turnLabel       = GetNode<Label>(_turnLabelPath);
         _goldLabel       = GetNode<Label>(_goldLabelPath);
+        _goldIcon        = GetNode<TextureRect>(_goldIconPath);
         _scienceLabel    = GetNode<Label>(_scienceLabelPath);
+        _scienceIcon     = GetNode<TextureRect>(_scienceIconPath);
+
+        _goldIcon.Texture    = HudIconRegistry.For("gold");
+        _scienceIcon.Texture = HudIconRegistry.For("science");
         _notifLabel      = GetNode<Label>(_notifLabelPath);
         _combatForecast  = GetNode<Label>(_combatForecastPath);
+        _hudCluster      = GetNode<Panel>(_hudClusterPath);
         _endTurnButton   = GetNode<Button>(_endTurnButtonPath);
         _foundCityButton = GetNode<Button>(_foundCityButtonPath);
         _cityPanel       = GetNode<Panel>(_cityPanelPath);
@@ -155,17 +167,17 @@ public partial class UIController : CanvasLayer
         var civ           = state.Civ(player);
         int goldPerTurn   = CivEconomyService.GoldPerTurn(state, player);
         int sciencePerTurn = CivEconomyService.SciencePerTurn(state, player);
-        _goldLabel.Text   = $"Treasury: {civ.Treasury}  ({(goldPerTurn >= 0 ? "+" : "")}{goldPerTurn}/turn)";
+        _goldLabel.Text   = $"{civ.Treasury}  ({(goldPerTurn >= 0 ? "+" : "")}{goldPerTurn}/turn)";
 
         if (civ.CurrentResearch == null)
         {
-            _scienceLabel.Text = $"Science: No research  (+{sciencePerTurn}/turn)";
+            _scienceLabel.Text = $"No research  (+{sciencePerTurn}/turn)";
             return;
         }
         var tech = state.Catalog.Tech(civ.CurrentResearch);
         int cost = tech?.ScienceCost ?? 0;
         string name = tech?.Name ?? civ.CurrentResearch;
-        _scienceLabel.Text = $"Science: {name} {civ.ScienceAccumulated}/{cost}  (+{sciencePerTurn}/turn)";
+        _scienceLabel.Text = $"{name} {civ.ScienceAccumulated}/{cost}  (+{sciencePerTurn}/turn)";
     }
 
     public void SetFoundCityVisible(bool visible) => _foundCityButton.Visible = visible;
@@ -226,7 +238,7 @@ public partial class UIController : CanvasLayer
     public void HideCityPanel()
     {
         _cityPanel.Visible = false;
-        _minimap.Visible   = true; // restore the minimap the city panel was covering
+        _hudCluster.Visible = true; // restore the End Turn + minimap cluster the city panel covered
     }
 
     public void ToggleTechTree(GameState state, Player player, Action<string> onSetResearch)
@@ -301,7 +313,7 @@ public partial class UIController : CanvasLayer
     {
         var catalog = state.Catalog;
         _cityPanel.Visible = true;
-        _minimap.Visible   = false; // the right-edge city panel would overlap the minimap
+        _hudCluster.Visible = false; // hide the End Turn + minimap cluster the city panel overlaps
         _cityNameLabel.Text = city.Name;
 
         int netFood = city.FoodYield - city.Population;
@@ -321,7 +333,7 @@ public partial class UIController : CanvasLayer
 
         foreach (var child in _buildList.GetChildren()) child.QueueFree();
 
-        var focusRow = new HBoxContainer();
+        var focusRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         foreach (var f in new[] { CityFocus.Balanced, CityFocus.Food, CityFocus.Production })
         {
             var fbtn = new Button

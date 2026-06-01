@@ -1,0 +1,149 @@
+[gd_resource type="Theme" load_steps=11 format=3 uid="uid://b1nwo_theme"]
+
+; NWO global UI theme — dark sci-fi.
+; Palette is concentrated in the StyleBoxFlat colors below so it stays tunable in
+; one place (mirrors the "constants in one file" pattern used elsewhere).
+;   panel bg     Color(0.07, 0.09, 0.14)   deep slate-blue
+;   accent       Color(0.36, 0.64, 0.88)   cool cyan-blue rim/glow
+;   text         Color(0.88, 0.92, 0.97)   soft off-white
+; Wired globally via project.godot [gui] theme/custom; applies to every Control.
+
+[ext_resource type="FontFile" path="res://assets/fonts/PixelOperator.ttf" id="1_font"]
+
+[sub_resource type="StyleBoxFlat" id="panel_bg"]
+bg_color = Color(0.07, 0.09, 0.14, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.36, 0.64, 0.88, 0.85)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+content_margin_left = 8.0
+content_margin_top = 6.0
+content_margin_right = 8.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="btn_normal"]
+bg_color = Color(0.11, 0.14, 0.21, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.5, 0.7, 0.7)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="btn_hover"]
+bg_color = Color(0.17, 0.24, 0.34, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.46, 0.74, 0.98, 1.0)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="btn_pressed"]
+bg_color = Color(0.06, 0.08, 0.12, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.5, 0.78, 1.0, 1.0)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="btn_disabled"]
+bg_color = Color(0.08, 0.09, 0.12, 0.55)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.3, 0.38, 0.4)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="btn_focus"]
+draw_center = false
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.55, 0.82, 1.0, 0.9)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxLine" id="sep_line"]
+color = Color(0.36, 0.64, 0.88, 0.55)
+thickness = 1
+
+[sub_resource type="StyleBoxFlat" id="pbar_bg"]
+bg_color = Color(0.05, 0.07, 0.1, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.5, 0.7, 0.7)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="pbar_fill"]
+bg_color = Color(0.36, 0.64, 0.88, 0.95)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[resource]
+default_font = ExtResource("1_font")
+default_font_size = 20
+Button/colors/font_color = Color(0.85, 0.91, 0.98, 1)
+Button/colors/font_hover_color = Color(1, 1, 1, 1)
+Button/colors/font_pressed_color = Color(0.6, 0.82, 1, 1)
+Button/colors/font_disabled_color = Color(0.5, 0.55, 0.62, 1)
+Button/colors/font_focus_color = Color(1, 1, 1, 1)
+Button/styles/normal = SubResource("btn_normal")
+Button/styles/hover = SubResource("btn_hover")
+Button/styles/pressed = SubResource("btn_pressed")
+Button/styles/disabled = SubResource("btn_disabled")
+Button/styles/focus = SubResource("btn_focus")
+Label/colors/font_color = Color(0.88, 0.92, 0.97, 1)
+Panel/styles/panel = SubResource("panel_bg")
+PanelContainer/styles/panel = SubResource("panel_bg")
+HSeparator/constants/separation = 6
+HSeparator/styles/separator = SubResource("sep_line")
+VSeparator/constants/separation = 6
+VSeparator/styles/separator = SubResource("sep_line")
+ProgressBar/styles/background = SubResource("pbar_bg")
+ProgressBar/styles/fill = SubResource("pbar_fill")
