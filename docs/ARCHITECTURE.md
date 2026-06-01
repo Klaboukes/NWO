@@ -94,7 +94,9 @@ the coordinator: `MovementAnimator.Completed`, `UIController.EndTurnPressed`,
   own scene. As of Phase 7 the terrain is 3D hex-prism `MeshInstance3D`s and
   units/cities are `Sprite3D` billboards (`WorldRenderer`, a `Node3D`), while
   selection/HP/range overlays are drawn in screen space by `WorldOverlay._Draw`.
-  Real per-type art replaces the placeholder meshes/tokens with no structural change.
+  V7.3: `UnitArtGenerator` / `CityArtGenerator` synthesise per-type 128 px pixel-art
+  sprites; `UnitTextureRegistry` / `CityTextureRegistry` resolve them (real PNG in
+  `assets/art/units|cities/` overrides the procedural sprite with no code change).
 
 ### Capital tracking
 

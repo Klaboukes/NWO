@@ -5,7 +5,7 @@ using NWO.Entities;
 
 namespace NWO.Map;
 
-// 3D world view (Phase 7 V7.1): builds the terrain as hex-prism MeshInstance3Ds
+// 3D world view (Phase 7 V7.1–V7.3): builds the terrain as hex-prism MeshInstance3Ds
 // and draws units/cities as billboard Sprite3Ds, all under a fixed-tilt Camera3D.
 // Owns no gameplay state — it reads GameState / MovementAnimator and rebuilds the
 // view on Refresh(). The fiddly 2D bits (selection rings, HP bars, glyphs, range
@@ -13,6 +13,8 @@ namespace NWO.Map;
 //
 // Fog: undiscovered tiles hide their prism (the black environment shows through);
 // the "explored but not currently visible" dimming is painted by WorldOverlay.
+// V7.3: each unit type and city variant uses a distinct sprite from
+// UnitTextureRegistry / CityTextureRegistry (placeholder-first, real PNGs override).
 public partial class WorldRenderer : Node3D
 {
     private GameState        _state    = null!;
@@ -24,10 +26,7 @@ public partial class WorldRenderer : Node3D
     private readonly Dictionary<Unit, Sprite3D>           _units  = new();
     private readonly Dictionary<City, Sprite3D>           _cities = new();
 
-    private ImageTexture _unitToken = null!;
-    private ImageTexture _cityToken = null!;
-
-    // World width of a unit/city token (texture is 64px square).
+    // World width of a unit/city sprite (texture is 128px square).
     private const float UnitSizeWorld = HexSizeRef * 0.80f;
     private const float CitySizeWorld = HexSizeRef * 1.05f;
     private const float HexSizeRef    = HexProjection.HexSize;
@@ -37,9 +36,6 @@ public partial class WorldRenderer : Node3D
         _state    = state;
         _animator = animator;
         _viewer   = viewer;
-
-        _unitToken = MakeDiscToken();
-        _cityToken = MakeSquareToken();
 
         BuildTerrain();
         Refresh();
@@ -81,7 +77,7 @@ public partial class WorldRenderer : Node3D
         foreach (var unit in _state.Units)
         {
             bool visible = fog.IsVisible(unit.Position);
-            var sprite = Ensure(_units, unit, _unitToken, UnitSizeWorld);
+            var sprite = Ensure(_units, unit, UnitTextureRegistry.For(unit.Data.Id), UnitSizeWorld);
             sprite.Visible  = visible;
             if (!visible) continue;
 
@@ -109,7 +105,7 @@ public partial class WorldRenderer : Node3D
         foreach (var city in _state.Cities)
         {
             bool discovered = fog.IsDiscovered(city.Position);
-            var sprite = Ensure(_cities, city, _cityToken, CitySizeWorld);
+            var sprite = Ensure(_cities, city, CityTextureRegistry.For(city.IsCapital), CitySizeWorld);
             sprite.Visible = discovered;
             if (!discovered) continue;
 
@@ -139,7 +135,7 @@ public partial class WorldRenderer : Node3D
             Texture       = tex,
             Billboard     = BaseMaterial3D.BillboardModeEnum.Enabled,
             Shaded        = false,
-            PixelSize     = worldSize / 64f, // tokens are 64px square
+            PixelSize     = worldSize / 128f, // sprites are 128px square
             TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
             RenderPriority = 1,
         };
@@ -160,39 +156,5 @@ public partial class WorldRenderer : Node3D
             map[key].QueueFree();
             map.Remove(key);
         }
-    }
-
-    // ── Placeholder billboard tokens (owner-tinted via Sprite3D.Modulate) ──
-    // Real art drops in at V7.3 by overriding the Texture per unit/city type.
-
-    private static ImageTexture MakeDiscToken()
-    {
-        const int s = 64; const float c = 31.5f; const float r = 28f;
-        var img = Image.CreateEmpty(s, s, false, Image.Format.Rgba8);
-        img.Fill(new Color(0, 0, 0, 0));
-        for (int y = 0; y < s; y++)
-        for (int x = 0; x < s; x++)
-        {
-            float d = new Vector2(x - c, y - c).Length();
-            if (d <= r - 3f)      img.SetPixel(x, y, Colors.White);
-            else if (d <= r)      img.SetPixel(x, y, new Color(0.1f, 0.1f, 0.1f)); // dark ring
-        }
-        return ImageTexture.CreateFromImage(img);
-    }
-
-    private static ImageTexture MakeSquareToken()
-    {
-        const int s = 64;
-        var img = Image.CreateEmpty(s, s, false, Image.Format.Rgba8);
-        img.Fill(new Color(0, 0, 0, 0));
-        for (int y = 0; y < s; y++)
-        for (int x = 0; x < s; x++)
-        {
-            bool border = x < 6 || x >= s - 6 || y < 6 || y >= s - 6;
-            bool inner  = x >= 4 && x < s - 4 && y >= 4 && y < s - 4;
-            if (!inner) continue;
-            img.SetPixel(x, y, border ? new Color(0.1f, 0.1f, 0.1f) : Colors.White);
-        }
-        return ImageTexture.CreateFromImage(img);
     }
 }

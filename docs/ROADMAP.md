@@ -79,7 +79,7 @@ placeholders first (mirrors the `AudioManager` pattern).
       see the `generate-terrain-art` skill. A real hand-drawn/AI PNG still overrides
       any tile with no code change. *Done:* all terrain uses real baked tiles (art may
       be refined further later).
-- [ ] **V7.3 — Unit & city sprites.** Replace the placeholder billboard tokens with
+- [x] **V7.3 — Unit & city sprites.** Replace the placeholder billboard tokens with
       real per-type `Sprite3D` textures anchored on tile tops, owner-tinted; keep
       the selection/fortify/HP overlays. *Done when:* units and cities are real
       sprites, not placeholder tokens.

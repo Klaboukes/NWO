@@ -50,9 +50,15 @@ ids), `unlocks` object with any of `units`, `buildings`, `improvements`,
    asserting the new id loads and the unlock/gating resolves.
 4. Update the matching roster/table in [docs/MECHANICS.md](../../../docs/MECHANICS.md)
    (§3 units, §4 buildings, or §6 techs) so docs stay the source of truth.
-5. Run the **`run-checks`** skill.
+5. **If adding a unit:** add a `case` for the new `unitId` in
+   `scripts/art/UnitArtGenerator.cs` → `Generate()` (draw a distinctive silhouette),
+   then invoke the **`add-art-asset`** skill to bake and commit
+   `assets/art/units/<id>.png`. If you skip this, the unit falls back to the generic
+   disc — acceptable temporarily, but every shipped unit should have its own shape.
+6. Run the **`run-checks`** skill.
 
 ## Maintenance
 
 If a new field is added to any data schema, or the catalog/loader changes, update the
-schema notes above.
+schema notes above. When new unit IDs are added, keep `UnitArtGenerator.Generate()`
+in sync so every ID has a dedicated silhouette (not the generic disc fallback).

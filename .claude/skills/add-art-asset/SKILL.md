@@ -37,12 +37,30 @@ into `assets/art/` to override it with **minimal/no code change**. See Phase 7 i
 
 ## Unit & city sprites (V7.3)
 
-- Units/cities are `Sprite3D` billboards anchored on tile tops, owner-tinted via
-  `Sprite3D.Modulate` (see `WorldRenderer.Ensure`). Placeholder tokens are
-  synthesized (`MakeDiscToken` / `MakeSquareToken`).
-- To use real art, resolve a per-type PNG (e.g. `assets/art/units/<id>.png`) in the
-  same "real PNG else placeholder" pattern and assign it to the sprite's `Texture`.
-  Keep the selection / fortify / HP / letter overlays (drawn in `WorldOverlay`) intact.
+Units and cities are `Sprite3D` billboards (128 px, RGBA8, white fill + dark outline
+so `Sprite3D.Modulate = owner.Color` tints the whole sprite). Textures are resolved
+by `UnitTextureRegistry` / `CityTextureRegistry` in the same placeholder-first pattern:
+
+- **Unit sprites**: `res://assets/art/units/<unitId>.png` (e.g. `warrior.png`).
+  Resolved by `UnitTextureRegistry.For(unitId)`. Falls back to `UnitArtGenerator.Generate(unitId)`
+  which synthesises a distinctive 128 px silhouette per unit type.
+- **City sprites**: `res://assets/art/cities/city.png` and `assets/art/cities/capital.png`.
+  Resolved by `CityTextureRegistry.For(isCapital)`. Falls back to `CityArtGenerator.Generate(isCapital)`.
+
+Adding new hand-drawn unit art:
+
+1. Drop `assets/art/units/<unitId>.png` (128 px, RGBA8, white/light fill + dark outline).
+2. The registry picks it up automatically — no code change.
+3. Run **`run-checks`**.
+
+Adding a new unit type that needs its own synthesised silhouette:
+
+1. Add a `case "<newId>":` branch in `UnitArtGenerator.Generate()` that draws the shape.
+2. Optionally bake it to a PNG and commit under `assets/art/units/<newId>.png`.
+3. Run **`run-checks`**. The `add-content` skill reminds you of this step.
+
+Keep the selection / fortify / HP overlays (in `WorldOverlay`) intact — they draw over
+the sprite in screen space and are unaffected by texture changes.
 
 ## Rendering invariants (don't break these)
 

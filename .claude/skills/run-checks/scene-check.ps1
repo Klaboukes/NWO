@@ -2,7 +2,7 @@
 param([string]$Scene = 'res://scenes/world/WorldMap.tscn', [int]$Frames = 30)
 $ErrorActionPreference = 'Stop'
 $repo = Resolve-Path "$PSScriptRoot\..\..\.."
-$godot = 'C:\source\Godot_v4.6.3-stable_mono_win64\Godot_v4.6.3-stable_mono_win64_console.exe'
+$godot = 'D:\source\Godot_v4.6.3-stable_mono_win64\Godot_v4.6.3-stable_mono_win64_console.exe'
 if (-not (Test-Path $godot)) { $godot = (Get-Command godot -ErrorAction SilentlyContinue)?.Source }
 if (-not $godot) { throw "Godot .NET binary not found (see godot-binary-for-headless-checks memory)" }
 Write-Host "==> godot --import" -ForegroundColor Cyan
