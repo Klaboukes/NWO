@@ -10,7 +10,11 @@ design doc in `docs/`:
 - [docs/TECH_STACK.md](docs/TECH_STACK.md) — engine, language, folder layout, axial hex coords
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — singletons + EventBus, key classes, turn flow, AI
 - [docs/MECHANICS.md](docs/MECHANICS.md) — terrain/unit/city/tech/combat rules and numbers
+- [docs/LORE.md](docs/LORE.md) — setting, tone, and world canon (planet Cradle, ark Exodus, the Sundering)
+- [docs/FACTIONS.md](docs/FACTIONS.md) — faction identities, signature passives, and unique-unit hooks (Phase 9 implementation index)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — phased plan; current progress tracked via checkboxes
+- [docs/MAP_GENERATION.md](docs/MAP_GENERATION.md) — procedural terrain generation patterns; NWO-specific notes on the layered noise pipeline, moisture biome axis, and resource placement tiers
+- [docs/CONTROLS.md](docs/CONTROLS.md) — full mouse/keyboard spec, camera centering rules, end-turn queue flow
 
 These docs are the source of truth for design intent. Keep `docs/ROADMAP.md`
 checkboxes in sync as phases complete (ties into the auto-commit rule below).
@@ -24,6 +28,7 @@ matching the task instead of re-deriving the procedure:
 - `add-content` — add a unit/building/tech in `data/*.json`.
 - `tune-mechanics` — change gameplay numbers/balance in the headless core.
 - `add-art-asset` — drop in Phase 7 terrain tiles / sprites.
+- `generate-terrain-art` — re-bake procedural pixel-art terrain tiles (`assets/art/tiles/`); use after adding a terrain type or tweaking palette/motif.
 - `hud-ui` — HUD / UI / controls work (Civ 5 conventions).
 - `finish-phase` — tick the roadmap, sync docs, verify, commit+push.
 
@@ -37,51 +42,8 @@ update the relevant `SKILL.md` (each has a `## Maintenance` note).
 - Use the git identity already configured in this repo (`Klaboukes` / `barthoukes@gmail.com`).
 - Follow the standard commit format: concise subject line, blank line, short body if needed, trailing `Co-Authored-By` line.
 
-## UI/UX — Civ 5 inspired controls
+## UI/UX
 
-The game is loosely modeled on Civilization V. Players coming from Civ 5 must find the controls (mouse, keyboard, unit actions) intuitively familiar. When adding or changing UI/UX, match Civ 5 conventions before inventing new ones.
-
-### Mouse
-- **Left-click** on own unit or city: select it (centers camera smoothly).
-- **Left-click** on an empty/unselectable tile: deselect.
-- **Left-click drag** on the map: pan the camera (grab-pan). A click that doesn't
-  move past a small threshold still selects/deselects as above; only a drag pans.
-- **Right-click** on a reachable tile while a unit is selected: execute the move.
-- **Middle-mouse drag**: pan the camera.
-- **Mouse hover** while a unit is selected: shows the path preview to the hovered tile — no button held.
-- **Scroll wheel**: zoom (vertical). **Horizontal scroll** (touchpad two-finger sideways): pan left/right.
-- **Touchpad**: tap = click, click-drag = grab-pan (same events as a mouse). Two-finger
-  pan gesture pans; pinch gesture zooms (macOS-reliable; on Windows two-finger scroll
-  arrives as wheel events and is handled there instead).
-
-### Keyboard
-- **WASD / arrow keys**: pan camera.
-- **Enter**: end turn (or advance the end-turn queue if a prompt is active).
-- **Tab**: cycle to next unit needing attention.
-- **C**: cycle between your own cities (centers on each).
-- **Space**: skip the current end-turn-queue item.
-- **B**: Build city (when a settler is selected).
-- **F**: Fortify selected unit (Found city if the unit is a settler — `B` is preferred).
-- **H**: Fortify the selected unit until it heals to full HP, then auto-wake ("sleep until healed").
-- **Esc**: cancel / deselect / clear notification.
-
-Note: **Space** skips a unit for the current turn (it leaves the end-turn queue and
-won't re-block End Turn) without spending its action, so a skipped unit still heals.
-
-## UI/UX — Camera & Game Progression Flow
-
-These rules govern how the camera behaves and how the end-turn queue advances. All future edits must respect this flow.
-
-### Camera centering
-- Selecting a unit or city (player click) centers the camera on it immediately and smoothly (exponential lerp).
-- Manual keyboard/mouse-drag panning cancels any in-progress camera tween.
-
-### Unit movement
-- While a unit animates, the camera follows it each frame (`_cameraTarget = _animPos`).
-- When animation ends, the camera rests exactly on the destination tile.
-
-### End-turn queue progression
-- When animation ends, **game state advances immediately**: `PruneAndShowEndTurnQueue()` is called right away, selecting the next unit/city in the queue (or triggering `ProcessTurn` if the queue is empty).
-- **Camera centering to the next item is deferred** by `PostAnimCenterDelay` (0.5 s), so the player can see the destination before the camera jumps away. This is implemented via `_postAnimCenterDelay` + `_deferredCenterPos` — the position is stored in `DeferOrCenter()` and applied once the timer expires in `_Process`.
-- If the player presses Space or F during the delay, `AdvanceEndTurnQueue` clears the timer and deferred position so the next item centers immediately.
-- Pressing End Turn for the first time (no animation pending) shows and centers on the first queue item immediately — no delay.
+Match Civ 5 conventions for all controls and camera behaviour. Full spec — mouse,
+keyboard, camera centering, end-turn queue flow — is in
+[docs/CONTROLS.md](docs/CONTROLS.md).

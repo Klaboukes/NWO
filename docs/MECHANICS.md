@@ -11,7 +11,7 @@
 
 The sections below describe the **Civ5-style MVP as built**. The spin-off reframe
 (see [OVERVIEW.md](OVERVIEW.md), [LORE.md](LORE.md), [FACTIONS.md](FACTIONS.md), and
-ROADMAP Phase 8) layers on top of them — it does not throw them away:
+ROADMAP Phase 9) layers on top of them — it does not throw them away:
 
 - **Capped / contested settlement.** Infinite settler-spam (§1, §4) gives way to a small
   number of cities and **pre-placed sites factions fight over**, cutting expansion micro.

@@ -18,7 +18,7 @@ title means exactly that: the political order being contested *on the literal ne
 
 > **Status:** the Civ5-style **MVP core is built and playable** (Phases 0–6; see
 > [ROADMAP.md](ROADMAP.md)). The spin-off identity below — factions, fast-warfare reframe,
-> objective victory — is the **next direction (Phase 8)** and is flagged `[planned]`.
+> objective victory — is the **next direction (Phase 9)** and is flagged `[planned]`.
 
 ---
 
