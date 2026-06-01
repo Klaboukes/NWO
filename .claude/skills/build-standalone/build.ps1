@@ -1,11 +1,18 @@
 param([string]$OutDir = "build")
+#requires -Version 7
+$ErrorActionPreference = 'Stop'
+$repo = Resolve-Path "$PSScriptRoot\..\..\.."
 
-$exe = Join-Path $OutDir "NWO.exe"
-New-Item -ItemType Directory -Force $OutDir | Out-Null
+$godot = 'D:\source\Godot_v4.6.3-stable_mono_win64\Godot_v4.6.3-stable_mono_win64_console.exe'
+if (-not (Test-Path $godot)) { $godot = (Get-Command godot -ErrorAction SilentlyContinue)?.Source }
+if (-not $godot) { throw "Godot .NET binary not found — add the Godot_*_console.exe directory to your PATH" }
 
-Write-Host "Exporting Windows standalone to $exe ..."
-godot --headless --path . --export-release "Windows Desktop" $exe
+$exe = Join-Path $repo $OutDir "NWO.exe"
+New-Item -ItemType Directory -Force (Join-Path $repo $OutDir) | Out-Null
+
+Write-Host "Exporting Windows standalone to $exe ..." -ForegroundColor Cyan
+& $godot --headless --path $repo --export-release "Windows Desktop" $exe
 if ($LASTEXITCODE -ne 0) { throw "Godot export failed (exit $LASTEXITCODE)" }
 
-Write-Host "Build complete:"
-Get-ChildItem $OutDir | Format-Table Name, Length
+Write-Host "Build complete:" -ForegroundColor Green
+Get-ChildItem (Join-Path $repo $OutDir) | Format-Table Name, Length
