@@ -1,20 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Skill(update-config)",
-      "Skill(update-config:*)",
+      "Skill(*)",
+      "Edit(/.claude/skills/**)",
       "Read(//c/Users/barth/AppData/Local/Temp/**)",
-      "Edit(/.claude/skills/run-checks/**)",
-      "Edit(/.claude/skills/add-content/**)",
-      "Edit(/.claude/skills/tune-mechanics/**)",
-      "Edit(/.claude/skills/add-art-asset/**)",
-      "Edit(/.claude/skills/hud-ui/**)",
-      "Edit(/.claude/skills/finish-phase/**)",
-      "Skill(run-checks)",
-      "Skill(run-checks:*)",
-      "Edit(/.claude/skills/generate-terrain-art/**)",
-      "Skill(finish-phase)",
-      "Skill(finish-phase:*)"
+      "Read(//c/Users/barthoukes/.claude/**)",
+      "Edit(//c/Users/barthoukes/.claude/**)",
+      "Edit(/.claude/skills/build-standalone/**)"
     ]
   }
 }
