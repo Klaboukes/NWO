@@ -3,8 +3,7 @@ param([string]$OutDir = "build")
 $ErrorActionPreference = 'Stop'
 $repo = Resolve-Path "$PSScriptRoot\..\..\.."
 
-$godot = 'D:\source\Godot_v4.6.3-stable_mono_win64\Godot_v4.6.3-stable_mono_win64_console.exe'
-if (-not (Test-Path $godot)) { $godot = (Get-Command godot -ErrorAction SilentlyContinue)?.Source }
+$godot = (Get-Command godot -ErrorAction SilentlyContinue)?.Source
 if (-not $godot) { throw "Godot .NET binary not found — add the Godot_*_console.exe directory to your PATH" }
 
 $exe = Join-Path $repo $OutDir "NWO.exe"
