@@ -1,9 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://b7fd7e6lewkrx"]
 
-[ext_resource type="Script" path="res://scripts/map/WorldMap.cs" id="1_worldmap"]
-[ext_resource type="Script" path="res://scripts/map/WorldRenderer.cs" id="2_renderer"]
+[ext_resource type="Script" uid="uid://doyop78p00kxu" path="res://scripts/map/WorldMap.cs" id="1_worldmap"]
+[ext_resource type="Script" uid="uid://pc0usmy0ew4s" path="res://scripts/map/WorldRenderer.cs" id="2_renderer"]
 [ext_resource type="PackedScene" path="res://scenes/ui/UI.tscn" id="3_ui"]
-[ext_resource type="Script" path="res://scripts/map/WorldOverlay.cs" id="4_overlay"]
+[ext_resource type="Script" uid="uid://fpvlb6a0dgrx" path="res://scripts/map/WorldOverlay.cs" id="4_overlay"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -12,25 +12,25 @@ ambient_light_source = 2
 ambient_light_color = Color(0.5, 0.5, 0.55, 1)
 ambient_light_energy = 0.65
 
-[node name="WorldMap" type="Node3D"]
+[node name="WorldMap" type="Node3D" unique_id=1489954450]
 script = ExtResource("1_worldmap")
 
-[node name="Pivot" type="Node3D" parent="."]
+[node name="Pivot" type="Node3D" parent="." unique_id=1688485496]
 
-[node name="Camera3D" type="Camera3D" parent="Pivot"]
+[node name="Camera3D" type="Camera3D" parent="Pivot" unique_id=1654801223]
 current = true
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1175167695]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=24601001]
 environment = SubResource("Env")
 
-[node name="WorldRenderer" type="Node3D" parent="."]
+[node name="WorldRenderer" type="Node3D" parent="." unique_id=467293335]
 script = ExtResource("2_renderer")
 
-[node name="OverlayLayer" type="CanvasLayer" parent="."]
+[node name="OverlayLayer" type="CanvasLayer" parent="." unique_id=1759696599]
 
-[node name="WorldOverlay" type="Node2D" parent="OverlayLayer"]
+[node name="WorldOverlay" type="Node2D" parent="OverlayLayer" unique_id=1324385008]
 script = ExtResource("4_overlay")
 
-[node name="UI" parent="." instance=ExtResource("3_ui")]
+[node name="UI" parent="." unique_id=1367519442 instance=ExtResource("3_ui")]

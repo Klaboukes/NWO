@@ -122,8 +122,32 @@ public partial class WorldOverlay : Node2D
 
     private void DrawMovementRange()
     {
-        foreach (var axial in _selection.ReachableTiles)
-            FillHex(axial, HexProjection.HexSize - Gap, new Color(1f, 1f, 0.2f, 0.35f));
+        if (_selection.ReachableTiles.Count == 0) return;
+        var reachable = _selection.ReachableTiles;
+        var color = new Color(1f, 0.95f, 0.15f, 0.90f);
+        float radius = HexProjection.HexSize - Gap;
+        bool hasUnit = _selection.Unit != null;
+        var  unitPos = hasUnit ? _selection.Unit!.Position : default;
+
+        foreach (var axial in reachable)
+        {
+            var top = TileTop(axial);
+            if (_camera.IsPositionBehind(top)) continue;
+
+            for (int d = 0; d < 6; d++)
+            {
+                var neighbor = axial + HexGrid.Directions[d];
+                if (reachable.Contains(neighbor)) continue;
+                if (hasUnit && neighbor == unitPos) continue; // unit's tile not in set but is "occupied origin"
+
+                // Flat-top: edge facing direction d is edge (6-d)%6, connecting corners e and e+1.
+                int e = (6 - d) % 6;
+                var wA = top + HexProjection.Corner(e,           radius);
+                var wB = top + HexProjection.Corner((e + 1) % 6, radius);
+                if (_camera.IsPositionBehind(wA) || _camera.IsPositionBehind(wB)) continue;
+                DrawLine(_camera.UnprojectPosition(wA), _camera.UnprojectPosition(wB), color, 2.5f);
+            }
+        }
     }
 
     private void DrawWorkforce()

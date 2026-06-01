@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash",
-      "PowerShell"
+      "PowerShell",
+      "Skill(run-checks)",
+      "Skill(run-checks:*)"
     ]
   }
 }
