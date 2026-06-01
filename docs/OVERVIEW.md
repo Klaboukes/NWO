@@ -1,4 +1,5 @@
 # NWO — New World Order
+
 ## Turn-Based Strategy Game (Civ5-inspired, Alpha-Centauri-flavoured)
 
 ---
@@ -43,7 +44,7 @@ depth-and-replay engine — see [FACTIONS.md](FACTIONS.md).
 ## Pillars
 
 | Pillar | Description |
-|--------|-------------|
+| --- | --- |
 | Identity | Hard-asymmetric factions; each is a distinct, one-sentence playstyle |
 | Tempo | Short, decisive games — warfare resolves fast, matches don't drag |
 | Clarity | Every action, faction, and consequence is readable on screen at a glance |
@@ -54,11 +55,13 @@ depth-and-replay engine — see [FACTIONS.md](FACTIONS.md).
 ## Scope
 
 ### In scope (built — the Civ5 core)
+
 A single-player prototype proving the loop works, **already shipped**: procedural hex map;
 found & grow cities; build/move/fight units; tech tree & economy; a competent reactive AI;
 Domination + Score victories; save/load; HUD. Full detail in [ROADMAP.md](ROADMAP.md).
 
 ### In scope (next — the spin-off identity, `[planned]`)
+
 - **Factions:** a fixed asymmetric cast (v1: 6 + the Reavers), player-chosen count per
   match — [FACTIONS.md](FACTIONS.md).
 - **Fast-warfare reframe:** the four levers above (capped settlement, decisive combat,
@@ -68,6 +71,7 @@ Domination + Score victories; save/load; HUD. Full detail in [ROADMAP.md](ROADMA
   (existing antiquity units are the first tier; later tiers go sci-fi) — [LORE.md](LORE.md).
 
 ### Out of scope (for now)
+
 - **Religion, ideology, and culture-victory systems.** The Piety and Aesthetics factions
   are **shelved/planned** until light morale/influence layers exist — [FACTIONS.md](FACTIONS.md).
 - Multiplayer; espionage; full 50+ tech tree; map editor; mod support.

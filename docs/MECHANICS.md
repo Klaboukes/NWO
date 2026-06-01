@@ -32,6 +32,7 @@ Everything in §0 is `[planned]`; the rest of this document is the current imple
 ## 1. Map
 
 ### Hex Grid
+
 - Map size: 60×40 tiles (MVP default, configurable)
 - Coordinate system: axial (q, r) — see TECH_STACK.md
 - Each tile currently has exactly one **terrain type**. Tile **features** (e.g.
@@ -43,7 +44,7 @@ Yields per `TerrainYields`. Coast/Ocean now carry **+1 Gold** (trade); land tile
 have none until improvements/buildings provide it (see §9).
 
 | Terrain | Movement Cost | Food | Production | Gold |
-|---------|--------------|------|------------|------|
+| --- | --- | --- | --- | --- |
 | Grassland | 1 | +2 | +0 | +0 |
 | Plains | 1 | +1 | +1 | +0 |
 | Desert | 1 | +0 | +1 | +0 |
@@ -66,17 +67,18 @@ turns (`Unit.CurrentTask`, ticked in `GameState.EndPlayerTurn`; moving cancels
 it). Rules live in `ImprovementService`; yields fold into `CityWorkforceService`.
 
 | Improvement | Effect | Valid terrain | Tech | Turns |
-|-------------|--------|---------------|------|-------|
-| Farm    | +1 Food | Grassland/Plains | — | 3 |
-| Mine    | +1 Prod | Hills | Mining | 3 |
+| --- | --- | --- | --- | --- |
+| Farm | +1 Food | Grassland/Plains | — | 3 |
+| Mine | +1 Prod | Hills | Mining | 3 |
 | Pasture | +1 Prod | Grassland/Plains | Animal Husbandry | 3 |
-| Road    | halves entry move cost (min 1) | any passable land | — | 2 |
+| Road | halves entry move cost (min 1) | any passable land | — | 2 |
 
 ### Resources (strategic)
 
 `MapGenerator` scatters two strategic resources deterministically (seeded):
 **Horses** on Plains/Grassland, **Iron** on Hills, stored in `MapData.Resources`.
 `ResourceService` governs two gates:
+
 - **Reveal** — a resource is visible/usable only once the civ researches its
   revealing tech (Animal Husbandry → Horses, Bronze Working → Iron).
 - **Access** — the civ must control a tile bearing the resource (within a city's
@@ -87,6 +89,7 @@ A revealed worked resource tile also grants **+1 Production**. Luxury/Bonus
 resources and resource trading remain **[planned]**.
 
 ### Map Generation (Procedural)
+
 - Algorithm: two layers of simplex noise (`FastNoiseLite`) blended 70/30, with a
   radial falloff that pushes map edges to ocean → island-like continents.
 - Rivers: not in MVP
@@ -99,7 +102,7 @@ resources and resource trading remain **[planned]**.
 
 ## 2. Turn Structure
 
-```
+```text
 Start of Turn
 │
 ├── Each Civilization (in order):
@@ -129,7 +132,7 @@ Start of Turn
 ### Unit Properties
 
 | Property | Description |
-|----------|-------------|
+| --- | --- |
 | `Type` | Warrior, Archer, Spearman, etc. |
 | `HP` | 0–100. Unit dies at 0. |
 | `Attack` | Combat strength for melee |
@@ -139,6 +142,7 @@ Start of Turn
 | `Owner` | Civilization that controls the unit |
 
 ### Movement
+
 - Each unit has `MovementRemaining`, reset to its `Movement` at the start of its
   civ's turn (fortified units stay at 0 until woken by an order)
 - Moving onto a tile costs the tile's movement cost
@@ -147,6 +151,7 @@ Start of Turn
   1-civilian-per-tile limit. The AI avoids stepping onto any occupied tile.
 
 ### Combat (Simplified)
+
 - Attacker and defender each roll: `strength × (HP/100) × random(0.85, 1.15)`
 - Higher roll deals damage equal to `(attacker_roll / defender_roll) × 30` to the loser, proportionally less to the winner
 - Attacking costs all remaining movement points
@@ -156,6 +161,7 @@ Start of Turn
   1.0 mean — deterministic).
 
 ### Healing
+
 - A unit that did **not** move or attack this turn recovers **+10 HP** at end of
   turn (**+15** if on or adjacent to a friendly city), capped at 100. Fortifying
   (`F`) or skipping (`Space`) a unit both leave it idle, so both heal.
@@ -166,7 +172,7 @@ Start of Turn
 ### MVP Unit Roster
 
 | Unit | Cost (Production) | Atk | Def | Move | Range |
-|------|------------------|-----|-----|------|-------|
+| --- | --- | --- | --- | --- | --- |
 | Warrior | 40 | 8 | 8 | 2 | 1 |
 | Archer | 70 | 7 | 4 | 2 | 2 |
 | Spearman | 60 (needs Bronze Working) | 6 | 12 | 2 | 1 |
@@ -181,6 +187,7 @@ The Horseman/Swordsman `requiredResource` (`horses`/`iron`) is enforced in the
 build list — you must have access to the resource (see Resources, §1).
 
 ### Special Units
+
 - **Settler**: Can found a city (`special: "found_city"`). Consumed on use.
 - **Worker**: Carries `special: "build_improvement"`. When selected, the unit
   panel offers the improvements buildable on its tile (terrain/tech permitting);
@@ -192,6 +199,7 @@ build list — you must have access to the resource (see Resources, §1).
 ## 4. Cities
 
 ### City Defense & Capture
+
 - Each city has an **HP** pool (max 100) and a **defense strength** =
   `6 + Population + Walls(+5) + best garrisoned unit's Defense`.
 - Attacking a city (a unit in range bombards/assaults it) reduces its HP via the
@@ -205,6 +213,7 @@ build list — you must have access to the resource (see Resources, §1).
 - Cities **regenerate +10 HP/turn** when not attacked since the owner's last turn.
 
 ### Founding
+
 - A Settler unit can found a city on any non-Ocean, non-Mountain tile not within
   3 tiles of another city (`MinCityDistance = 3`)
 - Cities work tiles within a radius of **2** (`CityWorkforceService.WorkRadius`),
@@ -215,6 +224,7 @@ build list — you must have access to the resource (see Resources, §1).
   founding; the player can lock/unlock specific tiles (see Phase 4 / §4 below).
 
 ### City Yields (Food & Production)
+
 - Each turn a city's worked tiles drive its **Food** and **Production** yields,
   recomputed by `CityWorkforceService` (on found, capture, building completion,
   growth, and end of turn).
@@ -226,6 +236,7 @@ build list — you must have access to the resource (see Resources, §1).
   (see §9). Neither is computed from worked tiles yet.
 
 ### Growth
+
 - Each turn: `FoodAccumulated += FoodYield − Population` (each citizen eats 1
   food). `FoodAccumulated` is clamped at ≥ 0.
 - Growth threshold: `15 + (6 × population)`
@@ -235,6 +246,7 @@ build list — you must have access to the resource (see Resources, §1).
   `FoodAccumulated` simply can't drop below 0.
 
 ### Production Queue
+
 - One item produced at a time
 - Player sets queue at start of their turn for each city
 - Overflow production carries over to next item
@@ -242,7 +254,7 @@ build list — you must have access to the resource (see Resources, §1).
 ### Buildings (MVP set)
 
 | Building | Cost | Req. Tech | Effect | Implemented? |
-|----------|------|-----------|--------|--------------|
+| --- | --- | --- | --- | --- |
 | Monument | 60 | — | +2 Culture | data only — no culture system |
 | Granary | 80 | Pottery | +2 Food | ✅ |
 | Barracks | 100 | — | New units +15 XP | data only — no XP system |
@@ -261,6 +273,7 @@ exists).
 ## 5. Civilizations
 
 ### MVP: 2 Players
+
 - **Player** (`IsHuman = true`): human-controlled, color blue
 - **Barbarians** (`IsHuman = false`): one AI opponent, color red
 
@@ -268,26 +281,28 @@ Identity (`Player`: id/name/human/color) is separate from civ-wide state
 (`Civilization`: treasury, science, research) — see ARCHITECTURE.md.
 
 ### Starting Setup
+
 - Each player begins with 1× Warrior + 1× Settler.
 - The AI spawns on the **same landmass** as the player, at least 10 tiles away
   (`MinAISpawnDistance`) — not on the opposite side of the map. Cross-continent
   spawning waits on naval units (see ROADMAP Post-MVP).
 
 ### Unique Abilities (MVP — placeholder, implement in post-MVP)
+
 - Both players use identical unit/building stats in MVP for simplicity
 
 ---
 
 ## 6. Technology Tree (MVP — 8 Techs)
 
-```
+```text
 Pottery → Writing → Philosophy
     └→ Animal Husbandry → Horseback Riding
 Mining → Bronze Working → Iron Working
 ```
 
 | Tech | Cost (Science) | Unlocks |
-|------|---------------|---------|
+| --- | --- | --- |
 | Pottery | 35 | Granary |
 | Writing | 55 | Library |
 | Philosophy | 80 | Monument |
@@ -312,17 +327,20 @@ Evaluated by `VictoryService.Evaluate(GameState)` at the end of every
 `GameSession.EndTurn`; a result routes to the victory screen.
 
 ### Elimination
+
 A player is out of the game once they own **no city** *and* hold **no
 settler-capable unit** (`Special == "found_city"`). The settler clause keeps the
 opening turns — before anyone founds — from ending the game.
 
 ### Domination Victory
+
 - Triggered when exactly **one** non-eliminated player remains.
 - With two players this is the classic "wipe out the opponent": capture their
   cities and destroy/deny any settler. `City.IsCapital` (the first city a civ
   founds) is preserved through capture for display/flavour.
 
 ### Score Victory (fallback)
+
 - At **turn 500** (`VictoryService.ScoreVictoryTurn`), if no one has won by
   domination, the highest-scoring civilization wins.
 - Score = (cities × 10) + (population × 3) + (techs researched × 5) + (gold ÷ 10).
@@ -357,6 +375,7 @@ Handled civ-wide by `CivEconomyService` each turn:
   `GameSession.TryBuyProduction`), disabled when idle or unaffordable.
 
 ### Research
+
 - Science accumulates civ-wide each turn (1 per city + building science).
 - When `ScienceAccumulated ≥ tech.scienceCost`, the current research completes,
   the cost is subtracted (overflow carries over), and the tech is added to
@@ -368,6 +387,7 @@ Handled civ-wide by `CivEconomyService` each turn:
 ## 10. Notifications & Events
 
 Notifications currently emitted:
+
 - City grew (population +1)
 - Production complete
 - Tech research complete

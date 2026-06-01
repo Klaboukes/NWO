@@ -30,7 +30,7 @@ data in `data/*.json`. Most faction work is **data + a few flags**, not new subs
 ## v1 roster (shipping cast)
 
 | Tree | Faction (working name) | Agenda | Signature passive | Unique unit (reskin) | Touches |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | **Tradition** | **The Dominion** | Restore the old order; one unbreakable seat of power | Fortress capital: bonus city HP, defense & regen; strongest when tall | **Palace Guard** — Spearman/Swordsman variant, +Defense | `City.HP`/defense, Walls effect, `CityWorkforceService` |
 | **Liberty** | **The Free Settlements** | Spread the colony wide and free | Cheaper/faster settling; new cities start with a defender | **Pioneer** — Settler that can defend (Minuteman militia) | settle rules, `MinCityDistance`, production |
 | **Honor** | **The Iron Pact** | Strength decides who is right | +Combat strength; units gain veterancy XP fast; heal in enemy land | **Legionary** — heavy Warrior/Swordsman | `CombatResolver`, Barracks XP effect |
@@ -39,6 +39,7 @@ data in `data/*.json`. Most faction work is **data + a few flags**, not new subs
 | **Exploration** | **The Voyagers** | The frontier belongs to those who reach it | +Sight & +Movement; reduced terrain costs; ambush from recon | **Ranger** — fast Scout/recon cavalry | `Unit` sight/move, `GameState.MovementCost`, fog |
 
 ### The Reavers (NPC raiders)
+
 The Sundering's outcasts; replaces the placeholder **"Barbarians"** AI. Hold ruins, raid
 the settled lands, and — uniquely — **can be hired** by gold (The Syndicate's specialty).
 Future: Reaver camps that spawn raiders, and contested ruins worth fighting over.
@@ -49,7 +50,7 @@ Future: Reaver camps that spawn raiders, and contested ruins worth fighting over
 ## Shelved (planned, lore exists — mechanics don't)
 
 | Tree | Faction | Why shelved | Future hook |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Piety** | **The Devout** — cult of the sealed Ark | Needs a **morale/fervor** system (no religion in scope) | Fanaticism: fight at full strength while wounded; cheap zealots |
 | **Aesthetics** | **The Conservatory** — heralds of Earth's heritage | Needs a light **influence/soft-power** layer (no culture victory in scope) | Influence pressure: demoralize/contest enemy cities without battle |
 

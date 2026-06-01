@@ -5,6 +5,7 @@
 ## Engine: Godot 4.6 (.NET / C#)
 
 **Why Godot 4:**
+
 - Free and open-source, exports natively to Windows and macOS
 - C# support via .NET — full language features, good IDE integration
 - Lightweight — no runtime royalties, no launcher, no account required
@@ -36,7 +37,7 @@ overlays are drawn in a screen-space `WorldOverlay` (Node2D, `_Draw`) projected 
 ## Development Tools
 
 | Tool | Purpose |
-|------|---------|
+| --- | --- |
 | Godot 4.x | Game engine + editor |
 | Visual Studio 2022 or Rider | C# IDE with Godot plugin |
 | Git + GitHub | Version control |
@@ -85,7 +86,7 @@ press **F5**). Save files are written to `user://saves/*.json`
 
 ## Project Structure (actual)
 
-```
+```text
 NWO/
 ├── project.godot
 ├── NWO.sln  NWO.csproj          # game project
@@ -131,4 +132,4 @@ Unit types, building types, tech nodes, and terrain definitions are stored as JS
 
 Use **axial coordinates** (q, r) for the hex grid — not offset coordinates. Axial math is simpler for pathfinding, distance, and neighbor lookup. Godot's `TileMap` in hex mode works natively with this system.
 
-Reference: https://www.redblobgames.com/grids/hexagons/ (the canonical hex grid guide)
+Reference: [https://www.redblobgames.com/grids/hexagons/](https://www.redblobgames.com/grids/hexagons/) (the canonical hex grid guide)

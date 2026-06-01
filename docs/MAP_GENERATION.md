@@ -28,9 +28,9 @@ Instead, combine multiple geological layers with different scales and purposes.
 
 ---
 
-# 1. Tectonic Plates
+## 1. Tectonic Plates
 
-## Why this matters
+### Why this matters
 
 This is the single most effective pattern for believable mountain ranges.
 
@@ -49,9 +49,9 @@ This creates:
 
 ---
 
-## Basic Implementation
+### Basic Implementation
 
-### Step A — Generate Plates
+#### Step A — Generate Plates
 
 Use Voronoi regions.
 
@@ -71,7 +71,7 @@ velocity[plate] = random_direction
 
 ---
 
-### Step B — Detect Plate Borders
+#### Step B — Detect Plate Borders
 
 Compare neighboring plate IDs.
 
@@ -84,16 +84,16 @@ compression = dot(relative_velocity, border_normal)
 
 Interpretation:
 
-| Compression   | Result            |
-| ------------- | ----------------- |
-| High positive | Mountains         |
-| Mild positive | Hills/ridges      |
-| Near zero     | Stable terrain    |
-| Negative      | Rift/ocean trench |
+| Compression | Result |
+| --- | --- |
+| High positive | Mountains |
+| Mild positive | Hills/ridges |
+| Near zero | Stable terrain |
+| Negative | Rift/ocean trench |
 
 ---
 
-## Gameplay Benefits
+### Gameplay Benefits
 
 This naturally creates:
 
@@ -107,9 +107,9 @@ It produces much more readable strategy maps than pure noise.
 
 ---
 
-# 2. Ridge Noise and Domain Warping
+## 2. Ridge Noise and Domain Warping
 
-## Problem with Basic Noise
+### Problem with Basic Noise
 
 Standard Perlin/simplex noise tends to create:
 
@@ -121,7 +121,7 @@ Real mountains are directional.
 
 ---
 
-## Domain Warping
+### Domain Warping
 
 Instead of:
 
@@ -146,7 +146,7 @@ This bends and stretches terrain into:
 
 ---
 
-## Ridged Multifractal Noise
+### Ridged Multifractal Noise
 
 Use:
 
@@ -164,9 +164,9 @@ Excellent for:
 
 ---
 
-# 3. Explicit Mountain Spine Graphs
+## 3. Explicit Mountain Spine Graphs
 
-## Why this works well in strategy games
+### Why this works well in strategy games
 
 Instead of relying entirely on simulation, generate intentional mountain chains.
 
@@ -179,17 +179,17 @@ This gives better control over:
 
 ---
 
-## Technique
+### Technique
 
-### Step 1 — Select uplift nodes
+#### Step 1 — Select uplift nodes
 
 Choose several major mountain anchors.
 
-### Step 2 — Connect with splines
+#### Step 2 — Connect with splines
 
 Generate curved spline paths between nodes.
 
-### Step 3 — Stamp elevation
+#### Step 3 — Stamp elevation
 
 ```text
 height += max(0, 1 - distance/radius)^2
@@ -199,7 +199,7 @@ Then apply local noise afterward.
 
 ---
 
-## Result
+### Result
 
 You get:
 
@@ -212,9 +212,9 @@ This often produces better gameplay than fully realistic geology.
 
 ---
 
-# 4. Regional Height Masks
+## 4. Regional Height Masks
 
-## Purpose
+### Purpose
 
 Avoid “mountains everywhere.”
 
@@ -222,7 +222,7 @@ Create large-scale regions with different terrain character.
 
 ---
 
-## Example
+### Example
 
 Generate low-frequency uplift:
 
@@ -240,7 +240,7 @@ Only apply strong mountain generation where uplift exists.
 
 ---
 
-## Result
+### Result
 
 This creates:
 
@@ -251,9 +251,9 @@ This creates:
 
 ---
 
-# 5. Foothill Systems
+## 5. Foothill Systems
 
-## Important Observation
+### Important Observation
 
 Real mountains rarely transition directly into flat plains.
 
@@ -266,7 +266,7 @@ Foothills improve:
 
 ---
 
-## Technique
+### Technique
 
 After mountains are generated:
 
@@ -284,7 +284,7 @@ Use hilliness to bias terrain toward rolling hills.
 
 ---
 
-## Result
+### Result
 
 Creates:
 
@@ -294,9 +294,9 @@ Creates:
 
 ---
 
-# 6. Erosion Simulation
+## 6. Erosion Simulation
 
-## Why erosion matters
+### Why erosion matters
 
 Mountains without erosion look artificial.
 
@@ -304,7 +304,7 @@ Even lightweight erosion dramatically improves terrain.
 
 ---
 
-## Hydraulic Erosion
+### Hydraulic Erosion
 
 Simulate:
 
@@ -321,7 +321,7 @@ Effects:
 
 ---
 
-## Thermal Erosion
+### Thermal Erosion
 
 Move material from steep slopes to lower neighbors.
 
@@ -333,7 +333,7 @@ Effects:
 
 ---
 
-## Gameplay Benefits
+### Gameplay Benefits
 
 Erosion creates:
 
@@ -344,9 +344,9 @@ Erosion creates:
 
 ---
 
-# 7. Rivers as Terrain Features
+## 7. Rivers as Terrain Features
 
-## Rivers should shape terrain
+### Rivers should shape terrain
 
 Do not treat rivers as visual decals.
 
@@ -354,7 +354,7 @@ Generate rivers after uplift but before biome assignment.
 
 ---
 
-## Typical River Pipeline
+### Typical River Pipeline
 
 1. Calculate flow direction
 2. Accumulate water flow
@@ -364,7 +364,7 @@ Generate rivers after uplift but before biome assignment.
 
 ---
 
-## Benefits
+### Benefits
 
 Rivers naturally create:
 
@@ -377,9 +377,9 @@ Mountain ranges without rivers often feel fake.
 
 ---
 
-# 8. Geological Layering
+## 8. Geological Layering
 
-## Recommended Model
+### Recommended Model
 
 Instead of:
 
@@ -401,21 +401,21 @@ Each layer serves a different purpose.
 
 ---
 
-## Suggested Responsibilities
+### Suggested Responsibilities
 
-| Layer           | Purpose                       |
-| --------------- | ----------------------------- |
-| Continents      | Large-scale land/ocean layout |
-| Tectonics       | Major mountain systems        |
-| Regional uplift | Terrain identity              |
-| Erosion         | Realistic shaping             |
-| Local noise     | Detail variation              |
+| Layer | Purpose |
+| --- | --- |
+| Continents | Large-scale land/ocean layout |
+| Tectonics | Major mountain systems |
+| Regional uplift | Terrain identity |
+| Erosion | Realistic shaping |
+| Local noise | Detail variation |
 
 ---
 
-# 9. Terrain Age System
+## 9. Terrain Age System
 
-## Realistic Variation
+### Realistic Variation
 
 Real worlds contain:
 
@@ -426,7 +426,7 @@ Real worlds contain:
 
 ---
 
-## Implementation
+### Implementation
 
 Assign regions:
 
@@ -441,23 +441,23 @@ Apply:
 
 ---
 
-## Result
+### Result
 
 Adds huge visual variety.
 
 Example:
 
-| Terrain Age | Characteristics       |
-| ----------- | --------------------- |
-| Old         | Flat, smooth, fertile |
-| Medium      | Rolling hills         |
-| Young       | Jagged mountains      |
+| Terrain Age | Characteristics |
+| --- | --- |
+| Old | Flat, smooth, fertile |
+| Medium | Rolling hills |
+| Young | Jagged mountains |
 
 ---
 
-# 10. Directionality
+## 10. Directionality
 
-## Important Principle
+### Important Principle
 
 Noise is isotropic.
 
@@ -467,7 +467,7 @@ Mountain systems usually align along stress directions.
 
 ---
 
-## Recommendation
+### Recommendation
 
 Assign preferred orientations per continent.
 
@@ -479,7 +479,7 @@ Examples:
 
 ---
 
-## Result
+### Result
 
 This makes worlds feel:
 
@@ -489,13 +489,13 @@ This makes worlds feel:
 
 ---
 
-# Recommended Hybrid Pipeline
+## Recommended Hybrid Pipeline
 
 This setup works extremely well for Civ-style strategy games.
 
 ---
 
-## Step 1 — Continents
+### Step 1 — Continents
 
 Generate low-frequency continental shapes.
 
@@ -507,7 +507,7 @@ Recommended:
 
 ---
 
-## Step 2 — Tectonic Plates
+### Step 2 — Tectonic Plates
 
 Generate Voronoi plates and movement vectors.
 
@@ -520,7 +520,7 @@ Use plate interactions to determine:
 
 ---
 
-## Step 3 — Mountain Chains
+### Step 3 — Mountain Chains
 
 Generate explicit spline-based mountain systems along compressive borders.
 
@@ -532,7 +532,7 @@ Add:
 
 ---
 
-## Step 4 — Regional Uplift
+### Step 4 — Regional Uplift
 
 Apply low-frequency uplift masks.
 
@@ -545,7 +545,7 @@ These define:
 
 ---
 
-## Step 5 — Local Detail
+### Step 5 — Local Detail
 
 Add:
 
@@ -555,7 +555,7 @@ Add:
 
 ---
 
-## Step 6 — Erosion
+### Step 6 — Erosion
 
 Run:
 
@@ -566,7 +566,7 @@ Even a few iterations help significantly.
 
 ---
 
-## Step 7 — Rivers
+### Step 7 — Rivers
 
 Generate flow accumulation and river carving.
 
@@ -574,7 +574,7 @@ Use rivers to shape valleys and fertile land.
 
 ---
 
-## Step 8 — Terrain Classification
+### Step 8 — Terrain Classification
 
 Example:
 
@@ -596,7 +596,7 @@ for biome assignment.
 
 ---
 
-# Gameplay-Oriented Advice
+## Gameplay-Oriented Advice
 
 Pure realism is often bad for strategy gameplay.
 
@@ -612,22 +612,22 @@ Good Civ-style worlds need:
 
 ---
 
-## Terrain Patterns That Work Well
+### Terrain Patterns That Work Well
 
-| Pattern            | Gameplay Effect                |
-| ------------------ | ------------------------------ |
-| Long mountain arcs | Natural empire borders         |
-| Broken passes      | Strategic warfare              |
-| Interior basins    | Valuable contested land        |
-| Foothill belts     | Gradual expansion difficulty   |
-| River valleys      | Settlement corridors           |
-| Coastal ranges     | Naval chokepoints              |
-| Plateaus           | Regional civilization identity |
-| Ancient flatlands  | Productive heartlands          |
+| Pattern | Gameplay Effect |
+| --- | --- |
+| Long mountain arcs | Natural empire borders |
+| Broken passes | Strategic warfare |
+| Interior basins | Valuable contested land |
+| Foothill belts | Gradual expansion difficulty |
+| River valleys | Settlement corridors |
+| Coastal ranges | Naval chokepoints |
+| Plateaus | Regional civilization identity |
+| Ancient flatlands | Productive heartlands |
 
 ---
 
-# One Extremely Effective Combination
+## One Extremely Effective Combination
 
 A particularly strong setup:
 
@@ -643,7 +643,7 @@ This combination tends to produce terrain that feels both believable and enjoyab
 
 ---
 
-# Final Recommendation
+## Final Recommendation
 
 If development time is limited, prioritize these systems in order:
 

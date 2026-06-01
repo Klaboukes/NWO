@@ -12,7 +12,7 @@ There is **no EventBus, and the only autoloaded singleton is `AudioManager`**
 autoloads. Instead the codebase splits cleanly into pure-logic gameplay code (no
 Godot scene dependencies, fully unit-testable) and a thin Godot presentation layer.
 
-```
+```text
 Pure logic (scripts/core, scripts/map, scripts/entities, scripts/ai)
 ├── GameState          — authoritative world model + pure operations on it
 ├── GameSession        — headless turn driver (player actions + end-turn loop)
@@ -125,8 +125,10 @@ position, owner, fortified).
 ## Key Classes
 
 ### `HexGrid` (static utility)
+
 Flat-top axial coordinates. Cost-based pathfinding (not a boolean passability
 predicate) — `int.MaxValue` means impassable.
+
 ```csharp
 Vector2I[]     GetNeighbors(Vector2I axial)
 int            Distance(Vector2I a, Vector2I b)
@@ -139,7 +141,9 @@ List<Vector2I> FindPath(Vector2I from, Vector2I to,
 ```
 
 ### `GameState`
+
 Authoritative world model. Owns no Godot scene state.
+
 ```csharp
 class GameState {
     MapData      Map;
@@ -153,17 +157,21 @@ class GameState {
     // per-player fog + civ stored internally, reached via Fog(p) / Civ(p)
 }
 ```
+
 Exposes pure operations: `TryFoundCity`, `TryAttack`, `CaptureCity`,
 `EndPlayerTurn`, `RecomputeFog`, `MovementCost`, `GetConnectedLandmass`.
 
 ### `GameSession`
+
 Headless driver shared by the scene and tests. Player actions (`TryMove`,
 `TryAttack`, `TryFoundCity`, `Fortify`) mutate state immediately; `EndTurn()`
 ends the viewer's turn, runs each AI player synchronously, and returns the
 notification stream.
 
 ### `Player` (identity) vs. `Civilization` (state)
+
 Identity and civ-wide state are split into two types:
+
 ```csharp
 record Player {                 // identity, set once
     int    Id;
@@ -179,10 +187,12 @@ class Civilization {            // mutable civ-wide economy/research
     HashSet<string> ResearchedTechs;
 }
 ```
+
 Units and cities are **not** held on `Civilization` — they live in
 `GameState.Units` / `GameState.Cities` and are filtered by `Owner`.
 
 ### `Unit`
+
 ```csharp
 class Unit : IEndTurnItem {
     UnitData Data;             // type definition (stats, name)
@@ -195,6 +205,7 @@ class Unit : IEndTurnItem {
 ```
 
 ### `City`
+
 ```csharp
 class City : IEndTurnItem {
     string          Name;
@@ -214,6 +225,7 @@ class City : IEndTurnItem {
     int             GrowthThreshold;       // => 15 + 6 * Population
 }
 ```
+
 There is no `Territory` or `WorkedTiles` field. Worked tiles live in
 `Workforce.Assigned`; tile ownership is computed on demand by
 `CityWorkforceService.ControllingCity` (nearest city center within work radius).
@@ -226,7 +238,7 @@ There is no `Territory` or `WorkedTiles` field. Worked tiles live in
 There is no `StartPlayerTurn` / `StartAITurn` ceremony and no turn-start event.
 The whole loop lives in `GameSession.EndTurn()` → `GameState.EndPlayerTurn()`:
 
-```
+```text
 GameSession.EndTurn()
   → GameState.EndPlayerTurn(viewer)
       → for each of the player's cities:
@@ -283,12 +295,13 @@ It is deterministic (no RNG) — combat decisions use `CombatResolver.Expected`.
 economy-first preference list whose prerequisites are met (`SetResearch`).
 
 **Units**, dispatched by role:
+
 - *Settlers* found on the current tile when legal, else march to the best-scored
   nearby site (≥ `MinCityDistance`, ranked by surrounding yields).
 - *Workers* build the best non-Road improvement on a controlled tile, or walk to
   the nearest improvable tile.
-- *Military*, in order: attack an in-range enemy unit when the forecast favours it
-  (never suicidal melee; ranged always fires) → bombard/assault an in-range city
+- *Military*, in order: attack an in-range enemy unit when the forecast favours
+  it (never suicidal melee; ranged always fires) → bombard/assault an in-range city
   it can survive → retreat to the nearest city when wounded (HP < 35) → hold if
   it's a lone garrison → reinforce a threatened undefended city in range → else
   advance on the nearest enemy. Captures still require depleting a city's HP then
@@ -311,7 +324,7 @@ confined to the player's landmass (`GetConnectedLandmass` + `PickAISpawn`).
 
 The HUD (`UIController`, `scenes/ui/UI.tscn`) currently provides:
 
-```
+``` text
 ┌─────────────────────────────────────────────────────────┐
 │  Top bar: Turn # | Treasury (+/turn) | Science (+/turn)  │
 ├─────────────────────────────────────────────────────────┤
@@ -351,8 +364,9 @@ converge in `WorldMap.ResolveLaunch`, which reads the `GameLaunch` static handof
 `GameFactory.NewGame(seed)` builds a fresh world (map generation, players, starting
 units, AI spawn — all extracted from the old `_Ready`). `GameLaunch` also carries
 `LastResult` to the victory screen. Scene changes use `GetTree().ChangeSceneToFile`;
-a plain C# static survives the transition, so `GameLaunch` (gameplay handoff) stays a
-static rather than an autoload — only audio, which needs a live persistent `Node`, is.
+a plain C# static survives the transition, so `GameLaunch` (gameplay handoff) stays
+a static rather than an autoload — only audio, which needs a live persistent `Node`,
+is.
 
 ## Audio
 
@@ -363,8 +377,8 @@ Callers use `AudioManager.Instance?.Play(Sfx.…)`; `Instance` is null under `NW
 (no autoload runs there), so every trigger is a safe no-op headless. Each `Sfx`
 (`Click, Move, Attack, CityFound, Win, Lose`) resolves once at startup to a real
 `res://assets/audio/<name>.ogg` if present, otherwise to a tone synthesized in code
-(`AudioStreamWav`) — so audio ships with no committed binaries and real clips can be
-dropped in later with no code change.
+(`AudioStreamWav`) — so audio ships with no committed binaries and real clips can
+be dropped in later with no code change.
 
 ## Saving / Loading
 
@@ -385,17 +399,17 @@ Split in two so the logic stays headless-testable:
   header (name, timestamp, turn) drives the slot list.
 
 UI: the reusable `SaveBrowser` modal lists slots (load/delete) and, in save mode,
-takes a name; it's opened from `MainMenu` (load) and from the in-game **HUD "Menu" →
-pause overlay** (save/load/main-menu/quit). Saving/loading needs the live state, so
-`UIController` raises `SaveRequested`/`LoadRequested`/`MainMenuRequested` and
-`WorldMap` performs the `SaveService` call (loading re-enters via `GameLaunch`).
+takes a name; it's opened from `MainMenu` (load) and from the in-game **HUD
+"Menu" → pause overlay** (save/load/main-menu/quit). Saving/loading needs the
+livestate, so `UIController` raises `SaveRequested`/`LoadRequested`/`MainMenuRequested`
+and `WorldMap` performs the `SaveService` call (loading re-enters via `GameLaunch`).
 
 ---
 
 ## Performance Targets
 
 | Metric | Target |
-|--------|--------|
+| --- | --- |
 | Map generation (60×40) | < 1 second |
 | Turn processing | < 200 ms |
 | Frame rate during gameplay | 60 fps |

@@ -26,17 +26,20 @@ The title carries the double meaning the game is built around:
 ## Timeline
 
 ### 1. The Victory & the Exodus
+
 A civilization on Earth won the long game through science and launched the colony ark
 **Exodus** toward Alpha Centauri. Aboard were the **Founders** — and, sealed in the
 ship's archive, the full accumulated knowledge of Earth.
 
 ### 2. The Cradle Years
+
 Landfall on the planet **Cradle** succeeded. For generations there was **one unified
 colony**, bound by a single shared purpose: *survive and terraform*. Under that pressure
 the old Earth philosophies were merely policies — useful tools, not banners. The colony
 thrived.
 
 ### 3. The Sundering
+
 Then survival was *won*. With the existential threat gone, the shared purpose that held
 the colony together dissolved — and society fractured along the **same philosophical
 fault lines** that the social policies had always described. Tradition, Liberty, Honor,
@@ -46,6 +49,7 @@ a region of Cradle, and declared its vision the only legitimate order.
 This collapse is **the Sundering**. It is where every match begins.
 
 ### 4. The Long Salvage (why they fight with spears)
+
 The Sundering didn't just split the people — it shattered the colony's **industrial base**
 and **sealed the ark's archive** (the knowledge of Earth is intact but *locked*, a prize
 no faction yet controls). Cut off from the machines that made them mighty, the factions
@@ -56,7 +60,7 @@ star-faring civilization fight with **Warriors, Archers, and Catapults** because
 what you can build from wreckage and ore when the factories are dead. The tech tree is a
 **re-climb**, not a fresh start:
 
-```
+```text
 Salvaged-primitive  →  Recovered colony tech  →  New planetary tech
 (spears, bows,         (re-opened archive:       (Cradle-native science:
  ore, beasts)           power, alloys)            railguns, drones, fauna-riders)

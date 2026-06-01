@@ -42,6 +42,11 @@ update the relevant `SKILL.md` (each has a `## Maintenance` note).
 - Use the git identity already configured in this repo (`Klaboukes` / `barthoukes@gmail.com`).
 - Follow the standard commit format: concise subject line, blank line, short body if needed, trailing `Co-Authored-By` line.
 
+## Markdown Style
+
+All `.md` files must pass **markdownlint** (VS Code extension; config in
+`.markdownlint.json` at the repo root). Keep new and edited files clean.
+
 ## UI/UX
 
 Match Civ 5 conventions for all controls and camera behaviour. Full spec — mouse,
