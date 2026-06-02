@@ -784,3 +784,47 @@ Skip for NWO at this scale:
 * Full Voronoi tectonic simulation
 * Multi-pass hydraulic / thermal erosion
 * Terrain age system (nice idea, not needed at 60×40)
+
+---
+
+## Civ 5 Patterns — Adopted / Candidate / Skipped
+
+Civ 5's generator is Lua: a `Fractal` (midpoint-displacement) height field with
+**percentile thresholds**, latitude + rainfall terrain, edge rivers, and the large
+`AssignStartingPlots.lua` that places starts and the three resource tiers with
+"impact-and-ripple" spacing and start normalization. NWO borrows the *patterns*, not
+the implementation — Civ's heaviest machinery serves 8-player huge-map multiplayer
+fairness, whereas NWO is 60×40 and (per Phase 10) is deliberately decided by fighting
+over **pre-placed contested sites**, not settler-carpeting. This matrix records what
+we took, what's worth taking, and what we won't.
+
+### Adopted (already in `MapGenerator.cs` / `WorldOverlay`)
+
+| Civ 5 pattern | NWO form |
+| --- | --- |
+| Latitude + rainfall → terrain | temperature × moisture climate matrix in `Classify` |
+| Three resource tiers (bonus / strategic / luxury) | `ResourceType` + `ResourceYields` + tech-reveal |
+| Edge-based rivers from highlands to water | `MapData.Rivers` edge-set + downhill trace (+ lake carving) |
+| Foothills around uplift | mountain `relief` skirt + scattered hilliness field |
+| (improved on Civ) directional mountain chains | domain-warped **ridged** Simplex (Civ's plain fractal is blobbier) |
+
+### Candidate — cheap wins (do under the `tune-map-generation` skill, no phase)
+
+| Civ 5 pattern | Why | Effort |
+| --- | --- | --- |
+| **Percentile height thresholds** (sort land heights; sea/hills/mountains at fixed percentiles) | stable land/hill/mountain ratio every seed — fixes our seed-to-seed wobble from fixed cutoffs | ~½ day, isolated to `MapGenerator` |
+| **Impact-and-ripple resource placement** (stamp a suppression falloff around each placed resource) | resources spaced out instead of randomly clumping | ~½–1 day, `ScatterResources` only |
+
+### Candidate — scheduled features (own phase / existing phase)
+
+| Civ 5 pattern | Where it lands | Effort / ripple |
+| --- | --- | --- |
+| **Map scripts** (Continents / Pangaea / Archipelago / Highlands…) selectable at setup | **ROADMAP Phase 11** — needs a map-script abstraction + setup-screen UI | ~2–4 days |
+| **Start normalization + region balancing** (fair, viable spawns) | **ROADMAP Phase 10.4** (anti-micro settlement) — adopt the *normalize-to-a-floor* + impact-ripple **pattern**, not Civ's region machinery | ~3–5 days, entangled with `GameFactory` / `WorldMap` spawn |
+| **Terrain vs. features split** (forest/jungle/marsh/oasis/floodplain as *features* on a base terrain, like Civ) | post-MVP phase only if we want Civ-depth terrain — **partly started**: Hills already shipped as a `Feature` (`MapData.Features`), so the scaffolding exists | ~1 week+ for the rest; architectural — ripples through `MapData`, save format, yields, workforce, AI, art, tooltips |
+
+### Deliberately skipped
+
+* The `Fractal` / midpoint-displacement noise class — Simplex + ridged warp is equal-or-better here; only the **percentile-threshold trick** is worth lifting, not the noise function.
+* `AssignStartingPlots.lua` wholesale — its region division and 8-player luxury distribution target Civ's scale/multiplayer; NWO takes only the normalization *pattern*.
+* Everything in the "Skip for NWO at this scale" list above (tectonics, multi-pass erosion, terrain age).

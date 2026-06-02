@@ -28,7 +28,7 @@ public class ImprovementTests
         var state   = session.State;
         var plains  = new Vector2I(5, 5);                  // FlatMap is all Plains
         var hills   = new Vector2I(6, 5);
-        state.Map.Tiles[hills] = TerrainType.Hills;
+        state.Map.Features[hills] = Feature.Hills;          // Plains + Hills feature
 
         Assert.True(ImprovementService.CanBuild(state, human, plains, ImprovementType.Farm));
         Assert.False(ImprovementService.CanBuild(state, human, hills, ImprovementType.Farm));
@@ -40,7 +40,7 @@ public class ImprovementTests
         var session = TestWorlds.StandardSession(out var human, out _);
         var state   = session.State;
         var hills   = new Vector2I(6, 5);
-        state.Map.Tiles[hills] = TerrainType.Hills;
+        state.Map.Features[hills] = Feature.Hills;          // Mine needs a Hills feature
 
         Assert.False(ImprovementService.CanBuild(state, human, hills, ImprovementType.Mine));
         state.Civ(human).ResearchedTechs.Add("mining");
@@ -148,9 +148,9 @@ public class ImprovementTests
         var session = TestWorlds.StandardSession(out _, out _);
         var state   = session.State;
         var hills   = new Vector2I(6, 5);
-        state.Map.Tiles[hills] = TerrainType.Hills;
+        state.Map.Features[hills] = Feature.Hills;                // Plains(1) + Hills(+1) = 2
 
-        Assert.Equal(2, state.MovementCost(hills));               // Hills base
+        Assert.Equal(2, state.MovementCost(hills));               // base + hills
         state.Map.Improvements[hills] = ImprovementType.Road;
         Assert.Equal(1, state.MovementCost(hills));               // halved (min 1)
     }

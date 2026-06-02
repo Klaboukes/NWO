@@ -53,6 +53,7 @@ public static class SaveSerializer
         public Dictionary<Vector2I, TerrainType>     Tiles        { get; set; } = new();
         public Dictionary<Vector2I, ResourceType>    Resources    { get; set; } = new();
         public Dictionary<Vector2I, ImprovementType> Improvements { get; set; } = new();
+        public Dictionary<Vector2I, Feature>         Features     { get; set; } = new();
         public List<RiverEdgeDto>                    Rivers       { get; set; } = new();
     }
 
@@ -154,6 +155,7 @@ public static class SaveSerializer
                 Tiles        = new(state.Map.Tiles),
                 Resources    = new(state.Map.Resources),
                 Improvements = new(state.Map.Improvements),
+                Features     = new(state.Map.Features),
                 Rivers       = state.Map.Rivers
                     .Select(e => new RiverEdgeDto { Tile = e.Tile, Dir = e.Dir }).ToList(),
             },
@@ -231,6 +233,7 @@ public static class SaveSerializer
         foreach (var (pos, t) in dto.Map.Tiles)        map.Tiles[pos]        = t;
         foreach (var (pos, r) in dto.Map.Resources)    map.Resources[pos]    = r;
         foreach (var (pos, i) in dto.Map.Improvements) map.Improvements[pos] = i;
+        foreach (var (pos, f) in dto.Map.Features)     map.Features[pos]     = f;
         foreach (var e in dto.Map.Rivers)              map.Rivers.Add((e.Tile, e.Dir));
 
         var state    = new GameState(map, catalog, dto.CombatSeed);

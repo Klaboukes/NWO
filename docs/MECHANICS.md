@@ -51,7 +51,6 @@ have none until improvements/buildings provide it (see §9).
 | Desert | 1 | +0 | +1 | +0 |
 | Tundra | 1 | +1 | +0 | +0 |
 | Snow | 1 | +0 | +0 | +0 |
-| Hills | 2 | +1 | +2 | +0 |
 | Forest | 2 | +1 | +2 | +0 |
 | Savanna | 1 | +1 | +0 | +0 |
 | Jungle | 2 | +1 | +0 | +0 |
@@ -67,6 +66,20 @@ Ocean and Coast are currently **impassable** (no naval units yet); their food
 values only matter to coastal cities working those tiles. Naval movement costs
 are **[planned]**.
 
+### Features
+
+Features overlay a base terrain (a tile is e.g. *Grassland + Hills*) and stack with
+resources (*Grassland + Hills + Sheep*). Stored sparsely in `MapData.Features`; yields
+in `FeatureYields`.
+
+| Feature | Effect |
+| --- | --- |
+| Hills | **−1 Food / +1 Production** on the worked tile (food clamped at 0), **+1 movement** cost, and raises the tile (elevation). **Mine** is built on Hills; Farm/Pasture are flatland-only. |
+
+A Hills feature can sit on any open land terrain (not water, mountains, or Wetlands).
+`MapGenerator` places hills both as a foothill skirt around mountain belts and via an
+independent hilliness field scattered across the lowlands.
+
 ### Improvements
 
 Workers (`special: "build_improvement"`) build tile improvements over several
@@ -75,9 +88,9 @@ it). Rules live in `ImprovementService`; yields fold into `CityWorkforceService`
 
 | Improvement | Effect | Valid terrain | Tech | Turns |
 | --- | --- | --- | --- | --- |
-| Farm | +1 Food | Grassland/Plains | — | 3 |
-| Mine | +1 Prod | Hills | Mining | 3 |
-| Pasture | +1 Prod | Grassland/Plains | Animal Husbandry | 3 |
+| Farm | +1 Food | Grassland/Plains (non-hill) | — | 3 |
+| Mine | +1 Prod | Hills feature | Mining | 3 |
+| Pasture | +1 Prod | Grassland/Plains (non-hill) | Animal Husbandry | 3 |
 | Road | halves entry move cost (min 1) | any passable land | — | 2 |
 
 ### Resources
@@ -114,13 +127,13 @@ Resource trading remains **[planned]**.
   (simplex base+detail blended 70/30) with a radial falloff that pushes map edges to
   ocean → island-like continents; (2) a **domain-warped ridged Simplex** mountain
   layer gated by a low-freq uplift mask, forming coherent mountain chains, whose
-  **relief** rings the crests with foothills (Hills); a separate mid-freq hilliness
-  field also scatters Hills across open terrain independent of the mountains; (3)
-  independent **moisture** (longitudinal) and **temperature**
-  (warm equator → cold poles, with a noise wobble) passes. `Classify` decides water
-  and mountains by height, foothills by relief, and the remaining land from a
-  **temperature × moisture climate matrix** (so the map varies even where it's flat),
-  with a polar Snow/Tundra cap. This is what gives each seed several distinct biome
+  **relief** rings the crests with a foothill skirt of the **Hills feature**; a
+  separate mid-freq hilliness field also scatters Hills across open lowland
+  independent of the mountains; (3) independent **moisture** (longitudinal) and
+  **temperature** (warm equator → cold poles, with a noise wobble) passes. `Classify`
+  picks the base biome by height (water/mountain) then a **temperature × moisture
+  climate matrix** (so the map varies even where it's flat), with a polar Snow/Tundra
+  cap; Hills is then applied as a feature on top. This is what gives each seed several distinct biome
   regions and visible elevation rather than large monotone stretches.
 - Rivers (Phase 9.4): rivers traced downhill from Mountain/Hills sources along tile
   edges (count scales with highland area), stored in `MapData.Rivers`. Every river

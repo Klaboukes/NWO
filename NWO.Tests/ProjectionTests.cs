@@ -48,8 +48,9 @@ public class ProjectionTests
         Assert.True(HexProjection.TopHeight(TerrainType.Grassland)
                   < HexProjection.TopHeight(TerrainType.Forest));
         Assert.True(HexProjection.TopHeight(TerrainType.Forest)
-                  < HexProjection.TopHeight(TerrainType.Hills));
-        Assert.True(HexProjection.TopHeight(TerrainType.Hills)
                   < HexProjection.TopHeight(TerrainType.Mountain));
+        // A Hills feature raises a tile above its flat (non-hill) self.
+        Assert.True(HexProjection.TopHeight(TerrainType.Grassland, hill: false)
+                  < HexProjection.TopHeight(TerrainType.Grassland, hill: true));
     }
 }

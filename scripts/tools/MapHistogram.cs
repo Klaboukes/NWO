@@ -37,8 +37,12 @@ public partial class MapHistogram : Node
         {
             var map    = MapGenerator.Generate(width, height, seed);
             var counts = new Dictionary<TerrainType, int>();
-            foreach (var (_, t) in map.Tiles)
+            int hills  = 0;
+            foreach (var (pos, t) in map.Tiles)
+            {
                 counts[t] = counts.GetValueOrDefault(t) + 1;
+                if (map.IsHill(pos)) hills++;
+            }
 
             int total = map.Tiles.Count;
             int water = counts.GetValueOrDefault(TerrainType.Ocean) + counts.GetValueOrDefault(TerrainType.Coast);
@@ -53,6 +57,8 @@ public partial class MapHistogram : Node
                 float pct = isWater ? 100f * c / total : (land > 0 ? 100f * c / land : 0f);
                 GD.Print($"  {t,-10} {c,4}  {pct,5:0.0}%{(isWater ? " (of map)" : " (of land)")}");
             }
+            // Hills is a feature overlaying the biomes above, not its own terrain row.
+            GD.Print($"  +Hills(feat) {hills,4}  {(land > 0 ? 100f * hills / land : 0f),5:0.0}% (of land)");
             GD.Print($"  rivers(edges)={map.Rivers.Count}  resources={map.Resources.Count}");
         }
         GetTree().Quit();

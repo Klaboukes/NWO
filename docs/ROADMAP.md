@@ -163,8 +163,11 @@ or after Phase 7 (visuals) — they're independent.
       services they touch (`CombatResolver`, `CivEconomyService`, movement/sight). Piety &
       Aesthetics stay shelved. *Done when:* each faction plays to its one-sentence identity.
 - [ ] **10.4 — Anti-micro settlement model.** Capped cities / pre-placed contested sites
-      (`MinCityDistance`, `MapGenerator`, settle rules). *Done when:* a match is decided by
-      fighting over sites, not by settler-carpeting.
+      (`MinCityDistance`, `MapGenerator`, settle rules). Adopt the Civ 5 **start-normalization**
+      pattern here — guarantee each spawn is viable (normalize to a fertility floor) and use
+      impact-and-ripple spacing for sites — without Civ's full region machinery (see
+      [MAP_GENERATION.md](MAP_GENERATION.md) "Civ 5 Patterns"). *Done when:* a match is decided
+      by fighting over sites, not by settler-carpeting.
 - [ ] **10.5 — Objective victory + shorter clock.** *Establish the New World Order*
       key-site-control win in `VictoryService`/`ScoreService`; lower the turn cap; tune
       combat lethality via the `tune-mechanics` skill. *Done when:* a typical match resolves
@@ -178,11 +181,36 @@ or after Phase 7 (visuals) — they're independent.
 
 ---
 
+## Phase 11 — Map scripts (Civ5-style world types) 🔭 PLANNED
+
+Goal: add selectable **map scripts** so a match can be Continents, Pangaea,
+Archipelago, Highlands, etc., instead of one fixed continental layout — borrowing the
+Civ 5 pattern (each script parameterizes the same generation core differently). See
+the "Civ 5 Patterns" matrix in [MAP_GENERATION.md](MAP_GENERATION.md).
+
+- [ ] **11.1 — Map-script abstraction.** Factor `MapGenerator.Generate` so the
+      continental-shape / sea-level / landmass-splitting step is pluggable (a `MapScript`
+      strategy), leaving climate, mountains, rivers, and resources shared. *Done when:*
+      the current map is one script among an interface, with no behaviour change by default.
+- [ ] **11.2 — Script library.** Implement Continents, Pangaea, Archipelago, and
+      Highlands by varying the shape/falloff/uplift parameters (+ ideally the Civ 5
+      **percentile-threshold** trick for a stable land ratio per script). *Done when:*
+      each script produces a recognisably different, playable world.
+- [ ] **11.3 — Setup-screen selection.** Expose the map-script (and size) choice in the
+      new-game setup UI, wired through `GameFactory.NewGame`. *Done when:* the player picks
+      a world type and it generates.
+
+> The two cheap Civ 5 wins — **percentile thresholds** and **impact-and-ripple resource
+> spacing** — are small, isolated tuning jobs; do them anytime under the
+> `tune-map-generation` skill rather than blocking on this phase.
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
-Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), and Phase 10
-(factions & fast-warfare reframe), candidate directions. Factions, light diplomacy, and
-the objective victory now live in **Phase 10**, not here.
+Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
+(factions & fast-warfare reframe), and Phase 11 (map scripts), candidate directions.
+Factions, light diplomacy, and the objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve
   the two trees held back from the Phase 10 roster (see [FACTIONS.md](FACTIONS.md)).

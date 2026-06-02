@@ -9,7 +9,6 @@ public enum TerrainType
     Desert,
     Tundra,
     Snow,
-    Hills,
     Forest,
     Mountain,
     Ocean,

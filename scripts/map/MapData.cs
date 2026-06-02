@@ -21,6 +21,10 @@ public class MapData
     // runtime when a Worker completes a build task (see GameState).
     public Dictionary<Vector2I, ImprovementType> Improvements { get; } = new();
 
+    // Terrain features (e.g. Hills) overlaying the base terrain, keyed by axial
+    // coord. Sparse — only featured tiles appear. Set by MapGenerator.
+    public Dictionary<Vector2I, Feature> Features { get; } = new();
+
     // River edges (Phase 9.4): each entry is a tile + a HexGrid.Directions index,
     // naming the hex edge between that tile and its neighbour in that direction.
     // An edge is stored once (from one side); IsRiverAdjacent checks both sides.
@@ -50,4 +54,9 @@ public class MapData
 
     public ImprovementType ImprovementAt(Vector2I axial)
         => Improvements.GetValueOrDefault(axial, ImprovementType.None);
+
+    public Feature FeatureAt(Vector2I axial)
+        => Features.GetValueOrDefault(axial, Feature.None);
+
+    public bool IsHill(Vector2I axial) => FeatureAt(axial) == Feature.Hills;
 }

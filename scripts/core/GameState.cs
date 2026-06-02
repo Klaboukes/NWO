@@ -347,6 +347,8 @@ public class GameState
         if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
         int cost = TerrainYields.MovementCost(t);
         if (cost == int.MaxValue) return cost;
+        // A Hills feature adds rough-terrain movement cost on top of the base terrain.
+        cost += FeatureYields.MovementCost(Map.FeatureAt(axial));
         // A road halves the entry cost (min 1) — rough/forest tiles become as
         // cheap as open ground to traverse.
         if (Map.ImprovementAt(axial) == ImprovementType.Road)

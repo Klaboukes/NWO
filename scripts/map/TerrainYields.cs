@@ -12,7 +12,6 @@ public static class TerrainYields
         TerrainType.Mountain => int.MaxValue,
         TerrainType.Ocean    => int.MaxValue,
         TerrainType.Coast    => int.MaxValue,
-        TerrainType.Hills    => 2,
         TerrainType.Forest   => 2,
         TerrainType.Jungle   => 2,
         TerrainType.Wetlands => 2,
@@ -24,7 +23,6 @@ public static class TerrainYields
         TerrainType.Grassland => 2,
         TerrainType.Plains    => 1,
         TerrainType.Forest    => 1,
-        TerrainType.Hills     => 1,
         TerrainType.Tundra    => 1,
         TerrainType.Coast     => 2,
         TerrainType.Ocean     => 1,
@@ -36,7 +34,6 @@ public static class TerrainYields
 
     public static int Production(TerrainType t) => t switch
     {
-        TerrainType.Hills   => 2,
         TerrainType.Forest  => 2,
         TerrainType.Plains  => 1,
         TerrainType.Desert  => 1,

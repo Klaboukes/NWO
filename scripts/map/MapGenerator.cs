@@ -102,7 +102,14 @@ public static class MapGenerator
                 float hilly    = (hillNoise.GetNoise2D(col, row) + 1f) / 2f;
 
                 heights[axial]    = h;
-                data.Tiles[axial] = Classify(h, moisture, temperature, relief, hilly, lat);
+                var terrain       = Classify(h, moisture, temperature, lat);
+                data.Tiles[axial] = terrain;
+
+                // Hills is a feature on top of the base biome: the mountain-relief
+                // skirt (foothills) plus an independent mid-freq hilliness field, on
+                // any open land terrain (not water, mountains, or low marsh).
+                if (HillEligible(terrain) && (relief > HillRelief || hilly > HillThreshold))
+                    data.Features[axial] = Feature.Hills;
             }
         }
 
@@ -151,7 +158,7 @@ public static class MapGenerator
 
         var sources = new List<Vector2I>();
         foreach (var (axial, terrain) in data.Tiles)
-            if (terrain == TerrainType.Mountain || terrain == TerrainType.Hills)
+            if (terrain == TerrainType.Mountain || data.IsHill(axial))
                 sources.Add(axial);
         if (sources.Count == 0) return;
 
@@ -309,7 +316,7 @@ public static class MapGenerator
         var rng = new System.Random(seed + 1337);
         foreach (var (axial, terrain) in data.Tiles)
         {
-            foreach (var (resource, chance) in CandidatesFor(terrain))
+            foreach (var (resource, chance) in CandidatesFor(terrain, data.IsHill(axial)))
             {
                 if (rng.NextDouble() < chance)
                 {
@@ -322,18 +329,35 @@ public static class MapGenerator
         ScatterLuxuries(data, seed);
     }
 
+    // Resources eligible on a tile: hill-feature resources first (Iron lives on hills
+    // now that Hills is a feature, not a terrain), then the base terrain's resources —
+    // so a Grassland + Hills tile can roll Sheep/Iron or Cattle/Wheat.
+    private static IEnumerable<(ResourceType Resource, double Chance)> CandidatesFor(TerrainType t, bool isHill)
+    {
+        if (isHill)
+        {
+            yield return (ResourceType.Iron,  0.12);
+            yield return (ResourceType.Sheep, 0.07);
+            yield return (ResourceType.Stone, 0.06);
+        }
+        foreach (var c in TerrainCandidates(t)) yield return c;
+    }
+
     // Luxuries are placed by count, not per-tile probability: 1–3 of each type land
     // on random unused tiles of an affinity terrain, so a map carries only a handful
     // of each (very sparse). Tech-revealed; +1 Gold when worked (see ResourceYields).
     private static void ScatterLuxuries(MapData data, int seed)
     {
         var rng = new System.Random(seed + 7919);
-        foreach (var (luxury, terrains, maxCount) in LuxuryPlacements())
+        foreach (var (luxury, terrains, onHill, maxCount) in LuxuryPlacements())
         {
             var candidates = new List<Vector2I>();
             foreach (var (axial, terrain) in data.Tiles)
-                if (!data.Resources.ContainsKey(axial) && System.Array.IndexOf(terrains, terrain) >= 0)
-                    candidates.Add(axial);
+            {
+                if (data.Resources.ContainsKey(axial)) continue;
+                bool ok = onHill ? data.IsHill(axial) : System.Array.IndexOf(terrains, terrain) >= 0;
+                if (ok) candidates.Add(axial);
+            }
 
             int target = 1 + rng.Next(maxCount); // 1..maxCount
             for (int placed = 0; placed < target && candidates.Count > 0; placed++)
@@ -345,26 +369,26 @@ public static class MapGenerator
         }
     }
 
-    // (luxury, affinity terrains, max copies). Only workable land terrains — mountain
-    // tiles can't be worked, so a luxury there would never yield. Mirrors the affinity
-    // table in docs/MAP_GENERATION.md.
-    private static IEnumerable<(ResourceType Luxury, TerrainType[] Terrains, int MaxCount)> LuxuryPlacements() => new[]
+    // (luxury, affinity terrains, on-hill?, max copies). Gems/GoldOre/Silver sit on
+    // Hills-feature tiles (any base terrain); the rest on affinity terrains. Only
+    // workable land — mountains can't be worked. Mirrors docs/MAP_GENERATION.md.
+    private static IEnumerable<(ResourceType Luxury, TerrainType[] Terrains, bool OnHill, int MaxCount)> LuxuryPlacements() => new[]
     {
-        (ResourceType.Gems,    new[] { TerrainType.Hills }, 3),
-        (ResourceType.GoldOre, new[] { TerrainType.Hills }, 3),
-        (ResourceType.Silver,  new[] { TerrainType.Hills }, 3),
-        (ResourceType.Silk,    new[] { TerrainType.Forest }, 3),
-        (ResourceType.Spices,  new[] { TerrainType.Jungle, TerrainType.Forest }, 3),
-        (ResourceType.Dyes,    new[] { TerrainType.Forest, TerrainType.Jungle }, 3),
-        (ResourceType.Cotton,  new[] { TerrainType.Plains, TerrainType.Grassland }, 3),
-        (ResourceType.Incense, new[] { TerrainType.Desert, TerrainType.Plains }, 3),
-        (ResourceType.Ivory,   new[] { TerrainType.Plains, TerrainType.Grassland }, 3),
+        (ResourceType.Gems,    System.Array.Empty<TerrainType>(), true,  3),
+        (ResourceType.GoldOre, System.Array.Empty<TerrainType>(), true,  3),
+        (ResourceType.Silver,  System.Array.Empty<TerrainType>(), true,  3),
+        (ResourceType.Silk,    new[] { TerrainType.Forest }, false, 3),
+        (ResourceType.Spices,  new[] { TerrainType.Jungle, TerrainType.Forest }, false, 3),
+        (ResourceType.Dyes,    new[] { TerrainType.Forest, TerrainType.Jungle }, false, 3),
+        (ResourceType.Cotton,  new[] { TerrainType.Plains, TerrainType.Grassland }, false, 3),
+        (ResourceType.Incense, new[] { TerrainType.Desert, TerrainType.Plains }, false, 3),
+        (ResourceType.Ivory,   new[] { TerrainType.Plains, TerrainType.Grassland }, false, 3),
     };
 
     // Per-terrain resource candidates (resource, per-tile chance), rolled in order.
     // Strategic resources lead; bonus resources follow. Densities mirror
     // docs/MAP_GENERATION.md "Resource Placement Patterns".
-    private static IEnumerable<(ResourceType Resource, double Chance)> CandidatesFor(TerrainType t) => t switch
+    private static IEnumerable<(ResourceType Resource, double Chance)> TerrainCandidates(TerrainType t) => t switch
     {
         TerrainType.Grassland => new[]
         {
@@ -374,10 +398,6 @@ public static class MapGenerator
         TerrainType.Plains => new[]
         {
             (ResourceType.Horses, 0.06), (ResourceType.Wheat, 0.09), (ResourceType.Stone, 0.06),
-        },
-        TerrainType.Hills => new[]
-        {
-            (ResourceType.Iron, 0.14), (ResourceType.Sheep, 0.08), (ResourceType.Stone, 0.07),
         },
         TerrainType.Savanna  => new[] { (ResourceType.Cattle, 0.06), (ResourceType.Sheep, 0.05) },
         TerrainType.Forest   => new[] { (ResourceType.Deer, 0.10) },
@@ -398,19 +418,15 @@ public static class MapGenerator
         return new Vector2I(q, r);
     }
 
-    // Classifies a tile from height, climate (moisture + temperature), and mountain
-    // relief. Water and mountains come from height; foothills from relief; everything
-    // else from a temperature × moisture climate matrix (so flat land still varies).
-    // Dry uplands read as Hills, and polar latitudes cap to Snow/Tundra.
-    private static TerrainType Classify(
-        float h, float moisture, float temperature, float relief, float hilly, float lat)
+    // Classifies a tile's base biome from height + climate (moisture + temperature).
+    // Water and mountains come from height; everything else from a temperature ×
+    // moisture matrix (so flat land still varies), with a polar Snow/Tundra cap.
+    // Hills are NOT here — they're a feature applied in Generate (see HillEligible).
+    private static TerrainType Classify(float h, float moisture, float temperature, float lat)
     {
         if (h < OceanLevel)     return TerrainType.Ocean;
         if (h < CoastLevel)     return TerrainType.Coast;
         if (h >= MountainLevel) return TerrainType.Mountain;
-
-        // Foothills hug the mountain belts (broad relief skirt around the crests).
-        if (relief > HillRelief) return TerrainType.Hills;
 
         // Polar caps.
         if (lat > 0.80f) return moisture < 0.45f ? TerrainType.Snow : TerrainType.Tundra;
@@ -418,7 +434,7 @@ public static class MapGenerator
         int tb = temperature < 0.34f ? 0 : temperature < 0.68f ? 1 : 2; // cold / temperate / hot
         int mb = moisture    < 0.38f ? 0 : moisture    < 0.60f ? 1 : 2; // dry / mid / wet
 
-        var biome = (tb, mb) switch
+        return (tb, mb) switch
         {
             (0, 0) => TerrainType.Tundra,
             (0, 1) => TerrainType.Forest,                                   // boreal forest
@@ -431,14 +447,11 @@ public static class MapGenerator
             (2, 2) => moisture > 0.73f ? TerrainType.Wetlands : TerrainType.Jungle, // hot + wet
             _      => TerrainType.Plains,
         };
-
-        // Scattered hills: a mid-freq hilliness field raises rolling Hills across open
-        // terrain anywhere on the map (independent of the mountain belts), so hills
-        // aren't confined to the foothill skirts. Forest/Jungle/Wetlands stay as-is.
-        if (hilly > HillThreshold && biome is TerrainType.Plains or TerrainType.Grassland
-                                          or TerrainType.Savanna or TerrainType.Desert or TerrainType.Tundra)
-            return TerrainType.Hills;
-
-        return biome;
     }
+
+    // A Hills feature may sit on any open land terrain — not water, mountains, or the
+    // low marsh of Wetlands.
+    private static bool HillEligible(TerrainType t)
+        => t is not (TerrainType.Ocean or TerrainType.Coast
+                  or TerrainType.Mountain or TerrainType.Wetlands);
 }

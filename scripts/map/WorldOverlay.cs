@@ -291,7 +291,7 @@ public partial class WorldOverlay : Node2D
     {
         var w = HexProjection.AxialToWorld(axial);
         if (_state.Map.Tiles.TryGetValue(axial, out var terrain))
-            w.Y = HexProjection.TopHeight(terrain);
+            w.Y = HexProjection.TopHeight(terrain, _state.Map.IsHill(axial));
         return w;
     }
 

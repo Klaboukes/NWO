@@ -70,7 +70,6 @@ public static class TerrainArtGenerator
             case TerrainType.Plains:    PaintPlains(img, ramp, rng);    break;
             case TerrainType.Grassland: PaintGrassland(img, ramp, rng); break;
             case TerrainType.Forest:    PaintForest(img, ramp, rng);    break;
-            case TerrainType.Hills:     PaintHills(img, ramp, rng);     break;
             case TerrainType.Tundra:    PaintTundra(img, ramp, rng);    break;
             case TerrainType.Snow:      PaintSnow(img, ramp, rng);      break;
             case TerrainType.Mountain:  PaintMountain(img, ramp, rng);  break;
@@ -204,30 +203,6 @@ public static class TerrainArtGenerator
         for (int i = 0; i < trees; i++)
             TryProp(img, rng, 16, (cx, cy) => DrawTree(img, cx, cy, rng.Range(8, 12), leaf));
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 4);
-    }
-
-    // Rolling hills: rounded bumps lit from the upper-left over the dithered ground,
-    // each with a soft shadowed base, plus a few rocks.
-    private static void PaintHills(Image img, Color[] ramp, Rng rng)
-    {
-        int last = ramp.Length - 1;
-        int bumps = rng.Range(3, 5);
-        for (int b = 0; b < bumps; b++)
-        {
-            int cx = rng.Range(28, 100);
-            int cy = rng.Range(30, 96);
-            int r  = rng.Range(16, 26);
-            if (!InFootprint(cx, cy, r * 0.4f)) { b--; continue; }
-            for (int dy = -r; dy <= r; dy++)
-            for (int dx = -r; dx <= r; dx++)
-            {
-                if (dx * dx + dy * dy > r * r) continue;
-                float lit = (-dx - dy) / (r * 1.4f);                  // upper-left = bright
-                int   idx = Mathf.Clamp(3 + Mathf.RoundToInt(lit * 2.5f), 0, last);
-                Plot(img, cx + dx, cy + dy, ramp[idx]);
-            }
-        }
-        ScatterRocks(img, ramp, rng, count: 3, minR: 2, maxR: 4);
     }
 
     // Frozen scrubland: pale snow patches, dark twiggy scrub, rocks.

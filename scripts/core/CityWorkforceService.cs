@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -42,31 +43,42 @@ public static class CityWorkforceService
 
         // Totals: city-center floor + worked tiles + building bonuses.
         var centerTerrain = state.Map.Tiles.GetValueOrDefault(city.Position, TerrainType.Grassland);
-        var (food, prod) = TerrainYields.CityCenter(centerTerrain);
-        if (state.Map.IsRiverAdjacent(city.Position)) food += 1; // floodplain center
+        var (food, prod) = TerrainYields.CityCenter(centerTerrain); // Civ 5 floor: ≥2F / ≥1P
+        var centerFeat = state.Map.FeatureAt(city.Position);
+        food += FeatureYields.Food(centerFeat);       // Hills: -1F / +1P on the centre
+        prod += FeatureYields.Production(centerFeat);
+        if (state.Map.IsRiverAdjacent(city.Position)) food += 1; // floodplain centre
+        food = Math.Max(2, food); // re-apply the centre floor after deltas
+        prod = Math.Max(1, prod);
 
         foreach (var tile in assigned)
         {
             if (!state.Map.Tiles.TryGetValue(tile, out var t)) continue;
-            food += TerrainYields.Food(t);
-            prod += TerrainYields.Production(t);
+            int tf = TerrainYields.Food(t);
+            int tp = TerrainYields.Production(t);
 
             // Worker-built improvements on the tile.
             var imp = state.Map.ImprovementAt(tile);
-            food += ImprovementService.Food(imp);
-            prod += ImprovementService.Production(imp);
+            tf += ImprovementService.Food(imp);
+            tp += ImprovementService.Production(imp);
 
             // A revealed resource on a worked tile adds its tier yield (bonus/
             // strategic add Food/Prod; luxuries add Gold via CivEconomyService).
             var res = state.Map.ResourceAt(tile);
             if (res != ResourceType.None && ResourceService.IsRevealed(state, city.Owner, res))
             {
-                food += ResourceYields.Food(res);
-                prod += ResourceYields.Production(res);
+                tf += ResourceYields.Food(res);
+                tp += ResourceYields.Production(res);
             }
 
-            // Floodplain: a river-adjacent worked tile gains +1 Food.
-            if (state.Map.IsRiverAdjacent(tile)) food += 1;
+            // Hills feature trades food for production; floodplain adds food.
+            var feat = state.Map.FeatureAt(tile);
+            tf += FeatureYields.Food(feat);
+            tp += FeatureYields.Production(feat);
+            if (state.Map.IsRiverAdjacent(tile)) tf += 1;
+
+            food += Math.Max(0, tf); // a tile's food can't go negative (Civ 5 clamp)
+            prod += tp;
         }
 
         foreach (var buildingId in city.Buildings)
@@ -131,9 +143,11 @@ public static class CityWorkforceService
             .Select(t =>
             {
                 var terrain = state.Map.Tiles.GetValueOrDefault(t, TerrainType.Grassland);
-                int food    = TerrainYields.Food(terrain);
-                int prod    = TerrainYields.Production(terrain);
+                var feat    = state.Map.FeatureAt(t);
+                int food    = TerrainYields.Food(terrain) + FeatureYields.Food(feat);
+                int prod    = TerrainYields.Production(terrain) + FeatureYields.Production(feat);
                 if (state.Map.IsRiverAdjacent(t)) food += 1; // floodplain bonus
+                food        = Math.Max(0, food);
                 return (tile: t,
                         score: Score(city.Workforce.Focus, food, prod),
                         dist:  HexGrid.Distance(city.Position, t));

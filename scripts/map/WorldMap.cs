@@ -425,16 +425,24 @@ public partial class WorldMap : Node3D
             gold += ResourceYields.Gold(res);
         }
 
+        // Hills feature trades food for production.
+        var feat = _state.Map.FeatureAt(axial);
+        food += FeatureYields.Food(feat);
+        prod += FeatureYields.Production(feat);
+
         // Floodplain: river-adjacent tiles gain +1 Food.
         bool riverside = _state.Map.IsRiverAdjacent(axial);
         if (riverside) food += 1;
+
+        food = Mathf.Max(0, food); // a tile's food can't go negative
 
         var yields = new List<string>();
         if (food > 0) yields.Add($"{food}F");
         if (prod > 0) yields.Add($"{prod}P");
         if (gold > 0) yields.Add($"{gold}G");
 
-        string text = terrain.ToString();
+        string name = feat == Feature.Hills ? $"{terrain} Hills" : terrain.ToString();
+        string text = name;
         if (yields.Count > 0) text += "  " + string.Join(" ", yields);
 
         if (hasRes)

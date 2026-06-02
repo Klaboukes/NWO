@@ -43,17 +43,27 @@ public static class HexProjection
     // Real prism height above the ground plane for each terrain (the top-face Y).
     // Monotonic: flat < Forest < Hills < Mountain — the same ordering the old
     // draw-only ElevationLift used, now as actual geometry.
+    // Extra lift a Hills feature adds on top of the base terrain's elevation, so a
+    // hilly tile reads as a raised bump regardless of its biome (Phase 9.x).
+    public const float HillLift = HexSize * 0.22f;
+
     public static float Elevation(TerrainType terrain) => terrain switch
     {
         TerrainType.Mountain => HexSize * 0.55f,
-        TerrainType.Hills    => HexSize * 0.28f,
         TerrainType.Forest   => HexSize * 0.12f,
         TerrainType.Jungle   => HexSize * 0.12f, // dense canopy, same lift as Forest
         _                    => 0f,              // flat: Savanna, Wetlands, et al.
     };
 
+    // Elevation including a Hills feature (the feature stacks on the base terrain).
+    public static float Elevation(TerrainType terrain, bool hill)
+        => Elevation(terrain) + (hill ? HillLift : 0f);
+
     // Y of a tile's top face (where sprites, glyphs, and overlays sit).
     public static float TopHeight(TerrainType terrain) => BaseThickness + Elevation(terrain);
+
+    public static float TopHeight(TerrainType terrain, bool hill)
+        => BaseThickness + Elevation(terrain, hill);
 
     // The six flat-top hex corners on the ground plane, relative to a tile centre.
     // i in [0,6); use with AxialToWorld(...) + corner, raising Y to the top face.
@@ -85,7 +95,6 @@ public static class HexProjection
         TerrainType.Plains    => new Color(0.80f, 0.78f, 0.50f),
         TerrainType.Grassland => new Color(0.38f, 0.68f, 0.32f),
         TerrainType.Forest    => new Color(0.18f, 0.45f, 0.20f),
-        TerrainType.Hills     => new Color(0.60f, 0.55f, 0.35f),
         TerrainType.Tundra    => new Color(0.70f, 0.75f, 0.68f),
         TerrainType.Snow      => new Color(0.92f, 0.95f, 0.98f),
         TerrainType.Mountain  => new Color(0.55f, 0.50f, 0.48f),

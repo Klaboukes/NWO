@@ -78,11 +78,30 @@ public class CityWorkforceServiceTests
     }
 
     [Fact]
+    public void HillsFeature_TradesFoodForProductionOnWorkedTile()
+    {
+        var (state, player) = FlatState();
+        var city = new City("X", player, new Vector2I(5, 5)) { Population = 1 };
+        state.Cities.Add(city);
+
+        var tile = new Vector2I(6, 5);     // Plains: 1F / 1P
+        city.Workforce.Locked.Add(tile);
+        CityWorkforceService.Recompute(state, city);
+        int baseFood = city.FoodYield, baseProd = city.ProductionYield;
+
+        state.Map.Features[tile] = Feature.Hills; // → 0F / 2P
+        CityWorkforceService.Recompute(state, city);
+
+        Assert.Equal(baseFood - 1, city.FoodYield);
+        Assert.Equal(baseProd + 1, city.ProductionYield);
+    }
+
+    [Fact]
     public void FocusProduction_PrefersHighProdTiles()
     {
         var (state, player) = FlatState();
-        // Carve a single Hills tile into the otherwise-Plains workable area.
-        state.Map.Tiles[new Vector2I(6, 5)] = TerrainType.Hills; // Hills = 1F/2P
+        // A Hills feature on Plains: 1F/1P → 0F/2P, the highest-production workable tile.
+        state.Map.Features[new Vector2I(6, 5)] = Feature.Hills;
         var city = Found(state, player, new Vector2I(5, 5));    // Plains center
         Assert.Equal(1, city.Population);
 

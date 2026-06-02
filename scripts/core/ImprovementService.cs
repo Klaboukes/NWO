@@ -36,11 +36,14 @@ public static class ImprovementService
     public static int Production(ImprovementType t)
         => t is ImprovementType.Mine or ImprovementType.Pasture ? 1 : 0;
 
-    public static bool ValidOn(ImprovementType t, TerrainType terrain) => t switch
+    // Whether an improvement may sit on a tile. Mine wants a Hills feature (any base
+    // terrain), so it takes the hill flag rather than the terrain alone.
+    public static bool ValidOn(ImprovementType t, TerrainType terrain, bool isHill) => t switch
     {
-        ImprovementType.Farm    => terrain is TerrainType.Grassland or TerrainType.Plains,
-        ImprovementType.Mine    => terrain is TerrainType.Hills,
-        ImprovementType.Pasture => terrain is TerrainType.Grassland or TerrainType.Plains,
+        // Farm/Pasture are flatland improvements; Mine is the hills one.
+        ImprovementType.Farm    => !isHill && terrain is TerrainType.Grassland or TerrainType.Plains,
+        ImprovementType.Mine    => isHill,
+        ImprovementType.Pasture => !isHill && terrain is TerrainType.Grassland or TerrainType.Plains,
         ImprovementType.Road    => TerrainYields.MovementCost(terrain) != int.MaxValue, // any passable land
         _                       => false,
     };
@@ -51,7 +54,7 @@ public static class ImprovementService
     {
         if (type == ImprovementType.None)                       return false;
         if (!state.Map.Tiles.TryGetValue(tile, out var terrain)) return false;
-        if (!ValidOn(type, terrain))                            return false;
+        if (!ValidOn(type, terrain, state.Map.IsHill(tile)))    return false;
         var req = RequiredTech(type);
         if (req != null && !state.Civ(player).ResearchedTechs.Contains(req)) return false;
         if (state.Map.ImprovementAt(tile) == type)              return false;
