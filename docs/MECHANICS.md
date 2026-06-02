@@ -52,9 +52,15 @@ have none until improvements/buildings provide it (see §9).
 | Snow | 1 | +0 | +0 | +0 |
 | Hills | 2 | +1 | +2 | +0 |
 | Forest | 2 | +1 | +2 | +0 |
+| Savanna | 1 | +1 | +0 | +0 |
+| Jungle | 2 | +1 | +0 | +0 |
+| Wetlands | 2 | +2 | +0 | +0 |
 | Mountain | impassable | — | — | — |
 | Ocean | impassable | +1 | +0 | +1 |
 | Coast | impassable | +2 | +0 | +1 |
+
+Savanna, Jungle, and Wetlands (Phase 9.1) are climate-driven biomes placed by the
+moisture axis rather than by height alone.
 
 Ocean and Coast are currently **impassable** (no naval units yet); their food
 values only matter to coastal cities working those tiles. Naval movement costs
@@ -90,8 +96,13 @@ resources and resource trading remain **[planned]**.
 
 ### Map Generation (Procedural)
 
-- Algorithm: two layers of simplex noise (`FastNoiseLite`) blended 70/30, with a
-  radial falloff that pushes map edges to ocean → island-like continents.
+- Algorithm (Phase 9.1): three independent layers — (1) a low-freq continental
+  shape (simplex base+detail blended 70/30) with a radial falloff that pushes map
+  edges to ocean → island-like continents; (2) a **domain-warped ridged Simplex**
+  mountain layer gated by a low-freq uplift mask, forming coherent mountain chains;
+  (3) an independent low-freq **moisture** pass. Height + moisture map to a biome
+  via `HeightMoistureToBiome` (height-banded × moisture-banded lookup, with a polar
+  Snow/Tundra override near the top/bottom map edges).
 - Rivers: not in MVP
 - Continents: the falloff tends to produce multiple landmasses, but a minimum
   count is **not** enforced.

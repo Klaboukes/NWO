@@ -14,6 +14,8 @@ public static class TerrainYields
         TerrainType.Coast    => int.MaxValue,
         TerrainType.Hills    => 2,
         TerrainType.Forest   => 2,
+        TerrainType.Jungle   => 2,
+        TerrainType.Wetlands => 2,
         _                    => 1,
     };
 
@@ -26,6 +28,9 @@ public static class TerrainYields
         TerrainType.Tundra    => 1,
         TerrainType.Coast     => 2,
         TerrainType.Ocean     => 1,
+        TerrainType.Savanna   => 1,
+        TerrainType.Jungle    => 1,
+        TerrainType.Wetlands  => 2, // marsh is wet & fertile
         _                     => 0,
     };
 

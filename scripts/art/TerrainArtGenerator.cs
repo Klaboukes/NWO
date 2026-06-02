@@ -74,6 +74,9 @@ public static class TerrainArtGenerator
             case TerrainType.Tundra:    PaintTundra(img, ramp, rng);    break;
             case TerrainType.Snow:      PaintSnow(img, ramp, rng);      break;
             case TerrainType.Mountain:  PaintMountain(img, ramp, rng);  break;
+            case TerrainType.Savanna:   PaintSavanna(img, ramp, rng);   break;
+            case TerrainType.Jungle:    PaintJungle(img, ramp, rng);    break;
+            case TerrainType.Wetlands:  PaintWetlands(img, ramp, rng);  break;
         }
 
         EdgeShade(img);
@@ -263,6 +266,46 @@ public static class TerrainArtGenerator
         DrawPeak(img, ramp, peakX: 92, topY: 44, baseY: 104, spread: 0.5f,  capRows: 12);
         ScatterRocks(img, ramp, rng, count: 3, minR: 2, maxR: 4);
         _ = last;
+    }
+
+    // Dry tropical grassland: tall sun-bleached blades, a couple of flat-topped
+    // acacia bushes, scattered rocks. Sparser and yellower than Grassland.
+    private static void PaintSavanna(Image img, Color[] ramp, Rng rng)
+    {
+        Blades(img, ramp, rng, 70);
+        Color acacia = Shade(ramp[3], +0.04f, +0.14f);
+        for (int b = 0; b < 2; b++)
+            TryProp(img, rng, 16, (cx, cy) => DrawTree(img, cx, cy, rng.Range(5, 8), acacia, lowBush: true));
+        ScatterRocks(img, ramp, rng, count: 3, minR: 2, maxR: 4);
+    }
+
+    // Dense rainforest: heavy grass underlayer, many tightly-packed dark canopies,
+    // a few rocks. Reads as a thicker, darker Forest.
+    private static void PaintJungle(Image img, Color[] ramp, Rng rng)
+    {
+        Blades(img, ramp, rng, 80);
+        Color leaf  = Shade(ramp[3], +0.04f, +0.14f);
+        int   trees = rng.Range(8, 12);
+        for (int i = 0; i < trees; i++)
+            TryProp(img, rng, 14, (cx, cy) => DrawTree(img, cx, cy, rng.Range(7, 11), leaf));
+        ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);
+    }
+
+    // Marsh: dark standing-water pools over the dithered ground, with reedy tufts
+    // along their edges. Damp, low, and broken-up.
+    private static void PaintWetlands(Image img, Color[] ramp, Rng rng)
+    {
+        Color water = Shade(ramp[0], -0.10f, +0.10f, -0.02f); // dark cool pool
+        for (int p = 0; p < 5; p++)
+        {
+            int px = rng.Range(20, 108), py = rng.Range(20, 108);
+            int r  = rng.Range(6, 12);
+            if (!InFootprint(px, py, r * 0.5f)) { p--; continue; }
+            Disc(img, px, py, r, water);
+            Plot(img, px - r / 2, py - r / 2, ramp[5]); // glint
+        }
+        Blades(img, ramp, rng, 90); // reeds
+        ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);
     }
 
     private static void DrawPeak(Image img, Color[] ramp, int peakX, int topY, int baseY, float spread, int capRows)

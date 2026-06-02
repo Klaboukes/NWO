@@ -14,4 +14,8 @@ public enum TerrainType
     Mountain,
     Ocean,
     Coast,
+    // Phase 9 biomes (appended — never reorder; TerrainType is serialized in saves).
+    Savanna,
+    Jungle,
+    Wetlands,
 }

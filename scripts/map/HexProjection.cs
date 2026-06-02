@@ -48,7 +48,8 @@ public static class HexProjection
         TerrainType.Mountain => HexSize * 0.55f,
         TerrainType.Hills    => HexSize * 0.28f,
         TerrainType.Forest   => HexSize * 0.12f,
-        _                    => 0f,
+        TerrainType.Jungle   => HexSize * 0.12f, // dense canopy, same lift as Forest
+        _                    => 0f,              // flat: Savanna, Wetlands, et al.
     };
 
     // Y of a tile's top face (where sprites, glyphs, and overlays sit).
@@ -88,6 +89,9 @@ public static class HexProjection
         TerrainType.Tundra    => new Color(0.70f, 0.75f, 0.68f),
         TerrainType.Snow      => new Color(0.92f, 0.95f, 0.98f),
         TerrainType.Mountain  => new Color(0.55f, 0.50f, 0.48f),
+        TerrainType.Savanna   => new Color(0.72f, 0.70f, 0.34f), // dry golden-green
+        TerrainType.Jungle    => new Color(0.16f, 0.42f, 0.18f), // rich dark green
+        TerrainType.Wetlands  => new Color(0.34f, 0.50f, 0.38f), // muted marsh
         _                     => Colors.Magenta,
     };
 }

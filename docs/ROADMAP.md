@@ -112,7 +112,7 @@ Goal: replace the single-noise `MapGenerator` with a geologically-layered pipeli
 expand the resource system into three Civ5-style tiers (bonus / strategic / luxury).
 See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific notes.
 
-- [ ] **9.1 — Layered terrain generation.** Replace the two-noise flat pass in
+- [x] **9.1 — Layered terrain generation.** Replace the two-noise flat pass in
       `MapGenerator.cs` with three independent layers: (1) continental shape mask
       (existing low-freq FBM + radial falloff — keep as-is); (2) domain-warped ridged
       Simplex for coherent mountain chains; (3) moisture noise axis (separate low-freq
