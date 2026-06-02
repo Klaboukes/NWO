@@ -23,6 +23,7 @@ public class SaveSerializerTests
 
         state.Map.Improvements[new Vector2I(3, 3)] = ImprovementType.Farm;
         state.Map.Resources[new Vector2I(4, 4)]    = ResourceType.Horses;
+        state.Map.Rivers.Add((new Vector2I(2, 2), 0)); // E edge of (2,2)
 
         var civ = state.Civ(human);
         civ.Treasury           = 123;
@@ -83,6 +84,11 @@ public class SaveSerializerTests
         Assert.Equal(ImprovementType.Farm, loaded.Map.ImprovementAt(new Vector2I(3, 3)));
         Assert.Equal(ResourceType.Horses,  loaded.Map.ResourceAt(new Vector2I(4, 4)));
         Assert.Equal(TerrainType.Plains,   loaded.Map.Tiles[new Vector2I(0, 0)]);
+
+        // River edge survives, and adjacency resolves from both sides of the edge.
+        Assert.Contains((new Vector2I(2, 2), 0), loaded.Map.Rivers);
+        Assert.True(loaded.Map.IsRiverAdjacent(new Vector2I(2, 2)));
+        Assert.True(loaded.Map.IsRiverAdjacent(new Vector2I(3, 2))); // neighbour E of (2,2)
     }
 
     [Fact]

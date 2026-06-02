@@ -49,6 +49,9 @@ public static class MapGenerator
         var upliftNoise = MakeNoise(seed + 4, UpliftFrequency);
         var moistNoise  = MakeNoise(seed + 5, MoistureFrequency);
 
+        // Final heights kept so rivers can trace downhill after classification.
+        var heights = new Dictionary<Vector2I, float>(width * height);
+
         for (int col = 0; col < width; col++)
         {
             for (int row = 0; row < height; row++)
@@ -78,10 +81,12 @@ public static class MapGenerator
                 // 3. Moisture: independent low-freq pass in [0,1].
                 float moisture = (moistNoise.GetNoise2D(col, row) + 1f) / 2f;
 
+                heights[axial]    = h;
                 data.Tiles[axial] = HeightMoistureToBiome(h, moisture, row, height);
             }
         }
 
+        TraceRivers(data, heights, seed);
         ScatterResources(data, seed);
         return data;
     }
@@ -92,6 +97,73 @@ public static class MapGenerator
         NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
         Frequency = frequency,
     };
+
+    // Traces 3–5 rivers downhill from highland (Mountain/Hills) sources, recording
+    // each crossed tile-to-tile edge in MapData.Rivers. Deterministic per seed.
+    private const int RiverMinLength = 3;
+
+    private static void TraceRivers(MapData data, Dictionary<Vector2I, float> heights, int seed)
+    {
+        var rng = new System.Random(seed + 4242);
+
+        var sources = new List<Vector2I>();
+        foreach (var (axial, terrain) in data.Tiles)
+            if (terrain == TerrainType.Mountain || terrain == TerrainType.Hills)
+                sources.Add(axial);
+        if (sources.Count == 0) return;
+
+        // Deterministic Fisher–Yates shuffle so source choice doesn't depend on order.
+        for (int i = sources.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (sources[i], sources[j]) = (sources[j], sources[i]);
+        }
+
+        int target = 3 + rng.Next(3); // 3..5
+        int made   = 0;
+        foreach (var src in sources)
+        {
+            if (made >= target) break;
+            if (TraceOneRiver(data, heights, src)) made++;
+        }
+    }
+
+    // Walks strictly downhill (lowest lower neighbour) from `start` until it reaches
+    // water, a basin (no lower neighbour), or a step cap. Commits the path's edges
+    // only if it ran long enough to read as a river.
+    private static bool TraceOneRiver(MapData data, Dictionary<Vector2I, float> heights, Vector2I start)
+    {
+        const int maxSteps = 60;
+        var visited = new HashSet<Vector2I> { start };
+        var edges   = new List<(Vector2I Tile, int Dir)>();
+        var current = start;
+
+        for (int step = 0; step < maxSteps; step++)
+        {
+            if (data.Tiles.TryGetValue(current, out var t)
+                && (t == TerrainType.Coast || t == TerrainType.Ocean))
+                break; // reached the sea
+
+            int   bestDir = -1;
+            float bestH   = heights[current];
+            for (int d = 0; d < 6; d++)
+            {
+                var n = current + HexGrid.Directions[d];
+                if (visited.Contains(n)) continue;
+                if (!heights.TryGetValue(n, out var nh)) continue; // off-map
+                if (nh < bestH) { bestH = nh; bestDir = d; }
+            }
+            if (bestDir < 0) break; // local minimum
+
+            edges.Add((current, bestDir));
+            current += HexGrid.Directions[bestDir];
+            visited.Add(current);
+        }
+
+        if (edges.Count < RiverMinLength) return false;
+        foreach (var e in edges) data.Rivers.Add(e);
+        return true;
+    }
 
     // Sprinkles strategic + bonus resources onto eligible terrain. For each tile we
     // roll its terrain's candidate list in order and assign the first hit (one

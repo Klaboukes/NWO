@@ -21,11 +21,28 @@ public class MapData
     // runtime when a Worker completes a build task (see GameState).
     public Dictionary<Vector2I, ImprovementType> Improvements { get; } = new();
 
+    // River edges (Phase 9.4): each entry is a tile + a HexGrid.Directions index,
+    // naming the hex edge between that tile and its neighbour in that direction.
+    // An edge is stored once (from one side); IsRiverAdjacent checks both sides.
+    public HashSet<(Vector2I Tile, int Dir)> Rivers { get; } = new();
+
     public MapData(int width, int height)
     {
         Width  = width;
         Height = height;
         Tiles  = new(width * height);
+    }
+
+    // True if any of the tile's six edges carries a river (matched from either side).
+    public bool IsRiverAdjacent(Vector2I axial)
+    {
+        for (int d = 0; d < 6; d++)
+        {
+            if (Rivers.Contains((axial, d))) return true;
+            var n = axial + HexGrid.Directions[d];
+            if (Rivers.Contains((n, (d + 3) % 6))) return true; // edge stored on neighbour's side
+        }
+        return false;
     }
 
     public ResourceType ResourceAt(Vector2I axial)

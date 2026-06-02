@@ -63,6 +63,9 @@ public static class CityWorkforceService
                 food += ResourceYields.Food(res);
                 prod += ResourceYields.Production(res);
             }
+
+            // Floodplain: a river-adjacent worked tile gains +1 Food.
+            if (state.Map.IsRiverAdjacent(tile)) food += 1;
         }
 
         foreach (var buildingId in city.Buildings)

@@ -35,8 +35,9 @@ Everything in §0 is `[planned]`; the rest of this document is the current imple
 
 - Map size: 60×40 tiles (MVP default, configurable)
 - Coordinate system: axial (q, r) — see TECH_STACK.md
-- Each tile currently has exactly one **terrain type**. Tile **features** (e.g.
-  oases, floodplains) are **[planned]** — `MapData` stores only terrain today.
+- Each tile has one **terrain type**. **Rivers** (Phase 9.4) are stored separately
+  as an edge-set on `MapData` (`HashSet<(tile, dir)>`); a tile bordering a river edge
+  is a floodplain and gains **+1 Food** when worked (`MapData.IsRiverAdjacent`).
 
 ### Terrain Types
 
@@ -116,7 +117,9 @@ Resource trading remains **[planned]**.
   (3) an independent low-freq **moisture** pass. Height + moisture map to a biome
   via `HeightMoistureToBiome` (height-banded × moisture-banded lookup, with a polar
   Snow/Tundra override near the top/bottom map edges).
-- Rivers: not in MVP
+- Rivers (Phase 9.4): 3–5 rivers traced downhill from Mountain/Hills sources along
+  tile edges, stored in `MapData.Rivers`; rendered as thin blue lines in
+  `WorldOverlay` and granting a floodplain **+1 Food** to adjacent worked tiles.
 - Continents: the falloff tends to produce multiple landmasses, but a minimum
   count is **not** enforced.
 - Resource scatter: strategic + bonus resources by per-terrain affinity (one per

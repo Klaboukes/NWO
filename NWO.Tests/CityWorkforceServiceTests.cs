@@ -40,6 +40,26 @@ public class CityWorkforceServiceTests
     }
 
     [Fact]
+    public void RiverAdjacentWorkedTile_GainsFloodplainFood()
+    {
+        var (state, player) = FlatState();
+        var city = new City("X", player, new Vector2I(5, 5)) { Population = 1 };
+        state.Cities.Add(city);
+
+        var tile = new Vector2I(6, 5);     // distance 1, workable Plains (1F)
+        city.Workforce.Locked.Add(tile);   // force the citizen onto it
+
+        CityWorkforceService.Recompute(state, city);
+        int baseFood = city.FoodYield;
+
+        // Put a river on the E edge of (5,5), which is the shared edge with (6,5).
+        state.Map.Rivers.Add((new Vector2I(5, 5), 0));
+        CityWorkforceService.Recompute(state, city);
+
+        Assert.Equal(baseFood + 1, city.FoodYield);
+    }
+
+    [Fact]
     public void FocusProduction_PrefersHighProdTiles()
     {
         var (state, player) = FlatState();

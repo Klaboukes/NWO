@@ -106,7 +106,7 @@ tooling. Players can double-click `NWO.exe` on a bare Windows machine.
 
 ---
 
-## Phase 9 — Map Generation Overhaul & Terrain Features 🔭 PLANNED
+## Phase 9 — Map Generation Overhaul & Terrain Features ✅ COMPLETE
 
 Goal: replace the single-noise `MapGenerator` with a geologically-layered pipeline and
 expand the resource system into three Civ5-style tiers (bonus / strategic / luxury).
@@ -133,7 +133,7 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
       "unique luxury controlled" count on `Player` for future happiness consumption (Phase
       10 / post-MVP). *Done when:* luxury resources are hidden until the reveal tech and
       yield correctly when worked.
-- [ ] **9.4 — Rivers (basic).** Store rivers as a `HashSet<(Vector2I tile, int dir)>`
+- [x] **9.4 — Rivers (basic).** Store rivers as a `HashSet<(Vector2I tile, int dir)>`
       edge-set on `MapData`. Trace 3–5 rivers per map downhill from mountain/hill tiles
       to coast in `MapGenerator`. Grant +1 Food to all tiles adjacent to a river edge
       (floodplain modifier in `TerrainYields`). Render river edges as thin coloured lines

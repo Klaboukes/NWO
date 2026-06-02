@@ -425,6 +425,10 @@ public partial class WorldMap : Node3D
             gold += ResourceYields.Gold(res);
         }
 
+        // Floodplain: river-adjacent tiles gain +1 Food.
+        bool riverside = _state.Map.IsRiverAdjacent(axial);
+        if (riverside) food += 1;
+
         var yields = new List<string>();
         if (food > 0) yields.Add($"{food}F");
         if (prod > 0) yields.Add($"{prod}P");
@@ -435,6 +439,8 @@ public partial class WorldMap : Node3D
 
         if (hasRes)
             text += $"\nResource: {res}";
+        if (riverside)
+            text += "\nRiver (+1 Food)";
         if (_state.Map.Improvements.TryGetValue(axial, out var imp) && imp != ImprovementType.None)
             text += $"\nImprovement: {imp}";
         return text;

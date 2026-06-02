@@ -64,6 +64,7 @@ public partial class WorldOverlay : Node2D
         var fog = _state.Fog(_viewer);
 
         DrawFogDimming(fog);
+        DrawRivers(fog);
         DrawResources(fog);
         DrawImprovements(fog);
         DrawMovementRange();
@@ -83,6 +84,24 @@ public partial class WorldOverlay : Node2D
         foreach (var (axial, _) in _state.Map.Tiles)
             if (fog.IsDiscovered(axial) && !fog.IsVisible(axial))
                 FillHex(axial, HexProjection.HexSize - Gap, dim);
+    }
+
+    // River edges as thin blue lines along the shared tile boundary (Phase 9.4).
+    private void DrawRivers(FogOfWar fog)
+    {
+        var color    = new Color(0.30f, 0.62f, 0.95f, 0.85f);
+        float radius = HexProjection.HexSize;
+        foreach (var (tile, dir) in _state.Map.Rivers)
+        {
+            if (!fog.IsDiscovered(tile)) continue;
+            var top = TileTop(tile);
+            // Flat-top: edge facing direction dir is edge (6-dir)%6, joining corners e and e+1.
+            int e  = (6 - dir) % 6;
+            var wA = top + HexProjection.Corner(e,           radius);
+            var wB = top + HexProjection.Corner((e + 1) % 6, radius);
+            if (_camera.IsPositionBehind(wA) || _camera.IsPositionBehind(wB)) continue;
+            DrawLine(_camera.UnprojectPosition(wA), _camera.UnprojectPosition(wB), color, 3f);
+        }
     }
 
     private void DrawResources(FogOfWar fog)
