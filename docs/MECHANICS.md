@@ -114,16 +114,19 @@ Resource trading remains **[planned]**.
   (simplex base+detail blended 70/30) with a radial falloff that pushes map edges to
   ocean → island-like continents; (2) a **domain-warped ridged Simplex** mountain
   layer gated by a low-freq uplift mask, forming coherent mountain chains, whose
-  **relief** also rings the crests with foothills (Hills) so peaks don't drop straight
-  to flatland; (3) independent **moisture** (longitudinal) and **temperature**
+  **relief** rings the crests with foothills (Hills); a separate mid-freq hilliness
+  field also scatters Hills across open terrain independent of the mountains; (3)
+  independent **moisture** (longitudinal) and **temperature**
   (warm equator → cold poles, with a noise wobble) passes. `Classify` decides water
   and mountains by height, foothills by relief, and the remaining land from a
   **temperature × moisture climate matrix** (so the map varies even where it's flat),
   with a polar Snow/Tundra cap. This is what gives each seed several distinct biome
   regions and visible elevation rather than large monotone stretches.
-- Rivers (Phase 9.4): 3–5 rivers traced downhill from Mountain/Hills sources along
-  tile edges, stored in `MapData.Rivers`; rendered as thin blue lines in
-  `WorldOverlay` and granting a floodplain **+1 Food** to adjacent worked tiles.
+- Rivers (Phase 9.4): rivers traced downhill from Mountain/Hills sources along tile
+  edges (count scales with highland area), stored in `MapData.Rivers`. Every river
+  ends in water — if it bottoms out inland, a lake is carved at its terminus.
+  Rendered as blue channels in `WorldOverlay` and granting a floodplain **+1 Food**
+  to adjacent worked tiles.
 - Continents: the falloff tends to produce multiple landmasses, but a minimum
   count is **not** enforced.
 - Resource scatter: strategic + bonus resources by per-terrain affinity (one per

@@ -33,6 +33,10 @@ public static class MapGenerator
     private const float UpliftHigh       = 0.80f;
     private const float HillRelief       = 0.52f;  // relief above this → foothills (Hills)
 
+    // Scattered hills, independent of mountains (mid-freq patches across open land).
+    private const float HillFrequency    = 0.14f;
+    private const float HillThreshold    = 0.68f;  // hilliness above this → Hills
+
     // Climate
     private const float MoistureFrequency    = 0.095f; // higher → more biome transitions
     private const float TemperatureFrequency = 0.060f;
@@ -54,6 +58,7 @@ public static class MapGenerator
         var upliftNoise = MakeNoise(seed + 4, UpliftFrequency);
         var moistNoise  = MakeNoise(seed + 5, MoistureFrequency);
         var tempNoise   = MakeNoise(seed + 6, TemperatureFrequency);
+        var hillNoise   = MakeNoise(seed + 7, HillFrequency);
 
         // Final heights kept so rivers can trace downhill after classification.
         var heights = new Dictionary<Vector2I, float>(width * height);
@@ -94,9 +99,10 @@ public static class MapGenerator
                 float lat      = half <= 0f ? 0f : Mathf.Abs(row - half) / half; // 0 eq → 1 pole
                 float tJitter  = (tempNoise.GetNoise2D(col, row) + 1f) / 2f;
                 float temperature = Mathf.Clamp((1f - lat) * 0.70f + tJitter * 0.36f, 0f, 1f);
+                float hilly    = (hillNoise.GetNoise2D(col, row) + 1f) / 2f;
 
                 heights[axial]    = h;
-                data.Tiles[axial] = Classify(h, moisture, temperature, relief, lat);
+                data.Tiles[axial] = Classify(h, moisture, temperature, relief, hilly, lat);
             }
         }
 
@@ -169,19 +175,21 @@ public static class MapGenerator
 
     // Walks a path of hex corners strictly downhill from the source tile's highest
     // corner until a corner touches water (sea/lake), bottoms out in a basin, or hits
-    // the step cap. Each step traverses one shared edge; commits the edges only if the
-    // river ran long enough to read as one.
+    // the step cap. Each step traverses one shared edge. A river always ends in water:
+    // if it stops inland (basin or step cap), we carve a lake at its terminus. Commits
+    // only if the river ran long enough to read as one.
     private static bool TraceOneRiver(MapData data, Dictionary<Vector2I, float> heights, Vector2I start)
     {
-        const int maxSteps = 80;
+        const int maxSteps = 120;
 
         var current = HighestCorner(heights, start);
         var visited = new HashSet<Vertex> { current };
         var edges   = new List<(Vector2I Tile, int Dir)>();
+        bool reachedWater = false;
 
         for (int step = 0; step < maxSteps; step++)
         {
-            if (TouchesWater(data, current)) break; // reached the sea or a lake
+            if (TouchesWater(data, current)) { reachedWater = true; break; } // sea or lake
 
             float    bestH = VertexHeight(heights, current);
             Vertex   bestV = default;
@@ -202,8 +210,21 @@ public static class MapGenerator
         }
 
         if (edges.Count < RiverMinLength) return false;
+        if (!reachedWater) CarveLake(data, heights, current); // guarantee it ends in water
         foreach (var e in edges) data.Rivers.Add(e);
         return true;
+    }
+
+    // Turns a river's inland terminus into a lake: the lowest on-map tile of the
+    // bottomed-out vertex becomes Ocean, so the channel visibly empties into water.
+    private static void CarveLake(MapData data, Dictionary<Vector2I, float> heights, Vertex v)
+    {
+        Vector2I lowest = default;
+        float    lowH   = float.MaxValue;
+        bool     any    = false;
+        foreach (var t in new[] { v.A, v.B, v.C })
+            if (heights.TryGetValue(t, out var th) && th < lowH) { lowH = th; lowest = t; any = true; }
+        if (any) data.Tiles[lowest] = TerrainType.Ocean;
     }
 
     // The source tile's highest corner — gives the river the longest downhill run.
@@ -381,7 +402,8 @@ public static class MapGenerator
     // relief. Water and mountains come from height; foothills from relief; everything
     // else from a temperature × moisture climate matrix (so flat land still varies).
     // Dry uplands read as Hills, and polar latitudes cap to Snow/Tundra.
-    private static TerrainType Classify(float h, float moisture, float temperature, float relief, float lat)
+    private static TerrainType Classify(
+        float h, float moisture, float temperature, float relief, float hilly, float lat)
     {
         if (h < OceanLevel)     return TerrainType.Ocean;
         if (h < CoastLevel)     return TerrainType.Coast;
@@ -396,7 +418,7 @@ public static class MapGenerator
         int tb = temperature < 0.34f ? 0 : temperature < 0.68f ? 1 : 2; // cold / temperate / hot
         int mb = moisture    < 0.38f ? 0 : moisture    < 0.60f ? 1 : 2; // dry / mid / wet
 
-        return (tb, mb) switch
+        var biome = (tb, mb) switch
         {
             (0, 0) => TerrainType.Tundra,
             (0, 1) => TerrainType.Forest,                                   // boreal forest
@@ -409,5 +431,14 @@ public static class MapGenerator
             (2, 2) => moisture > 0.73f ? TerrainType.Wetlands : TerrainType.Jungle, // hot + wet
             _      => TerrainType.Plains,
         };
+
+        // Scattered hills: a mid-freq hilliness field raises rolling Hills across open
+        // terrain anywhere on the map (independent of the mountain belts), so hills
+        // aren't confined to the foothill skirts. Forest/Jungle/Wetlands stay as-is.
+        if (hilly > HillThreshold && biome is TerrainType.Plains or TerrainType.Grassland
+                                          or TerrainType.Savanna or TerrainType.Desert or TerrainType.Tundra)
+            return TerrainType.Hills;
+
+        return biome;
     }
 }
