@@ -5,37 +5,42 @@ namespace NWO.Map;
 
 public static class MapGenerator
 {
-    // ── Generation pipeline (Phase 9.1) ─────────────────────────────────────────
-    // The world is built from three independent layers rather than one noise map:
+    // ── Generation pipeline (Phase 9.1, retuned 9.x) ────────────────────────────
+    // The world is built from independent layers rather than one noise map:
     //   1. Continental shape  — low-freq FBM + radial falloff → land/ocean height.
     //   2. Mountain layer      — domain-warped ridged Simplex, gated by a low-freq
     //                            uplift mask, so peaks form coherent directional
-    //                            chains instead of isolated blobs.
-    //   3. Moisture axis       — a separate low-freq pass, independent of height.
-    // Height + moisture then map to a biome via HeightMoistureToBiome, which unlocks
-    // climate-driven terrain (Savanna / Jungle / Wetlands). See docs/MAP_GENERATION.md.
+    //                            chains. Its strength ("relief") also rings the peaks
+    //                            with foothills (Hills) so mountains don't drop
+    //                            straight to flatland.
+    //   3. Climate axes        — independent moisture (longitudinal) and temperature
+    //                            (latitudinal + jitter) passes. Climate, not height,
+    //                            drives the biome, so the map varies even where it's
+    //                            flat. See docs/MAP_GENERATION.md.
 
     // Continental shape
-    private const float BaseFrequency   = 0.04f;
-    private const float DetailFrequency = 0.10f;
-    private const float RadialFalloff   = 0.35f;
+    private const float BaseFrequency   = 0.045f;
+    private const float DetailFrequency = 0.11f;
+    private const float RadialFalloff   = 0.33f;
 
     // Mountain layer
     private const float WarpFrequency    = 0.05f;
-    private const float WarpStrength     = 18f;   // px the ridge field is bent by
-    private const float RidgeFrequency   = 0.06f;
-    private const float UpliftFrequency  = 0.025f; // where mountain belts are allowed
-    private const float MountainBoost    = 0.42f;  // max height added at a ridge crest
+    private const float WarpStrength     = 20f;    // px the ridge field is bent by
+    private const float RidgeFrequency   = 0.07f;
+    private const float UpliftFrequency  = 0.03f;  // where mountain belts are allowed
+    private const float MountainBoost    = 0.55f;  // max height added at a ridge crest
+    private const float UpliftLow        = 0.45f;  // uplift mask ramp (more belts when wider)
+    private const float UpliftHigh       = 0.80f;
+    private const float HillRelief       = 0.52f;  // relief above this → foothills (Hills)
 
-    // Moisture
-    private const float MoistureFrequency = 0.03f;
+    // Climate
+    private const float MoistureFrequency    = 0.075f; // higher → more biome transitions
+    private const float TemperatureFrequency = 0.045f;
 
     // Biome height bands (after the radial falloff, in [0,1] height space).
     private const float OceanLevel    = 0.25f;
     private const float CoastLevel    = 0.30f;
-    private const float LowlandLevel  = 0.45f; // low ↔ mid
-    private const float UplandLevel   = 0.60f; // mid ↔ upland
-    private const float MountainLevel = 0.78f; // upland ↔ mountain
+    private const float MountainLevel = 0.72f; // land ↔ mountain (hills come from relief)
 
     // Generates a map of (width x height) tiles.
     public static MapData Generate(int width, int height, int seed = 0)
@@ -48,6 +53,7 @@ public static class MapGenerator
         var ridgeNoise  = MakeNoise(seed + 3, RidgeFrequency);
         var upliftNoise = MakeNoise(seed + 4, UpliftFrequency);
         var moistNoise  = MakeNoise(seed + 5, MoistureFrequency);
+        var tempNoise   = MakeNoise(seed + 6, TemperatureFrequency);
 
         // Final heights kept so rivers can trace downhill after classification.
         var heights = new Dictionary<Vector2I, float>(width * height);
@@ -71,18 +77,26 @@ public static class MapGenerator
 
                 // 2. Mountain layer: ridged Simplex sampled through a domain warp,
                 //    raised only where the uplift mask is high → coherent chains.
+                //    `relief` (unsquared) is broader than the height bump (squared),
+                //    so it spreads foothills around each crest.
                 float wx = col + warpNoise.GetNoise2D(col,        row)        * WarpStrength;
                 float wy = row + warpNoise.GetNoise2D(col + 100f, row + 100f) * WarpStrength;
                 float ridge  = 1f - Mathf.Abs(ridgeNoise.GetNoise2D(wx, wy)); // crest = 1
                 float uplift = (upliftNoise.GetNoise2D(col, row) + 1f) / 2f;
-                float mask   = Mathf.SmoothStep(0.55f, 0.85f, uplift);
+                float mask   = Mathf.SmoothStep(UpliftLow, UpliftHigh, uplift);
+                float relief = ridge * mask;
                 h += ridge * ridge * mask * MountainBoost;
 
-                // 3. Moisture: independent low-freq pass in [0,1].
+                // 3. Climate: moisture (longitudinal noise) + temperature (warm at the
+                //    equator, cold at the poles, with a noise wobble so it's not banded).
                 float moisture = (moistNoise.GetNoise2D(col, row) + 1f) / 2f;
+                float half     = (height - 1) / 2f;
+                float lat      = half <= 0f ? 0f : Mathf.Abs(row - half) / half; // 0 eq → 1 pole
+                float tJitter  = (tempNoise.GetNoise2D(col, row) + 1f) / 2f;
+                float temperature = Mathf.Clamp((1f - lat) * 0.70f + tJitter * 0.36f, 0f, 1f);
 
                 heights[axial]    = h;
-                data.Tiles[axial] = HeightMoistureToBiome(h, moisture, row, height);
+                data.Tiles[axial] = Classify(h, moisture, temperature, relief, lat);
             }
         }
 
@@ -98,9 +112,32 @@ public static class MapGenerator
         Frequency = frequency,
     };
 
-    // Traces 3–5 rivers downhill from highland (Mountain/Hills) sources, recording
-    // each crossed tile-to-tile edge in MapData.Rivers. Deterministic per seed.
+    // Traces 3–5 rivers downhill from highland (Mountain/Hills) sources. A river runs
+    // ALONG hex edges (not across them): we walk a path of hex corners (vertices)
+    // strictly downhill, and each step traverses one shared edge. Consecutive edges
+    // meet at a vertex, so the recorded edge-set renders as a continuous channel.
+    // Deterministic per seed.
     private const int RiverMinLength = 3;
+
+    // A vertex is the meeting point of (up to) three tiles — a hex corner. We key it
+    // by the sorted triple of those tiles so the same corner compares equal no matter
+    // which tile/corner it was reached from.
+    private readonly struct Vertex : System.IEquatable<Vertex>
+    {
+        public readonly Vector2I A, B, C;
+
+        public Vertex(Vector2I p, Vector2I q, Vector2I r)
+        {
+            // Sort the three tiles (X then Y) into a canonical order.
+            var arr = new[] { p, q, r };
+            System.Array.Sort(arr, (u, v) => u.X != v.X ? u.X - v.X : u.Y - v.Y);
+            A = arr[0]; B = arr[1]; C = arr[2];
+        }
+
+        public bool Equals(Vertex o) => A == o.A && B == o.B && C == o.C;
+        public override bool Equals(object? o) => o is Vertex v && Equals(v);
+        public override int GetHashCode() => System.HashCode.Combine(A, B, C);
+    }
 
     private static void TraceRivers(MapData data, Dictionary<Vector2I, float> heights, int seed)
     {
@@ -128,41 +165,113 @@ public static class MapGenerator
         }
     }
 
-    // Walks strictly downhill (lowest lower neighbour) from `start` until it reaches
-    // water, a basin (no lower neighbour), or a step cap. Commits the path's edges
-    // only if it ran long enough to read as a river.
+    // Walks a path of hex corners strictly downhill from the source tile's highest
+    // corner until a corner touches water (sea/lake), bottoms out in a basin, or hits
+    // the step cap. Each step traverses one shared edge; commits the edges only if the
+    // river ran long enough to read as one.
     private static bool TraceOneRiver(MapData data, Dictionary<Vector2I, float> heights, Vector2I start)
     {
-        const int maxSteps = 60;
-        var visited = new HashSet<Vector2I> { start };
+        const int maxSteps = 80;
+
+        var current = HighestCorner(heights, start);
+        var visited = new HashSet<Vertex> { current };
         var edges   = new List<(Vector2I Tile, int Dir)>();
-        var current = start;
 
         for (int step = 0; step < maxSteps; step++)
         {
-            if (data.Tiles.TryGetValue(current, out var t)
-                && (t == TerrainType.Coast || t == TerrainType.Ocean))
-                break; // reached the sea
+            if (TouchesWater(data, current)) break; // reached the sea or a lake
 
-            int   bestDir = -1;
-            float bestH   = heights[current];
-            for (int d = 0; d < 6; d++)
+            float    bestH = VertexHeight(heights, current);
+            Vertex   bestV = default;
+            (Vector2I p, Vector2I q) bestEdge = default;
+            bool     found = false;
+
+            foreach (var (nv, p, q) in VertexNeighbours(current))
             {
-                var n = current + HexGrid.Directions[d];
-                if (visited.Contains(n)) continue;
-                if (!heights.TryGetValue(n, out var nh)) continue; // off-map
-                if (nh < bestH) { bestH = nh; bestDir = d; }
+                if (visited.Contains(nv)) continue;
+                float nh = VertexHeight(heights, nv);
+                if (nh < bestH) { bestH = nh; bestV = nv; bestEdge = (p, q); found = true; }
             }
-            if (bestDir < 0) break; // local minimum
+            if (!found) break; // local minimum
 
-            edges.Add((current, bestDir));
-            current += HexGrid.Directions[bestDir];
+            edges.Add(EdgeId(bestEdge.p, bestEdge.q));
+            current = bestV;
             visited.Add(current);
         }
 
         if (edges.Count < RiverMinLength) return false;
         foreach (var e in edges) data.Rivers.Add(e);
         return true;
+    }
+
+    // The source tile's highest corner — gives the river the longest downhill run.
+    private static Vertex HighestCorner(Dictionary<Vector2I, float> heights, Vector2I tile)
+    {
+        Vertex best = default;
+        float  bestH = float.MinValue;
+        for (int c = 0; c < 6; c++)
+        {
+            var (a, b, cc) = HexGrid.CornerTiles(tile, c);
+            var v = new Vertex(a, b, cc);
+            float h = VertexHeight(heights, v);
+            if (h > bestH) { bestH = h; best = v; }
+        }
+        return best;
+    }
+
+    // The three corners adjacent to `v` along its three edges, with the tile pair that
+    // edge separates. Each edge {p,q} leads to the corner shared by p, q and their
+    // common neighbour on the far side of the current vertex.
+    private static IEnumerable<(Vertex Vertex, Vector2I P, Vector2I Q)> VertexNeighbours(Vertex v)
+    {
+        var tiles = new[] { v.A, v.B, v.C };
+        for (int i = 0; i < 3; i++)
+        {
+            var p     = tiles[i];
+            var q     = tiles[(i + 1) % 3];
+            var third = tiles[(i + 2) % 3];
+            foreach (var d in CommonNeighbours(p, q))
+            {
+                if (d == third) continue;        // that's the corner we came from
+                yield return (new Vertex(p, q, d), p, q);
+            }
+        }
+    }
+
+    // Tiles adjacent to both a and b (exactly two for an adjacent pair).
+    private static IEnumerable<Vector2I> CommonNeighbours(Vector2I a, Vector2I b)
+    {
+        var nb = new HashSet<Vector2I>(HexGrid.GetNeighbors(b));
+        foreach (var n in HexGrid.GetNeighbors(a))
+            if (nb.Contains(n)) yield return n;
+    }
+
+    // Mean height of a vertex's on-map tiles (off-map corners are ignored).
+    private static float VertexHeight(Dictionary<Vector2I, float> heights, Vertex v)
+    {
+        float sum = 0f; int n = 0;
+        foreach (var t in new[] { v.A, v.B, v.C })
+            if (heights.TryGetValue(t, out var h)) { sum += h; n++; }
+        return n == 0 ? float.MaxValue : sum / n;
+    }
+
+    private static bool TouchesWater(MapData data, Vertex v)
+    {
+        foreach (var t in new[] { v.A, v.B, v.C })
+            if (data.Tiles.TryGetValue(t, out var tt)
+                && (tt == TerrainType.Coast || tt == TerrainType.Ocean))
+                return true;
+        return false;
+    }
+
+    // Canonical (tile, dir) for the edge between adjacent tiles p and q — always from
+    // the lower-ordered tile so the same edge isn't stored twice.
+    private static (Vector2I Tile, int Dir) EdgeId(Vector2I p, Vector2I q)
+    {
+        if (q.X < p.X || (q.X == p.X && q.Y < p.Y)) (p, q) = (q, p);
+        for (int d = 0; d < 6; d++)
+            if (p + HexGrid.Directions[d] == q) return (p, d);
+        return (p, 0); // unreachable for adjacent tiles
     }
 
     // Sprinkles strategic + bonus resources onto eligible terrain. For each tile we
@@ -236,22 +345,24 @@ public static class MapGenerator
     {
         TerrainType.Grassland => new[]
         {
-            (ResourceType.Horses, 0.04), (ResourceType.Cattle, 0.05),
-            (ResourceType.Sheep,  0.04), (ResourceType.Wheat,  0.05),
+            (ResourceType.Horses, 0.06), (ResourceType.Cattle, 0.08),
+            (ResourceType.Sheep,  0.06), (ResourceType.Wheat,  0.08),
         },
         TerrainType.Plains => new[]
         {
-            (ResourceType.Horses, 0.04), (ResourceType.Wheat, 0.06), (ResourceType.Stone, 0.04),
+            (ResourceType.Horses, 0.06), (ResourceType.Wheat, 0.09), (ResourceType.Stone, 0.06),
         },
         TerrainType.Hills => new[]
         {
-            (ResourceType.Iron, 0.10), (ResourceType.Sheep, 0.05), (ResourceType.Stone, 0.04),
+            (ResourceType.Iron, 0.14), (ResourceType.Sheep, 0.08), (ResourceType.Stone, 0.07),
         },
-        TerrainType.Forest   => new[] { (ResourceType.Deer, 0.06) },
-        TerrainType.Tundra   => new[] { (ResourceType.Deer, 0.06) },
-        TerrainType.Jungle   => new[] { (ResourceType.Banana, 0.08) },
-        TerrainType.Coast    => new[] { (ResourceType.Fish, 0.07) },
-        TerrainType.Ocean    => new[] { (ResourceType.Fish, 0.05) },
+        TerrainType.Savanna  => new[] { (ResourceType.Cattle, 0.06), (ResourceType.Sheep, 0.05) },
+        TerrainType.Forest   => new[] { (ResourceType.Deer, 0.10) },
+        TerrainType.Tundra   => new[] { (ResourceType.Deer, 0.08) },
+        TerrainType.Jungle   => new[] { (ResourceType.Banana, 0.12) },
+        TerrainType.Desert   => new[] { (ResourceType.Stone, 0.05) },
+        TerrainType.Coast    => new[] { (ResourceType.Fish, 0.10) },
+        TerrainType.Ocean    => new[] { (ResourceType.Fish, 0.06) },
         _                    => System.Array.Empty<(ResourceType, double)>(),
     };
 
@@ -264,35 +375,36 @@ public static class MapGenerator
         return new Vector2I(q, r);
     }
 
-    // Maps a (height, moisture) pair to a biome. Water and mountains are decided by
-    // height alone; everything between is a height-band × moisture-band lookup, with
-    // a polar override near the top/bottom map edges (Snow when dry, else Tundra).
-    // Table mirrors docs/MAP_GENERATION.md "Adding a Moisture Axis".
-    private static TerrainType HeightMoistureToBiome(float h, float moisture, int row, int mapHeight)
+    // Classifies a tile from height, climate (moisture + temperature), and mountain
+    // relief. Water and mountains come from height; foothills from relief; everything
+    // else from a temperature × moisture climate matrix (so flat land still varies).
+    // Dry uplands read as Hills, and polar latitudes cap to Snow/Tundra.
+    private static TerrainType Classify(float h, float moisture, float temperature, float relief, float lat)
     {
-        if (h < OceanLevel)    return TerrainType.Ocean;
-        if (h < CoastLevel)    return TerrainType.Coast;
+        if (h < OceanLevel)     return TerrainType.Ocean;
+        if (h < CoastLevel)     return TerrainType.Coast;
         if (h >= MountainLevel) return TerrainType.Mountain;
 
-        // Latitude 0 at the equator → 1 at the poles.
-        float half = (mapHeight - 1) / 2f;
-        float lat  = half <= 0f ? 0f : Mathf.Abs(row - half) / half;
-        if (lat > 0.82f) return moisture < 0.40f ? TerrainType.Snow : TerrainType.Tundra;
+        // Foothills hug the mountain belts (broad relief skirt around the crests).
+        if (relief > HillRelief) return TerrainType.Hills;
 
-        int hb = h < LowlandLevel ? 0 : h < UplandLevel ? 1 : 2; // low / mid / upland
-        int mb = moisture < 0.40f ? 0 : moisture < 0.66f ? 1 : 2; // dry / mid / wet
+        // Polar caps.
+        if (lat > 0.80f) return moisture < 0.45f ? TerrainType.Snow : TerrainType.Tundra;
 
-        return (hb, mb) switch
+        int tb = temperature < 0.34f ? 0 : temperature < 0.68f ? 1 : 2; // cold / temperate / hot
+        int mb = moisture    < 0.38f ? 0 : moisture    < 0.60f ? 1 : 2; // dry / mid / wet
+
+        return (tb, mb) switch
         {
-            (0, 0) => TerrainType.Desert,
-            (0, 1) => TerrainType.Plains,
-            (0, 2) => TerrainType.Grassland,
-            (1, 0) => TerrainType.Savanna,
+            (0, 0) => TerrainType.Tundra,
+            (0, 1) => TerrainType.Forest,                                   // boreal forest
+            (0, 2) => TerrainType.Forest,
+            (1, 0) => TerrainType.Plains,
             (1, 1) => TerrainType.Grassland,
-            (1, 2) => moisture > 0.80f ? TerrainType.Wetlands : TerrainType.Jungle,
-            (2, 0) => TerrainType.Hills,
-            (2, 1) => TerrainType.Forest,
-            (2, 2) => TerrainType.Forest,
+            (1, 2) => TerrainType.Forest,
+            (2, 0) => TerrainType.Desert,
+            (2, 1) => TerrainType.Savanna,
+            (2, 2) => moisture > 0.78f ? TerrainType.Wetlands : TerrainType.Jungle, // hot + wet
             _      => TerrainType.Plains,
         };
     }

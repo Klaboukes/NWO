@@ -52,7 +52,25 @@ public class CityWorkforceServiceTests
         CityWorkforceService.Recompute(state, city);
         int baseFood = city.FoodYield;
 
-        // Put a river on the E edge of (5,5), which is the shared edge with (6,5).
+        // Put a river on the E edge of (6,5) — touches only the worked tile, not
+        // the city centre, so this isolates the worked-tile floodplain bonus.
+        state.Map.Rivers.Add((new Vector2I(6, 5), 0));
+        CityWorkforceService.Recompute(state, city);
+
+        Assert.Equal(baseFood + 1, city.FoodYield);
+    }
+
+    [Fact]
+    public void RiverAdjacentCityCenter_GainsFloodplainFood()
+    {
+        var (state, player) = FlatState();
+        var city = new City("X", player, new Vector2I(5, 5)) { Population = 0 };
+        state.Cities.Add(city);
+
+        CityWorkforceService.Recompute(state, city);
+        int baseFood = city.FoodYield; // population 0 → centre yield only
+
+        // River on the E edge of the city centre makes the centre a floodplain.
         state.Map.Rivers.Add((new Vector2I(5, 5), 0));
         CityWorkforceService.Recompute(state, city);
 

@@ -110,13 +110,17 @@ Resource trading remains **[planned]**.
 
 ### Map Generation (Procedural)
 
-- Algorithm (Phase 9.1): three independent layers — (1) a low-freq continental
-  shape (simplex base+detail blended 70/30) with a radial falloff that pushes map
-  edges to ocean → island-like continents; (2) a **domain-warped ridged Simplex**
-  mountain layer gated by a low-freq uplift mask, forming coherent mountain chains;
-  (3) an independent low-freq **moisture** pass. Height + moisture map to a biome
-  via `HeightMoistureToBiome` (height-banded × moisture-banded lookup, with a polar
-  Snow/Tundra override near the top/bottom map edges).
+- Algorithm (Phase 9.1): independent layers — (1) a low-freq continental shape
+  (simplex base+detail blended 70/30) with a radial falloff that pushes map edges to
+  ocean → island-like continents; (2) a **domain-warped ridged Simplex** mountain
+  layer gated by a low-freq uplift mask, forming coherent mountain chains, whose
+  **relief** also rings the crests with foothills (Hills) so peaks don't drop straight
+  to flatland; (3) independent **moisture** (longitudinal) and **temperature**
+  (warm equator → cold poles, with a noise wobble) passes. `Classify` decides water
+  and mountains by height, foothills by relief, and the remaining land from a
+  **temperature × moisture climate matrix** (so the map varies even where it's flat),
+  with a polar Snow/Tundra cap. This is what gives each seed several distinct biome
+  regions and visible elevation rather than large monotone stretches.
 - Rivers (Phase 9.4): 3–5 rivers traced downhill from Mountain/Hills sources along
   tile edges, stored in `MapData.Rivers`; rendered as thin blue lines in
   `WorldOverlay` and granting a floodplain **+1 Food** to adjacent worked tiles.

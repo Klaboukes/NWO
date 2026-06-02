@@ -93,15 +93,28 @@ public partial class WorldOverlay : Node2D
         float radius = HexProjection.HexSize;
         foreach (var (tile, dir) in _state.Map.Rivers)
         {
-            if (!fog.IsDiscovered(tile)) continue;
-            var top = TileTop(tile);
+            // The edge is stored on one side; show it if either bordering tile is seen.
+            if (!fog.IsDiscovered(tile) && !fog.IsDiscovered(tile + HexGrid.Directions[dir])) continue;
             // Flat-top: edge facing direction dir is edge (6-dir)%6, joining corners e and e+1.
             int e  = (6 - dir) % 6;
-            var wA = top + HexProjection.Corner(e,           radius);
-            var wB = top + HexProjection.Corner((e + 1) % 6, radius);
+            var wA = RiverCorner(tile, e,           radius);
+            var wB = RiverCorner(tile, (e + 1) % 6, radius);
             if (_camera.IsPositionBehind(wA) || _camera.IsPositionBehind(wB)) continue;
             DrawLine(_camera.UnprojectPosition(wA), _camera.UnprojectPosition(wB), color, 3f);
         }
+    }
+
+    // World position of a hex corner, lifted to the tallest tile sharing that vertex.
+    // Computing height per-vertex (not per-owning-tile) makes adjacent river segments
+    // meet at exactly the same point, so the channel reads as one continuous line and
+    // rides on top of terrain instead of sinking into a neighbouring cliff.
+    private Vector3 RiverCorner(Vector2I tile, int corner, float radius)
+    {
+        var (a, b, c) = HexGrid.CornerTiles(tile, corner);
+        float y = Mathf.Max(TileTop(a).Y, Mathf.Max(TileTop(b).Y, TileTop(c).Y));
+        var w = HexProjection.AxialToWorld(tile) + HexProjection.Corner(corner, radius);
+        w.Y = y;
+        return w;
     }
 
     private void DrawResources(FogOfWar fog)

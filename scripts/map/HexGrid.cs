@@ -31,6 +31,16 @@ public static class HexGrid
         return result;
     }
 
+    // The three tiles that meet at corner `c` (0..5) of `tile`: the tile itself plus
+    // the two neighbours sharing that vertex. Corner c sits between edges (c-1) and c,
+    // i.e. between the neighbours in directions (7-c)%6 and (6-c)%6. Used by river
+    // tracing (vertex graph) and rendering (consistent corner height) — one source of
+    // truth for hex-corner topology.
+    public static (Vector2I A, Vector2I B, Vector2I C) CornerTiles(Vector2I tile, int c)
+        => (tile,
+            tile + Directions[(7 - c) % 6],
+            tile + Directions[(6 - c) % 6]);
+
     // Cube-coordinate distance formula adapted to axial (q + r + s = 0, s = -q - r)
     public static int Distance(Vector2I a, Vector2I b)
     {

@@ -43,6 +43,7 @@ public static class CityWorkforceService
         // Totals: city-center floor + worked tiles + building bonuses.
         var centerTerrain = state.Map.Tiles.GetValueOrDefault(city.Position, TerrainType.Grassland);
         var (food, prod) = TerrainYields.CityCenter(centerTerrain);
+        if (state.Map.IsRiverAdjacent(city.Position)) food += 1; // floodplain center
 
         foreach (var tile in assigned)
         {
@@ -132,6 +133,7 @@ public static class CityWorkforceService
                 var terrain = state.Map.Tiles.GetValueOrDefault(t, TerrainType.Grassland);
                 int food    = TerrainYields.Food(terrain);
                 int prod    = TerrainYields.Production(terrain);
+                if (state.Map.IsRiverAdjacent(t)) food += 1; // floodplain bonus
                 return (tile: t,
                         score: Score(city.Workforce.Focus, food, prod),
                         dist:  HexGrid.Distance(city.Position, t));
