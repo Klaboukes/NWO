@@ -114,7 +114,48 @@ public static class MapGenerator
                 }
             }
         }
+
+        ScatterLuxuries(data, seed);
     }
+
+    // Luxuries are placed by count, not per-tile probability: 1–3 of each type land
+    // on random unused tiles of an affinity terrain, so a map carries only a handful
+    // of each (very sparse). Tech-revealed; +1 Gold when worked (see ResourceYields).
+    private static void ScatterLuxuries(MapData data, int seed)
+    {
+        var rng = new System.Random(seed + 7919);
+        foreach (var (luxury, terrains, maxCount) in LuxuryPlacements())
+        {
+            var candidates = new List<Vector2I>();
+            foreach (var (axial, terrain) in data.Tiles)
+                if (!data.Resources.ContainsKey(axial) && System.Array.IndexOf(terrains, terrain) >= 0)
+                    candidates.Add(axial);
+
+            int target = 1 + rng.Next(maxCount); // 1..maxCount
+            for (int placed = 0; placed < target && candidates.Count > 0; placed++)
+            {
+                int i = rng.Next(candidates.Count);
+                data.Resources[candidates[i]] = luxury;
+                candidates.RemoveAt(i);
+            }
+        }
+    }
+
+    // (luxury, affinity terrains, max copies). Only workable land terrains — mountain
+    // tiles can't be worked, so a luxury there would never yield. Mirrors the affinity
+    // table in docs/MAP_GENERATION.md.
+    private static IEnumerable<(ResourceType Luxury, TerrainType[] Terrains, int MaxCount)> LuxuryPlacements() => new[]
+    {
+        (ResourceType.Gems,    new[] { TerrainType.Hills }, 3),
+        (ResourceType.GoldOre, new[] { TerrainType.Hills }, 3),
+        (ResourceType.Silver,  new[] { TerrainType.Hills }, 3),
+        (ResourceType.Silk,    new[] { TerrainType.Forest }, 3),
+        (ResourceType.Spices,  new[] { TerrainType.Jungle, TerrainType.Forest }, 3),
+        (ResourceType.Dyes,    new[] { TerrainType.Forest, TerrainType.Jungle }, 3),
+        (ResourceType.Cotton,  new[] { TerrainType.Plains, TerrainType.Grassland }, 3),
+        (ResourceType.Incense, new[] { TerrainType.Desert, TerrainType.Plains }, 3),
+        (ResourceType.Ivory,   new[] { TerrainType.Plains, TerrainType.Grassland }, 3),
+    };
 
     // Per-terrain resource candidates (resource, per-tile chance), rolled in order.
     // Strategic resources lead; bonus resources follow. Densities mirror

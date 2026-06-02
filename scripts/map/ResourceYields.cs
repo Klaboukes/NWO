@@ -21,6 +21,9 @@ public static class ResourceYields
     public static ResourceTier Tier(ResourceType r) => r switch
     {
         ResourceType.Horses or ResourceType.Iron => ResourceTier.Strategic,
+        ResourceType.Gems or ResourceType.GoldOre or ResourceType.Silver
+            or ResourceType.Silk or ResourceType.Spices or ResourceType.Dyes
+            or ResourceType.Cotton or ResourceType.Incense or ResourceType.Ivory => ResourceTier.Luxury,
         _                                         => ResourceTier.Bonus,
     };
 
@@ -43,5 +46,5 @@ public static class ResourceYields
         _                   => 0,
     };
 
-    public static int Gold(ResourceType r) => 0; // luxuries (Phase 9.3) will override
+    public static int Gold(ResourceType r) => Tier(r) == ResourceTier.Luxury ? 1 : 0;
 }

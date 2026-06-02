@@ -126,7 +126,7 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
       affinity and density targets in `ScatterResources()`. Update `TerrainYields` with
       resource yield bonuses (+1 Food or +1 Prod). No tech reveal required. *Done when:*
       maps populate with bonus resources and city yields reflect them when tiles are worked.
-- [ ] **9.3 — Luxury resources.** Add 9 luxury resources to `ResourceType` (Gems,
+- [x] **9.3 — Luxury resources.** Add 9 luxury resources to `ResourceType` (Gems,
       GoldOre, Silver, Silk, Spices, Dyes, Cotton, Incense, Ivory). Each scatters very
       sparsely (1–3 per map) on appropriate terrain, is tech-revealed, and yields +1 Gold
       on the worked tile. Wire reveal techs in `data/techs.json`. Scaffold a

@@ -19,4 +19,16 @@ public enum ResourceType
     Deer,   // Forest / Tundra
     Stone,  // Hills / Plains
     Banana, // Jungle
+
+    // Luxury resources (Phase 9.3) — tech-revealed, very sparse, +1 Gold when worked.
+    // Appended (never reorder); ResourceType is serialized in saves.
+    Gems,    // Hills / Mountains (reveal: Mining)
+    GoldOre, // Hills / Mountains (reveal: Mining)
+    Silver,  // Hills            (reveal: Mining)
+    Silk,    // Forest           (reveal: Calendar)
+    Spices,  // Jungle / Forest  (reveal: Calendar)
+    Dyes,    // Forest / Jungle  (reveal: Calendar)
+    Cotton,  // Plains / Grassland (reveal: Calendar)
+    Incense, // Desert / Plains  (reveal: Calendar)
+    Ivory,   // Plains / Grassland (reveal: Animal Husbandry)
 }

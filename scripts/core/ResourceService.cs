@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NWO.Entities;
 using NWO.Map;
 
@@ -20,6 +21,15 @@ public static class ResourceService
         ResourceType.Deer   => "deer",
         ResourceType.Stone  => "stone",
         ResourceType.Banana => "banana",
+        ResourceType.Gems    => "gems",
+        ResourceType.GoldOre => "gold_ore",
+        ResourceType.Silver  => "silver",
+        ResourceType.Silk    => "silk",
+        ResourceType.Spices  => "spices",
+        ResourceType.Dyes    => "dyes",
+        ResourceType.Cotton  => "cotton",
+        ResourceType.Incense => "incense",
+        ResourceType.Ivory   => "ivory",
         _                   => "",
     };
 
@@ -34,6 +44,15 @@ public static class ResourceService
         "deer"   => ResourceType.Deer,
         "stone"  => ResourceType.Stone,
         "banana" => ResourceType.Banana,
+        "gems"     => ResourceType.Gems,
+        "gold_ore" => ResourceType.GoldOre,
+        "silver"   => ResourceType.Silver,
+        "silk"     => ResourceType.Silk,
+        "spices"   => ResourceType.Spices,
+        "dyes"     => ResourceType.Dyes,
+        "cotton"   => ResourceType.Cotton,
+        "incense"  => ResourceType.Incense,
+        "ivory"    => ResourceType.Ivory,
         _        => ResourceType.None,
     };
 
@@ -70,4 +89,22 @@ public static class ResourceService
     public static bool Allows(GameState state, Player player, string? requiredResource)
         => string.IsNullOrEmpty(requiredResource)
         || HasAccess(state, player, FromId(requiredResource));
+
+    // The distinct luxury resource types a civ currently controls (revealed AND a
+    // city works/controls the tile). Scaffold for a future amenity/happiness system
+    // (Phase 10): each unique luxury contributes once regardless of how many copies
+    // are held. Count via .Count.
+    public static HashSet<ResourceType> ControlledUniqueLuxuries(GameState state, Player player)
+    {
+        var held = new HashSet<ResourceType>();
+        foreach (var (tile, res) in state.Map.Resources)
+        {
+            if (ResourceYields.Tier(res) != ResourceTier.Luxury) continue;
+            if (held.Contains(res)) continue;
+            if (!IsRevealed(state, player, res)) continue;
+            if (CityWorkforceService.ControllingCity(state, tile)?.Owner == player)
+                held.Add(res);
+        }
+        return held;
+    }
 }

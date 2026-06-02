@@ -23,6 +23,12 @@ public class ResourceTests
         Range = 1, Sight = 2, ProductionCost = 80, RequiredResource = "horses",
     };
 
+    private static TechData Mining() => new()
+    {
+        Id = "mining", Name = "Mining", ScienceCost = 35,
+        Unlocks = new TechUnlocks { RevealedResources = new List<string> { "gems" } },
+    };
+
     // Flat 20x20 Plains map, one human player, catalog with Warrior + Horseman
     // and the Animal Husbandry tech (reveals horses).
     private static GameState NewState(out Player human)
@@ -35,7 +41,7 @@ public class ResourceTests
         var catalog = new DataCatalog(
             new List<UnitData> { TestWorlds.Warrior(), Horseman() },
             new List<BuildingData>(),
-            new List<TechData> { AnimalHusbandry() });
+            new List<TechData> { AnimalHusbandry(), Mining() });
 
         var state = new GameState(map, catalog);
         human = state.AddPlayer(new Player { Id = 0, Name = "P", IsHuman = true });
@@ -178,5 +184,56 @@ public class ResourceTests
         CityWorkforceService.Recompute(state, city);
 
         Assert.Equal(baseFood + 1, city.FoodYield);
+    }
+
+    // ── Luxury resources (9.3) ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Luxury_TierGoldAndReveal()
+    {
+        var state = NewState(out var human);
+        Assert.Equal(ResourceTier.Luxury, ResourceYields.Tier(ResourceType.Gems));
+        Assert.Equal(1, ResourceYields.Gold(ResourceType.Gems));
+
+        Assert.False(ResourceService.IsRevealed(state, human, ResourceType.Gems)); // hidden pre-tech
+        state.Civ(human).ResearchedTechs.Add("mining");
+        Assert.True(ResourceService.IsRevealed(state, human, ResourceType.Gems));
+    }
+
+    [Fact]
+    public void LuxuryTile_AddsGoldWhenWorkedAndRevealed()
+    {
+        var state = NewState(out var human);
+        var city  = new City("Rome", human, new Vector2I(5, 5)) { Population = 1 };
+        state.Cities.Add(city);
+
+        var tile = new Vector2I(6, 5);
+        state.Map.Resources[tile] = ResourceType.Gems;
+        city.Workforce.Locked.Add(tile);
+
+        CityWorkforceService.Recompute(state, city);
+        int before = CivEconomyService.GoldPerTurn(state, human); // gems not revealed → no gold
+
+        state.Civ(human).ResearchedTechs.Add("mining");
+        CityWorkforceService.Recompute(state, city);
+        int after = CivEconomyService.GoldPerTurn(state, human);
+
+        Assert.Equal(before + 1, after);
+    }
+
+    [Fact]
+    public void ControlledUniqueLuxuries_CountsDistinctRevealedControlled()
+    {
+        var state = NewState(out var human);
+        state.Civ(human).ResearchedTechs.Add("mining"); // reveals gems
+        state.Cities.Add(new City("Rome", human, new Vector2I(5, 5)));
+
+        state.Map.Resources[new Vector2I(6, 5)]   = ResourceType.Gems;   // controlled
+        state.Map.Resources[new Vector2I(5, 6)]   = ResourceType.Gems;   // duplicate — same type
+        state.Map.Resources[new Vector2I(15, 15)] = ResourceType.Silver; // not controlled (far)
+
+        var held = ResourceService.ControlledUniqueLuxuries(state, human);
+        Assert.Single(held);
+        Assert.Contains(ResourceType.Gems, held);
     }
 }

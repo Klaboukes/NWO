@@ -28,7 +28,7 @@
       "prerequisites": ["pottery"],
       "unlocks": {
         "improvements": ["pasture"],
-        "revealedResources": ["horses"]
+        "revealedResources": ["horses", "ivory"]
       }
     },
     {
@@ -43,7 +43,19 @@
       "name": "Mining",
       "scienceCost": 35,
       "prerequisites": [],
-      "unlocks": { "improvements": ["mine"] }
+      "unlocks": {
+        "improvements": ["mine"],
+        "revealedResources": ["gems", "gold_ore", "silver"]
+      }
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "scienceCost": 55,
+      "prerequisites": ["pottery"],
+      "unlocks": {
+        "revealedResources": ["silk", "spices", "dyes", "cotton", "incense"]
+      }
     },
     {
       "id": "bronze_working",

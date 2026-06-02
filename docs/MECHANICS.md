@@ -90,7 +90,12 @@ tiers (Phase 9):
 - **Bonus** (Wheat, Fish, Cattle, Sheep, Deer, Stone, Banana) — **always visible**
   (no reveal tech), denser, **+1 Food** (Wheat/Fish/Cattle/Deer/Banana) or **+1 Prod**
   (Sheep/Stone) when worked. Placed by per-terrain affinity in `ScatterResources`.
-- **Luxury** — tech-revealed, very sparse, **+1 Gold** when worked **[Phase 9.3]**.
+- **Luxury** (Gems, GoldOre, Silver, Silk, Spices, Dyes, Cotton, Incense, Ivory) —
+  tech-revealed (Mining → Gems/GoldOre/Silver; Calendar → Silk/Spices/Dyes/Cotton/
+  Incense; Animal Husbandry → Ivory), **very sparse** (1–3 of each per map on
+  affinity terrain), **+1 Gold** when worked. `ResourceService.ControlledUniqueLuxuries`
+  reports the distinct luxuries a civ controls — a scaffold for a future
+  amenity/happiness system (Phase 10); no happiness effect yet.
 
 `ResourceService` governs two gates:
 
