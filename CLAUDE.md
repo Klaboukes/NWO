@@ -27,6 +27,7 @@ matching the task instead of re-deriving the procedure:
 - `run-checks` — build + test + headless scene check (the verify loop; bundled `.ps1`).
 - `add-content` — add a unit/building/tech in `data/*.json`.
 - `tune-mechanics` — change gameplay numbers/balance in the headless core.
+- `tune-map-generation` — tune terrain shape / biomes / mountains / rivers / resource scatter in `MapGenerator.cs` (bundled headless histogram diagnostic).
 - `add-art-asset` — drop in Phase 7 terrain tiles / sprites.
 - `generate-terrain-art` — re-bake procedural pixel-art terrain tiles (`assets/art/tiles/`); use after adding a terrain type or tweaking palette/motif.
 - `hud-ui` — HUD / UI / controls work (Civ 5 conventions).

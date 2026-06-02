@@ -6,7 +6,8 @@
       "Read(//c/Users/barth/AppData/Local/Temp/**)",
       "Read(//c/Users/barthoukes/.claude/**)",
       "Edit(//c/Users/barthoukes/.claude/**)",
-      "Edit(/.claude/skills/build-standalone/**)"
+      "Edit(/.claude/skills/build-standalone/**)",
+      "Edit(/.claude/skills/tune-map-generation/**)"
     ]
   }
 }
