@@ -86,10 +86,13 @@ public partial class WorldOverlay : Node2D
                 FillHex(axial, HexProjection.HexSize - Gap, dim);
     }
 
-    // River edges as thin blue lines along the shared tile boundary (Phase 9.4).
+    // River edges as blue channels along the shared tile boundary (Phase 9.4). Drawn
+    // as a dark outline under a bright core so they read against both land and coast,
+    // and scaled with zoom so they stay visible.
     private void DrawRivers(FogOfWar fog)
     {
-        var color    = new Color(0.30f, 0.62f, 0.95f, 0.85f);
+        var core    = new Color(0.35f, 0.70f, 1.00f, 0.95f);
+        var outline = new Color(0.04f, 0.18f, 0.42f, 0.90f);
         float radius = HexProjection.HexSize;
         foreach (var (tile, dir) in _state.Map.Rivers)
         {
@@ -100,7 +103,11 @@ public partial class WorldOverlay : Node2D
             var wA = RiverCorner(tile, e,           radius);
             var wB = RiverCorner(tile, (e + 1) % 6, radius);
             if (_camera.IsPositionBehind(wA) || _camera.IsPositionBehind(wB)) continue;
-            DrawLine(_camera.UnprojectPosition(wA), _camera.UnprojectPosition(wB), color, 3f);
+            var a = _camera.UnprojectPosition(wA);
+            var b = _camera.UnprojectPosition(wB);
+            float w = Mathf.Max(3f, 5f * ScaleAt(RiverCorner(tile, e, radius)));
+            DrawLine(a, b, outline, w + 2f);
+            DrawLine(a, b, core,    w);
         }
     }
 

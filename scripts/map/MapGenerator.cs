@@ -34,8 +34,8 @@ public static class MapGenerator
     private const float HillRelief       = 0.52f;  // relief above this → foothills (Hills)
 
     // Climate
-    private const float MoistureFrequency    = 0.075f; // higher → more biome transitions
-    private const float TemperatureFrequency = 0.045f;
+    private const float MoistureFrequency    = 0.095f; // higher → more biome transitions
+    private const float TemperatureFrequency = 0.060f;
 
     // Biome height bands (after the radial falloff, in [0,1] height space).
     private const float OceanLevel    = 0.25f;
@@ -156,7 +156,9 @@ public static class MapGenerator
             (sources[i], sources[j]) = (sources[j], sources[i]);
         }
 
-        int target = 3 + rng.Next(3); // 3..5
+        // Scale river count with available highland sources (capped to a sane range),
+        // so larger/hillier landmasses get more rivers.
+        int target = Mathf.Clamp(sources.Count / 12, 8, 18);
         int made   = 0;
         foreach (var src in sources)
         {
@@ -404,7 +406,7 @@ public static class MapGenerator
             (1, 2) => TerrainType.Forest,
             (2, 0) => TerrainType.Desert,
             (2, 1) => TerrainType.Savanna,
-            (2, 2) => moisture > 0.78f ? TerrainType.Wetlands : TerrainType.Jungle, // hot + wet
+            (2, 2) => moisture > 0.73f ? TerrainType.Wetlands : TerrainType.Jungle, // hot + wet
             _      => TerrainType.Plains,
         };
     }
