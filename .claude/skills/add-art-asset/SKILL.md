@@ -1,6 +1,6 @@
 ---
 name: add-art-asset
-description: Add or wire visual assets for NWO's Phase 7 visual overhaul — terrain hex tiles, unit/city sprites, or other art under assets/art/. Use when dropping in PNG art or extending the texture registry. The pipeline is placeholder-first: real art overrides synthesized placeholders with no code change.
+description: Add or wire visual assets under assets/art/ — terrain hex tiles, unit/city sprites (Phase 7), and resource icons (Phase 9). Use when dropping in PNG art or extending a texture/icon registry. The pipeline is placeholder-first: real art overrides synthesized placeholders with no code change.
 allowed-tools: Read, Edit, PowerShell, Glob
 ---
 
@@ -61,6 +61,39 @@ Adding a new unit type that needs its own synthesised silhouette:
 
 Keep the selection / fortify / HP overlays (in `WorldOverlay`) intact — they draw over
 the sprite in screen space and are unaffected by texture changes.
+
+## Resource icons (Phase 9)
+
+Map resources (bonus / strategic / luxury — see the `add-content` and resource docs)
+draw as small 2D icons in `WorldOverlay.DrawResources`, resolved by
+`ResourceIconRegistry` in the same placeholder-first pattern as units/cities (no
+baking — synthesized at runtime, real PNG overrides):
+
+- **Resource icons**: `res://assets/art/resources/<resource>.png` (lowercase
+  `ResourceType` name, e.g. `wheat.png`, `goldore.png`, `horses.png`).
+  Resolved by `ResourceIconRegistry.For(resourceType)`. Falls back to
+  `ResourceIconGenerator.Generate(resourceType)`, a 32 px RGBA icon whose **shape
+  encodes the tier** (bonus = round token, strategic = ingot bar, luxury = faceted
+  gem) and **colour is per-resource**.
+- These icons are drawn in 2D screen space (not billboards) at the tile's resource
+  anchor, scaled with zoom; `WorldOverlay` is set to **Nearest** texture filtering so
+  they stay crisp. They are sized for legibility (~half a hex) and unaffected by
+  owner tint.
+
+Adding new hand-drawn resource art:
+
+1. Drop `assets/art/resources/<resource>.png` (32 px or a clean multiple, RGBA8,
+   transparent background, dark outline so it reads on any terrain).
+2. The registry picks it up automatically — no code change.
+3. Run **`run-checks`**.
+
+Adding a new resource that needs its own synthesised icon:
+
+1. Add the enum value (see `add-content` / the resource pipeline) and give it a colour
+   in `ResourceIconGenerator.BaseColor()`; the tier shape is automatic via
+   `ResourceYields.Tier`.
+2. Optionally drop a real PNG to override the placeholder.
+3. Run **`run-checks`**.
 
 ## Rendering invariants (don't break these)
 

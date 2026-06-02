@@ -37,6 +37,7 @@ public partial class WorldOverlay : Node2D
         _animator  = animator;
         _viewer    = viewer;
         _camera    = camera;
+        TextureFilter = TextureFilterEnum.Nearest; // crisp pixel-art icons (resources)
     }
 
     public void FlashCombat(Vector2I attacker, Vector2I defender)
@@ -132,14 +133,9 @@ public partial class WorldOverlay : Node2D
             if (!ResourceService.IsRevealed(_state, _viewer, res)) continue;
             var (p, scale) = Anchor(axial, new Vector3(-HexProjection.HexSize * 0.30f, 0f, HexProjection.HexSize * 0.32f));
             if (p == null) continue;
-            var col = ResourceYields.Tier(res) switch
-            {
-                ResourceTier.Strategic => new Color(0.80f, 0.55f, 0.30f), // bronze
-                ResourceTier.Luxury    => new Color(0.95f, 0.82f, 0.25f), // gold
-                _                      => new Color(0.45f, 0.80f, 0.45f), // bonus green
-            };
-            DrawCircle(p.Value, HexProjection.HexSize * 0.12f * scale, col);
-            DrawArc(p.Value, HexProjection.HexSize * 0.12f * scale, 0f, Mathf.Tau, 16, Colors.Black, 1f);
+            var tex  = ResourceIconRegistry.For(res);
+            float sz = HexProjection.HexSize * 0.46f * scale;
+            DrawTextureRect(tex, new Rect2(p.Value - new Vector2(sz * 0.5f, sz * 0.5f), new Vector2(sz, sz)), false);
         }
     }
 
