@@ -79,20 +79,28 @@ it). Rules live in `ImprovementService`; yields fold into `CityWorkforceService`
 | Pasture | +1 Prod | Grassland/Plains | Animal Husbandry | 3 |
 | Road | halves entry move cost (min 1) | any passable land | — | 2 |
 
-### Resources (strategic)
+### Resources
 
-`MapGenerator` scatters two strategic resources deterministically (seeded):
-**Horses** on Plains/Grassland, **Iron** on Hills, stored in `MapData.Resources`.
+`MapGenerator` scatters resources deterministically (seeded); per-resource tier and
+yields live in `ResourceYields`, stored in `MapData.Resources`. Three Civ5-style
+tiers (Phase 9):
+
+- **Strategic** (Horses, Iron) — tech-revealed, sparse, **+1 Prod** when worked, and
+  gate unit production via `requiredResource` (Horseman → Horses, Swordsman → Iron).
+- **Bonus** (Wheat, Fish, Cattle, Sheep, Deer, Stone, Banana) — **always visible**
+  (no reveal tech), denser, **+1 Food** (Wheat/Fish/Cattle/Deer/Banana) or **+1 Prod**
+  (Sheep/Stone) when worked. Placed by per-terrain affinity in `ScatterResources`.
+- **Luxury** — tech-revealed, very sparse, **+1 Gold** when worked **[Phase 9.3]**.
+
 `ResourceService` governs two gates:
 
-- **Reveal** — a resource is visible/usable only once the civ researches its
-  revealing tech (Animal Husbandry → Horses, Bronze Working → Iron).
+- **Reveal** — a tech-gated resource is visible/usable only once the civ researches
+  its revealing tech (Animal Husbandry → Horses, Bronze Working → Iron). Bonus
+  resources are gated by no tech and are always revealed.
 - **Access** — the civ must control a tile bearing the resource (within a city's
-  work radius). This gates units with a matching `requiredResource` (Horseman →
-  Horses, Swordsman → Iron) in the build list.
+  work radius). This gates units with a matching `requiredResource` in the build list.
 
-A revealed worked resource tile also grants **+1 Production**. Luxury/Bonus
-resources and resource trading remain **[planned]**.
+Resource trading remains **[planned]**.
 
 ### Map Generation (Procedural)
 
@@ -106,8 +114,9 @@ resources and resource trading remain **[planned]**.
 - Rivers: not in MVP
 - Continents: the falloff tends to produce multiple landmasses, but a minimum
   count is **not** enforced.
-- Resource scatter: Horses (Plains/Grassland) and Iron (Hills), seeded so a given
-  map seed always produces the same layout (see Resources above).
+- Resource scatter: strategic + bonus resources by per-terrain affinity (one per
+  tile), seeded so a given map seed always produces the same layout (see Resources
+  above).
 
 ---
 

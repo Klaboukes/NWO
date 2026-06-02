@@ -411,16 +411,29 @@ public partial class WorldMap : Node3D
     private string BuildTileInfo(Vector2I axial)
     {
         var terrain = _state.Map.Tiles[axial];
-        var yields  = new List<string>();
-        if (TerrainYields.Food(terrain)       is var f and > 0) yields.Add($"{f}F");
-        if (TerrainYields.Production(terrain)  is var p and > 0) yields.Add($"{p}P");
-        if (TerrainYields.Gold(terrain)        is var g and > 0) yields.Add($"{g}G");
+        int food = TerrainYields.Food(terrain);
+        int prod = TerrainYields.Production(terrain);
+        int gold = TerrainYields.Gold(terrain);
+
+        // Fold in a revealed resource's yields (bonus/strategic Food/Prod, luxury Gold).
+        bool hasRes = _state.Map.Resources.TryGetValue(axial, out var res) && res != ResourceType.None
+                   && ResourceService.IsRevealed(_state, _viewerPlayer, res);
+        if (hasRes)
+        {
+            food += ResourceYields.Food(res);
+            prod += ResourceYields.Production(res);
+            gold += ResourceYields.Gold(res);
+        }
+
+        var yields = new List<string>();
+        if (food > 0) yields.Add($"{food}F");
+        if (prod > 0) yields.Add($"{prod}P");
+        if (gold > 0) yields.Add($"{gold}G");
 
         string text = terrain.ToString();
         if (yields.Count > 0) text += "  " + string.Join(" ", yields);
 
-        if (_state.Map.Resources.TryGetValue(axial, out var res) && res != ResourceType.None
-            && ResourceService.IsRevealed(_state, _viewerPlayer, res))
+        if (hasRes)
             text += $"\nResource: {res}";
         if (_state.Map.Improvements.TryGetValue(axial, out var imp) && imp != ImprovementType.None)
             text += $"\nImprovement: {imp}";

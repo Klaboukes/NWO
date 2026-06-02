@@ -13,6 +13,13 @@ public static class ResourceService
     {
         ResourceType.Horses => "horses",
         ResourceType.Iron   => "iron",
+        ResourceType.Wheat  => "wheat",
+        ResourceType.Fish   => "fish",
+        ResourceType.Cattle => "cattle",
+        ResourceType.Sheep  => "sheep",
+        ResourceType.Deer   => "deer",
+        ResourceType.Stone  => "stone",
+        ResourceType.Banana => "banana",
         _                   => "",
     };
 
@@ -20,6 +27,13 @@ public static class ResourceService
     {
         "horses" => ResourceType.Horses,
         "iron"   => ResourceType.Iron,
+        "wheat"  => ResourceType.Wheat,
+        "fish"   => ResourceType.Fish,
+        "cattle" => ResourceType.Cattle,
+        "sheep"  => ResourceType.Sheep,
+        "deer"   => ResourceType.Deer,
+        "stone"  => ResourceType.Stone,
+        "banana" => ResourceType.Banana,
         _        => ResourceType.None,
     };
 

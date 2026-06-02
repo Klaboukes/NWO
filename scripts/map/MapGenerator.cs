@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace NWO.Map;
@@ -92,12 +93,10 @@ public static class MapGenerator
         Frequency = frequency,
     };
 
-    // Sprinkles strategic resources onto eligible terrain with a fixed per-tile
-    // probability. Seeded off the map seed (offset so it doesn't correlate with
-    // the height noise) so a given seed always yields the same resource layout.
-    private const float HorsesChance = 0.04f; // of eligible Plains/Grassland tiles
-    private const float IronChance   = 0.10f; // of Hills tiles (rarer terrain → higher rate)
-
+    // Sprinkles strategic + bonus resources onto eligible terrain. For each tile we
+    // roll its terrain's candidate list in order and assign the first hit (one
+    // resource per tile). Seeded off the map seed (offset so it doesn't correlate
+    // with the height noise) so a given seed always yields the same layout.
     private static void ScatterResources(MapData data, int seed)
     {
         // System.Random (not Godot's RNG) keeps placement deterministic and free
@@ -106,18 +105,42 @@ public static class MapGenerator
         var rng = new System.Random(seed + 1337);
         foreach (var (axial, terrain) in data.Tiles)
         {
-            switch (terrain)
+            foreach (var (resource, chance) in CandidatesFor(terrain))
             {
-                case TerrainType.Plains:
-                case TerrainType.Grassland:
-                    if (rng.NextDouble() < HorsesChance) data.Resources[axial] = ResourceType.Horses;
-                    break;
-                case TerrainType.Hills:
-                    if (rng.NextDouble() < IronChance) data.Resources[axial] = ResourceType.Iron;
-                    break;
+                if (rng.NextDouble() < chance)
+                {
+                    data.Resources[axial] = resource;
+                    break; // one resource per tile
+                }
             }
         }
     }
+
+    // Per-terrain resource candidates (resource, per-tile chance), rolled in order.
+    // Strategic resources lead; bonus resources follow. Densities mirror
+    // docs/MAP_GENERATION.md "Resource Placement Patterns".
+    private static IEnumerable<(ResourceType Resource, double Chance)> CandidatesFor(TerrainType t) => t switch
+    {
+        TerrainType.Grassland => new[]
+        {
+            (ResourceType.Horses, 0.04), (ResourceType.Cattle, 0.05),
+            (ResourceType.Sheep,  0.04), (ResourceType.Wheat,  0.05),
+        },
+        TerrainType.Plains => new[]
+        {
+            (ResourceType.Horses, 0.04), (ResourceType.Wheat, 0.06), (ResourceType.Stone, 0.04),
+        },
+        TerrainType.Hills => new[]
+        {
+            (ResourceType.Iron, 0.10), (ResourceType.Sheep, 0.05), (ResourceType.Stone, 0.04),
+        },
+        TerrainType.Forest   => new[] { (ResourceType.Deer, 0.06) },
+        TerrainType.Tundra   => new[] { (ResourceType.Deer, 0.06) },
+        TerrainType.Jungle   => new[] { (ResourceType.Banana, 0.08) },
+        TerrainType.Coast    => new[] { (ResourceType.Fish, 0.07) },
+        TerrainType.Ocean    => new[] { (ResourceType.Fish, 0.05) },
+        _                    => System.Array.Empty<(ResourceType, double)>(),
+    };
 
     // Even-q offset → axial for flat-top hexes.
     // Even columns are not vertically shifted; odd columns shift down by half a hex.

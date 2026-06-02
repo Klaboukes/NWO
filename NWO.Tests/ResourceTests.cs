@@ -138,4 +138,45 @@ public class ResourceTests
 
         Assert.Equal(withoutReveal + 1, withReveal);
     }
+
+    // ── Bonus resources (9.2) ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void ResourceYields_TiersAndYields()
+    {
+        Assert.Equal(ResourceTier.Strategic, ResourceYields.Tier(ResourceType.Horses));
+        Assert.Equal(ResourceTier.Bonus,     ResourceYields.Tier(ResourceType.Wheat));
+
+        Assert.Equal(1, ResourceYields.Food(ResourceType.Wheat));   // food bonus
+        Assert.Equal(0, ResourceYields.Production(ResourceType.Wheat));
+        Assert.Equal(1, ResourceYields.Production(ResourceType.Sheep)); // prod bonus
+        Assert.Equal(0, ResourceYields.Food(ResourceType.Sheep));
+    }
+
+    [Fact]
+    public void BonusResourceId_RoundTrips()
+    {
+        Assert.Equal(ResourceType.Wheat,  ResourceService.FromId("wheat"));
+        Assert.Equal("banana", ResourceService.ToId(ResourceType.Banana));
+    }
+
+    [Fact]
+    public void BonusResourceTile_AddsFoodWhenWorked_NoTechNeeded()
+    {
+        var state = NewState(out var human);
+        var city  = new City("Rome", human, new Vector2I(5, 5)) { Population = 1 };
+        state.Cities.Add(city);
+
+        var tile = new Vector2I(6, 5);          // distance 1, workable
+        city.Workforce.Locked.Add(tile);        // force the citizen onto it
+
+        CityWorkforceService.Recompute(state, city);
+        int baseFood = city.FoodYield;
+
+        // Wheat is a bonus resource — always revealed, no tech required.
+        state.Map.Resources[tile] = ResourceType.Wheat;
+        CityWorkforceService.Recompute(state, city);
+
+        Assert.Equal(baseFood + 1, city.FoodYield);
+    }
 }

@@ -93,8 +93,12 @@ public partial class WorldOverlay : Node2D
             if (!ResourceService.IsRevealed(_state, _viewer, res)) continue;
             var (p, scale) = Anchor(axial, new Vector3(-HexProjection.HexSize * 0.30f, 0f, HexProjection.HexSize * 0.32f));
             if (p == null) continue;
-            var col = res == ResourceType.Horses ? new Color(0.85f, 0.75f, 0.55f)
-                                                 : new Color(0.55f, 0.55f, 0.62f);
+            var col = ResourceYields.Tier(res) switch
+            {
+                ResourceTier.Strategic => new Color(0.80f, 0.55f, 0.30f), // bronze
+                ResourceTier.Luxury    => new Color(0.95f, 0.82f, 0.25f), // gold
+                _                      => new Color(0.45f, 0.80f, 0.45f), // bonus green
+            };
             DrawCircle(p.Value, HexProjection.HexSize * 0.12f * scale, col);
             DrawArc(p.Value, HexProjection.HexSize * 0.12f * scale, 0f, Mathf.Tau, 16, Colors.Black, 1f);
         }

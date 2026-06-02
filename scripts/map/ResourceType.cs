@@ -9,4 +9,14 @@ public enum ResourceType
     None,
     Horses, // Plains / Grassland — gates Horseman (reveal: Animal Husbandry)
     Iron,   // Hills              — gates Swordsman (reveal: Bronze Working)
+
+    // Bonus resources (Phase 9.2) — always visible, +1 Food or +1 Prod when worked.
+    // Appended (never reorder); ResourceType is serialized in saves.
+    Wheat,  // Plains / Grassland
+    Fish,   // Coast / Ocean
+    Cattle, // Grassland
+    Sheep,  // Hills / Grassland
+    Deer,   // Forest / Tundra
+    Stone,  // Hills / Plains
+    Banana, // Jungle
 }

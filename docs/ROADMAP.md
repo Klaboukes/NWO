@@ -121,7 +121,7 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
       elevation, colour, and procedural art (`TerrainArtGenerator`) for the new types.
       *Done when:* maps show coherent mountain arcs and 2–3 distinct biome transitions
       per seed.
-- [ ] **9.2 — Bonus resources.** Add 7 always-visible bonus resources to `ResourceType`
+- [x] **9.2 — Bonus resources.** Add 7 always-visible bonus resources to `ResourceType`
       (Wheat, Fish, Cattle, Sheep, Deer, Stone, Banana). Scatter with per-type terrain
       affinity and density targets in `ScatterResources()`. Update `TerrainYields` with
       resource yield bonuses (+1 Food or +1 Prod). No tech reveal required. *Done when:*
