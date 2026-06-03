@@ -524,3 +524,24 @@ hook is an unconditional multiply/add). See [FACTIONS.md](FACTIONS.md) for the r
 - The **Syndicate** (the `can_hire_reavers` trait) may spend **60 gold**
   (`CivEconomyService.HireReaver`) to spawn a hired Mercenary — its gold-for-force
   signature play.
+
+---
+
+## 12. Civilopedia (in-game reference, Phase 12)
+
+A Civ-5-style **Civilopedia** documents the game for the player: factions, units,
+buildings, technologies, terrain, resources, core mechanics, and world lore. Reachable
+from the **main menu**, the in-game **pause menu**, and the **F1** hotkey (see
+[CONTROLS.md](CONTROLS.md)); in-game it is an overlay that leaves the match untouched.
+
+- **Content** is authored in `data/civilopedia.json`, kept separate from the mechanical
+  data files: a `prose` map (key → flavor text, e.g. `"faction:dominion"`, `"unit:warrior"`,
+  `"terrain:jungle"`) plus standalone `articles` (lore / rules) grouped by category.
+- **`CivilopediaService`** (headless, unit-tested) assembles the categories. Catalog-backed
+  entries (factions/units/buildings/techs/terrain/resources) render a **live stats block**
+  from `DataCatalog` / `TerrainYields` plus the authored prose, so numbers never go stale
+  and a missing prose key degrades to stats-only. `world` / `mechanics` entries come
+  straight from the articles.
+- The UI (`Civilopedia.tscn` + `CivilopediaController`) is a content-only browser that
+  raises `CloseRequested`; the in-game overlay hides on close, the standalone menu scene
+  returns to the main menu.

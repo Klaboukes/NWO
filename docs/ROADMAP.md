@@ -205,10 +205,38 @@ the "Civ 5 Patterns" matrix in [MAP_GENERATION.md](MAP_GENERATION.md).
 
 ---
 
+## Phase 12 — In-game Civilopedia (player documentation) ✅ COMPLETE
+
+Goal: a Civ5-style **Civilopedia** — a browsable in-game reference documenting factions,
+units, buildings, technologies, terrain, resources, core mechanics, and world lore.
+Reachable from the **main menu** and **in-game** (pause menu + F1). Flavor text lives in a
+new `data/civilopedia.json`, decoupled from the mechanical data files; live stats are
+pulled from `DataCatalog` / `TerrainYields` so entries never go stale. Copy is adapted from
+[FACTIONS.md](FACTIONS.md), [LORE.md](LORE.md), and [MECHANICS.md](MECHANICS.md).
+
+- [x] **12.1 — Content model + service.** `data/civilopedia.json` (per-entry `prose` map +
+      standalone `articles`); `DataLoader.LoadCivilopedia()`; headless `CivilopediaService`
+      that assembles categories/entries and renders each detail view by combining live stats
+      (units/buildings/techs/terrain/resources/factions) with authored prose. Faction
+      modifier-bag → readable-text formatter. *Done when:* the service lists every catalog
+      entry and renders stats+prose, with graceful stats-only fallback; unit tests green.
+- [x] **12.2 — Civilopedia browser UI.** Reusable content-only browser
+      (`scenes/ui/Civilopedia.tscn` + `CivilopediaController`): category/entry list, search
+      filter, scrollable detail pane, `CloseRequested` event. Reachable from the main menu via
+      a new button + `Scenes.Civilopedia`. *Done when:* you can open it from the menu, browse
+      every category, search, and read entries.
+- [x] **12.3 — In-game access + docs sync.** Same browser instanced as a toggled overlay in
+      `UIController` (pause-menu entry + `F1`), closing without unloading the match. Update
+      [CONTROLS.md](CONTROLS.md) (F1) and note the feature in [MECHANICS.md](MECHANICS.md).
+      *Done when:* F1 / pause-menu opens and closes the Civilopedia mid-match with no state loss.
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
-(factions & fast-warfare reframe), and Phase 11 (map scripts), candidate directions.
+(factions & fast-warfare reframe), Phase 11 (map scripts), and Phase 12 (in-game
+Civilopedia), candidate directions.
 Factions, light diplomacy, and the objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve

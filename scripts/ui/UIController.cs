@@ -41,6 +41,7 @@ public partial class UIController : CanvasLayer
     [Export] private NodePath _menuButtonPath       = "Root/TopBar/MenuButton";
     [Export] private NodePath _pauseMenuPath        = "Root/PauseMenu";
     [Export] private NodePath _saveBrowserPath      = "Root/SaveBrowser";
+    [Export] private NodePath _civilopediaPath      = "Root/Civilopedia";
 
     private const double NotifDuration = 3.0;
 
@@ -71,6 +72,7 @@ public partial class UIController : CanvasLayer
     private Button                   _menuButton     = null!;
     private Control                  _pauseMenu      = null!;
     private SaveBrowserController    _saveBrowser    = null!;
+    private CivilopediaController    _civilopedia    = null!;
 
     private Unit?  _displayedUnit;
     private double _notifSecondsLeft;
@@ -116,6 +118,7 @@ public partial class UIController : CanvasLayer
         _menuButton      = GetNode<Button>(_menuButtonPath);
         _pauseMenu       = GetNode<Control>(_pauseMenuPath);
         _saveBrowser     = GetNode<SaveBrowserController>(_saveBrowserPath);
+        _civilopedia     = GetNode<CivilopediaController>(_civilopediaPath);
 
         _endTurnButton.Pressed   += () => { Click(); EndTurnPressed?.Invoke(); };
         _foundCityButton.Pressed += () => { Click(); FoundCityPressed?.Invoke(); };
@@ -136,12 +139,29 @@ public partial class UIController : CanvasLayer
         Btn("Root/PauseMenu/CenterPanel/VBox/ResumeButton").Pressed   += () => { Click(); _pauseMenu.Visible = false; };
         Btn("Root/PauseMenu/CenterPanel/VBox/SaveButton").Pressed     += () => { Click(); _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: true); };
         Btn("Root/PauseMenu/CenterPanel/VBox/LoadButton").Pressed     += () => { Click(); _pauseMenu.Visible = false; _saveBrowser.Open(saveMode: false); };
+        Btn("Root/PauseMenu/CenterPanel/VBox/CivilopediaButton").Pressed += () => { Click(); _pauseMenu.Visible = false; _civilopedia.Visible = true; };
         Btn("Root/PauseMenu/CenterPanel/VBox/MainMenuButton").Pressed += () => { Click(); MainMenuRequested?.Invoke(); };
         Btn("Root/PauseMenu/CenterPanel/VBox/QuitButton").Pressed     += () => { Click(); GetTree().Quit(); };
 
         _saveBrowser.SaveChosen     += name => { _saveBrowser.Hide(); SaveRequested?.Invoke(name); ShowNotification($"Saved \"{name}\"."); };
         _saveBrowser.LoadChosen     += file => LoadRequested?.Invoke(file);
         _saveBrowser.CloseRequested += () => _saveBrowser.Hide();
+
+        // The in-game Civilopedia is an overlay, not a scene change — Back/Escape just
+        // hide it, leaving the match untouched. F1 toggles it (see _UnhandledKeyInput).
+        _civilopedia.CloseRequested += () => _civilopedia.Visible = false;
+    }
+
+    // F1 toggles the Civilopedia overlay from anywhere in-game (Civ 5 convention).
+    public override void _UnhandledKeyInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Keycode: Key.F1 })
+        {
+            Click();
+            if (!_civilopedia.Visible) _pauseMenu.Visible = false;
+            _civilopedia.Visible = !_civilopedia.Visible;
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     private Button Btn(string path) => GetNode<Button>(path);

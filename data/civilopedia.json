@@ -1,0 +1,144 @@
+{
+  "prose": {
+    "faction:dominion": "The Dominion clings to the old order and pours its strength into a single, unbreakable seat of power. Its capital is a fortress: harder to crack, quicker to heal, and more productive than any rival's. Strongest when it plays tall.",
+    "faction:free_settlements": "The Free Settlements believe the colony belongs to everyone, and spread wide and fast to prove it. Settlers are cheap and cities can be packed close together — and every new town is born with a militia to hold it.",
+    "faction:iron_pact": "To the Iron Pact, strength decides who is right. Its soldiers hit harder, earn veterancy faster than anyone, and can even heal deep in enemy land — a war machine built to keep marching.",
+    "faction:syndicate": "The Syndicate holds that everything, and everyone, has a price. Coffers overflow, rush-buying is cheap, and when its own armies fall short it simply hires the Reavers to do the fighting.",
+    "faction:cognate": "The Cognate trusts only knowledge. It re-climbs the salvaged tech tree faster than any rival, reaching each new tier of recovered Earth science — and the weapons that come with it — well ahead of the pack.",
+    "faction:voyagers": "The Voyagers believe the frontier belongs to whoever reaches it first. They see farther, move faster, and shrug off rough terrain, striking from the unmapped edges before anyone knows they are there.",
+    "faction:reavers": "The Reavers rejected every doctrine of the Sundering. They hold the ruins, raid the settled lands, and bow to no New World Order — but unlike mindless raiders, the right pile of gold can point their blades at your enemies.",
+
+    "unit:scout": "Lightly equipped pathfinders who range ahead of the column, mapping the unknown. Fast and tireless across any ground, but no match for a real soldier — keep them exploring, not fighting.",
+    "unit:warrior": "The backbone of every salvage-era army: hardy infantry armed with whatever steel the ruins gave up. Cheap, sturdy, and available from the first turn.",
+    "unit:archer": "Bowmen who soften the enemy before the lines ever meet. Deadly at range, but lightly armored — shield them behind your melee or lose them in a single charge.",
+    "unit:spearman": "Disciplined spear walls built to stop a charge cold. Their defense makes them the anchor of a holding force, especially behind city walls.",
+    "unit:horseman": "Mounted raiders who turn a gap in the line into a rout. Their speed lets them pick fights, run down archers, and vanish before retaliation lands — if you control the horses to field them.",
+    "unit:swordsman": "Heavy infantry in salvaged plate, the hardest hitters of the antiquity tier. Strong on attack and defense alike, but they need iron to forge.",
+    "unit:catapult": "Siege engines that batter walls and packed formations from afar. Devastating against cities, near-helpless in a melee — never let them be caught alone.",
+    "unit:settler": "Carries the people, tools, and charter to found a new city. Unarmed and precious: escort it, because losing one sets your expansion back dozens of turns.",
+    "unit:worker": "Engineers who terraform the land — farms, mines, pastures, and roads that turn raw terrain into yields. The quiet engine of a growing economy.",
+    "unit:palace_guard": "The Dominion's household elite, armored to hold the seat of power at any cost. A Spearman that trades nothing for sheer, immovable defense.",
+    "unit:pioneer": "The Free Settlements' frontier founders, who can dig in and defend the ground they claim. A Settler that need not be coddled quite so carefully.",
+    "unit:legionary": "The Iron Pact's professional core — drilled, armored, and dangerous from turn one. A Warrior reforged into a balanced veteran killer.",
+    "unit:mercenary": "Blades for hire bankrolled by the Syndicate's gold. Cheap to field and quick to raise, though they never stop demanding their wage.",
+    "unit:drone": "The Cognate's recovered-tech reconnaissance platform, putting ranged firepower in the field early. A Drone outranges and outsees the bows it replaces.",
+    "unit:ranger": "The Voyagers' deep-recon cavalry, at home in any wilderness. A Scout with the legs and eyes to turn the unmapped frontier into a hunting ground.",
+
+    "building:monument": "A civic landmark that anchors a young city's identity and starts its culture flowing.",
+    "building:granary": "Stores the harvest against lean turns, letting a city feed a larger population and grow faster.",
+    "building:barracks": "A training yard where raw recruits become soldiers — every unit built here starts blooded.",
+    "building:library": "Salvaged archives and scholars that accelerate a city's recovery of lost Earth knowledge.",
+    "building:market": "Counting-houses and trade stalls that turn a city's commerce into a steady stream of gold.",
+    "building:walls": "Stone and salvaged plate ringing the city, making it far costlier to storm.",
+
+    "tech:pottery": "The first rung of the re-climb: fired clay and storage that let cities hoard a surplus.",
+    "tech:writing": "Recovered script and record-keeping — the foundation of every later science.",
+    "tech:philosophy": "Reasoned doctrine that gives a people something to rally around beyond mere survival.",
+    "tech:animal_husbandry": "Taming Cradle's beasts for labor, war-mounts, and the herds that feed an army.",
+    "tech:horseback_riding": "Riders and tack that put cavalry on the battlefield, trading armor for raw speed.",
+    "tech:mining": "Pick, shaft, and ore — the metals and gemstones buried in Cradle's hills.",
+    "tech:calendar": "Tracking the seasons unlocks plantation luxuries and the trade they command.",
+    "tech:bronze_working": "Alloyed steel for spear walls and the first revealed veins of iron.",
+    "tech:iron_working": "Forged iron arms and siege engines — the peak of the salvaged-primitive tier.",
+
+    "terrain:grassland": "Lush, well-watered plains — the most fertile ground on Cradle and the heart of any growing city.",
+    "terrain:plains": "Open, workable country that balances food and production. Reliable if unspectacular.",
+    "terrain:desert": "Sun-blasted waste that yields almost nothing on its own, though its sands sometimes hide riches.",
+    "terrain:tundra": "Cold, thin ground at the world's frontiers. Sparse, but livable for those who must.",
+    "terrain:snow": "The dead white margins of Cradle — frozen, barren, and best left to the wind.",
+    "terrain:forest": "Timbered hills that trade a little food for solid production and cover for defenders.",
+    "terrain:mountain": "Impassable peaks that wall off a region — barriers to armies, but rich in ore and gems below.",
+    "terrain:ocean": "Deep water no antiquity-era army can cross. The edge of the playable world, for now.",
+    "terrain:coast": "Shallow seas rich in fish and trade, hemming the land and feeding the cities along it.",
+    "terrain:savanna": "Warm grass-and-scrub country, modestly fertile and easy to cross.",
+    "terrain:jungle": "Dense, humid growth that slows an army to a crawl and hides bananas and spices in its canopy.",
+    "terrain:wetlands": "Fertile marsh — wet, fertile, and heavy going for anyone marching through it.",
+
+    "resource:horses": "Herds that field cavalry. A faction with no horses simply cannot build mounted units.",
+    "resource:iron": "The ore behind swords and catapults. Without an iron source, the heaviest antiquity units stay off the table.",
+    "resource:wheat": "Golden fields that add food to a worked tile and hurry a city's growth.",
+    "resource:fish": "Coastal shoals that feed a seaside city straight from the water.",
+    "resource:gems": "Glittering stones prized across the Sundering — a luxury that fills the treasury when worked.",
+    "resource:ivory": "Carved tusk and bone, a frontier luxury traded between the factions for gold."
+  },
+  "articles": [
+    {
+      "id": "world:new-world-order",
+      "category": "world",
+      "title": "The New World Order",
+      "body": "NWO begins after a Civilization-style science victory: the winners of Earth launched a colony ark and reached a new world — and then could not stop fighting over it. The title is a double meaning. The New World Order is the political order being fought for, on the literal new world. Every faction believes its doctrine is the only rightful order, and every match is a war to impose one."
+    },
+    {
+      "id": "world:exodus",
+      "category": "world",
+      "title": "The Victory & the Exodus",
+      "body": "A civilization on Earth won the long game through science and launched the colony ark Exodus toward a new star. Aboard were the Founders — and, sealed in the ship's archive, the full accumulated knowledge of Earth. That archive still exists on Cradle today, intact but locked: a prize no faction yet controls."
+    },
+    {
+      "id": "world:cradle-years",
+      "category": "world",
+      "title": "The Cradle Years",
+      "body": "Landfall on the planet Cradle succeeded. For generations there was one unified colony, bound by a single shared purpose: survive and terraform. Under that pressure the old Earth philosophies were merely tools, not banners — and the colony thrived."
+    },
+    {
+      "id": "world:sundering",
+      "category": "world",
+      "title": "The Sundering",
+      "body": "Then survival was won. With the threat gone, the purpose that held the colony together dissolved, and society fractured along the same philosophical fault lines the old policies had always described — Tradition, Liberty, Honor, Commerce, Rationalism, Exploration. Each hardened into a faction, seized a region of Cradle, and declared its vision the only legitimate order. This collapse is the Sundering, and it is where every match begins."
+    },
+    {
+      "id": "world:long-salvage",
+      "category": "world",
+      "title": "The Long Salvage",
+      "body": "The Sundering shattered the colony's industrial base and sealed the ark's archive. Cut off from the machines that made them mighty, the factions fell back on salvage and rediscovery. That is why descendants of a star-faring people fight with warriors, archers, and catapults: it is what you can build from wreckage and ore when the factories are dead. The tech tree is a re-climb — salvaged-primitive arms, then recovered colony tech, then new planetary science — back toward, and past, what the Founders once had."
+    },
+    {
+      "id": "world:reavers",
+      "category": "world",
+      "title": "The Reavers",
+      "body": "Not everyone joined a faction. The Reavers are the descendants who rejected every doctrine — raiders who hold the ruins, pillage the settled lands, and answer to no New World Order. They are Cradle's barbarians, but with a point of view, and unlike mindless raiders they can be bought: the Commerce-leaning Syndicate has made an art of it."
+    },
+    {
+      "id": "mech:victory",
+      "category": "mechanics",
+      "title": "Winning the Game",
+      "body": "There are several paths to victory. Establish the New World Order by seizing and holding the map's contested key sites — the objective win the game is built around. Failing that, Domination (eliminate every rival capital) and a turn-limit Score victory remain open. The clock is deliberately short, so wars are meant to be decisive, not endless."
+    },
+    {
+      "id": "mech:combat",
+      "category": "mechanics",
+      "title": "Combat",
+      "body": "Each battle compares the attacker's effective strength against the defender's; both take damage scaled by that ratio, and a unit reduced to zero HP dies. Terrain, city walls, and faction bonuses all shift the math, so check the odds preview before committing. Ranged units strike without taking return fire, while melee units must close in — and only melee can capture a city, after its defenses are bombarded to zero."
+    },
+    {
+      "id": "mech:veterancy",
+      "category": "mechanics",
+      "title": "Veterancy",
+      "body": "Units earn experience by fighting and surviving. Crossing an XP threshold raises a unit's level, and each level grants a flat strength bonus — a veteran is meaningfully harder to kill than a fresh recruit. The Iron Pact levels its soldiers far faster than anyone else, turning a long war into a compounding advantage."
+    },
+    {
+      "id": "mech:cities",
+      "category": "mechanics",
+      "title": "Cities & Growth",
+      "body": "Cities are founded by Settlers and grow by banking surplus food. Their citizens work surrounding tiles for food, production, gold, and science, and a focus setting lets you bias toward growth or output. Production turns into units and buildings over time, or can be rush-bought with gold. New cities must respect a minimum spacing from existing ones — though some factions bend that rule."
+    },
+    {
+      "id": "mech:economy",
+      "category": "mechanics",
+      "title": "Gold & Economy",
+      "body": "Gold flows in from worked tiles, markets, and trade, and flows out as unit upkeep. Run the treasury dry and units begin to disband, so keep income ahead of your army. Surplus gold rush-buys production or, for the Syndicate, hires Reaver mercenaries outright."
+    },
+    {
+      "id": "mech:diplomacy",
+      "category": "mechanics",
+      "title": "Diplomacy",
+      "body": "Every pair of players holds a stance: War, Peace, Non-Aggression, or Alliance. You cannot attack a player you are at peace or allied with until that stance changes, and the AI weighs stances when choosing its targets. Alliances do not share victory — even allies are still racing to establish their own New World Order."
+    },
+    {
+      "id": "mech:fog-of-war",
+      "category": "mechanics",
+      "title": "Fog of War",
+      "body": "You see only what your units and cities reveal. Explored ground stays on the map but dims to a memory once no one is watching it, hiding enemy movements until you scout again. Sight range matters: the Voyagers' extra vision lets them see threats — and opportunities — before their rivals do."
+    }
+  ]
+}

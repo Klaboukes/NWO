@@ -43,6 +43,17 @@ public static class DataLoader
         return file?.Factions ?? new List<FactionData>();
     }
 
+    // Player-facing documentation (data/civilopedia.json). Optional: a missing or
+    // unparseable file yields empty content, so the Civilopedia falls back to
+    // stats-only entries rather than failing to load.
+    public static CivilopediaContent LoadCivilopedia()
+    {
+        if (!FileAccess.FileExists("res://data/civilopedia.json"))
+            return CivilopediaContent.Empty;
+        var json = ReadResFile("res://data/civilopedia.json");
+        return JsonSerializer.Deserialize<CivilopediaContent>(json, Options) ?? CivilopediaContent.Empty;
+    }
+
     private static string ReadResFile(string resPath)
     {
         using var file = FileAccess.Open(resPath, FileAccess.ModeFlags.Read);

@@ -7,5 +7,6 @@ public static class Scenes
     public const string World         = "res://scenes/world/WorldMap.tscn";
     public const string MainMenu      = "res://scenes/ui/MainMenu.tscn";
     public const string FactionSetup  = "res://scenes/ui/FactionSetup.tscn";
+    public const string Civilopedia   = "res://scenes/ui/Civilopedia.tscn";
     public const string VictoryScreen = "res://scenes/ui/VictoryScreen.tscn";
 }

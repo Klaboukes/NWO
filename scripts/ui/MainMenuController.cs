@@ -14,9 +14,10 @@ public partial class MainMenuController : Control
 
     public override void _Ready()
     {
-        GetNode<Button>("CenterPanel/VBox/NewGameButton").Pressed  += () => { Click(); OnNewGame(); };
-        GetNode<Button>("CenterPanel/VBox/LoadGameButton").Pressed += () => { Click(); OnLoadGame(); };
-        GetNode<Button>("CenterPanel/VBox/QuitButton").Pressed     += () => { Click(); GetTree().Quit(); };
+        GetNode<Button>("CenterPanel/VBox/NewGameButton").Pressed     += () => { Click(); OnNewGame(); };
+        GetNode<Button>("CenterPanel/VBox/LoadGameButton").Pressed    += () => { Click(); OnLoadGame(); };
+        GetNode<Button>("CenterPanel/VBox/CivilopediaButton").Pressed += () => { Click(); GetTree().ChangeSceneToFile(Scenes.Civilopedia); };
+        GetNode<Button>("CenterPanel/VBox/QuitButton").Pressed        += () => { Click(); GetTree().Quit(); };
 
         _browser = GetNode<SaveBrowserController>("SaveBrowser");
         _browser.LoadChosen     += OnLoadChosen;
