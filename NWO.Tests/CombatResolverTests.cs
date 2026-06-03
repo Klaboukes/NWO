@@ -73,7 +73,7 @@ public class CombatResolverTests
     }
 
     [Fact]
-    public void EvenMatch_DealsRoughly30DamageBothWays()
+    public void EvenMatch_DealsRoughlyDamageScaleBothWays()
     {
         var rng      = new Random(99);
         var attacker = MakeUnit(attack: 10, defense: 10);
@@ -91,8 +91,9 @@ public class CombatResolverTests
         double avgAtk = totalAtk / (double)N;
         double avgDef = totalDef / (double)N;
 
-        // With equal strength and HP, average damage should be near 30 on both sides.
-        Assert.InRange(avgAtk, 25.0, 40.0);
-        Assert.InRange(avgDef, 25.0, 40.0);
+        // With equal strength and HP, average damage hovers near DamageScale (40 since
+        // Phase 10.5) on both sides — slightly above due to the ratio-of-jitters mean.
+        Assert.InRange(avgAtk, 34.0, 50.0);
+        Assert.InRange(avgDef, 34.0, 50.0);
     }
 }

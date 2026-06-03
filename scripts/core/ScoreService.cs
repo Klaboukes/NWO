@@ -11,6 +11,7 @@ public static class ScoreService
     public const int PerCity       = 10;
     public const int PerPopulation = 3;
     public const int PerTech       = 5;
+    public const int PerKeySite    = 25; // objective sites are worth fighting over
     public const int GoldDivisor   = 10; // treasury contributes 1 point per 10 gold
 
     public static int Score(GameState state, Player player)
@@ -31,6 +32,7 @@ public static class ScoreService
         return cities * PerCity
              + population * PerPopulation
              + techs * PerTech
+             + KeySiteService.ControlledCount(state, player) * PerKeySite
              + gold / GoldDivisor;
     }
 }

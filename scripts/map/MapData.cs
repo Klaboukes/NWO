@@ -30,6 +30,11 @@ public class MapData
     // An edge is stored once (from one side); IsRiverAdjacent checks both sides.
     public HashSet<(Vector2I Tile, int Dir)> Rivers { get; } = new();
 
+    // Contested objective sites (Phase 10.5): controlling them wins the match
+    // ("Establish the New World Order"). Placed by GameFactory away from spawns;
+    // control is derived from nearby city ownership (see KeySiteService).
+    public List<Vector2I> KeySites { get; } = new();
+
     public MapData(int width, int height)
     {
         Width  = width;

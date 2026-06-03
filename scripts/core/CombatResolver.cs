@@ -18,7 +18,9 @@ public static class CombatResolver
 {
     public readonly record struct CombatResult(int AttackerDamage, int DefenderDamage);
 
-    private const double DamageScale = 30.0;
+    // Phase 10.5 raised this from 30 to make warfare more lethal/decisive, matching
+    // the shorter turn cap and the fast-warfare reframe.
+    private const double DamageScale = 40.0;
 
     // ── Resolved (random) combat ───────────────────────────────────────────────
 

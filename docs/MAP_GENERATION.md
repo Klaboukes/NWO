@@ -807,6 +807,8 @@ we took, what's worth taking, and what we won't.
 | Edge-based rivers from highlands to water | `MapData.Rivers` edge-set + downhill trace (+ lake carving) |
 | Foothills around uplift | mountain `relief` skirt + scattered hilliness field |
 | (improved on Civ) directional mountain chains | domain-warped **ridged** Simplex (Civ's plain fractal is blobbier) |
+| Start normalization (fair, viable spawns) | `GameFactory` fertility floor (work-radius yield sum) + farthest-point/impact-ripple spawn spread; human nudged to the most fertile tile near map centre (Phase 10.4) |
+| Contested objective sites | `MapData.KeySites` placed away from spawns by farthest-point sampling; control = nearest city within radius (`KeySiteService`, Phase 10.5) |
 
 ### Candidate — cheap wins (do under the `tune-map-generation` skill, no phase)
 
@@ -820,7 +822,7 @@ we took, what's worth taking, and what we won't.
 | Civ 5 pattern | Where it lands | Effort / ripple |
 | --- | --- | --- |
 | **Map scripts** (Continents / Pangaea / Archipelago / Highlands…) selectable at setup | **ROADMAP Phase 11** — needs a map-script abstraction + setup-screen UI | ~2–4 days |
-| **Start normalization + region balancing** (fair, viable spawns) | **ROADMAP Phase 10.4** (anti-micro settlement) — adopt the *normalize-to-a-floor* + impact-ripple **pattern**, not Civ's region machinery | ~3–5 days, entangled with `GameFactory` / `WorldMap` spawn |
+| ~~Start normalization + region balancing~~ — **shipped in Phase 10.4** (see Adopted table): fertility-floor + farthest-point spawn spread in `GameFactory`, without Civ's region machinery | ✅ done | — |
 | **Terrain vs. features split** (forest/jungle/marsh/oasis/floodplain as *features* on a base terrain, like Civ) | post-MVP phase only if we want Civ-depth terrain — **partly started**: Hills already shipped as a `Feature` (`MapData.Features`), so the scaffolding exists | ~1 week+ for the rest; architectural — ripples through `MapData`, save format, yields, workforce, AI, art, tooltips |
 
 ### Deliberately skipped

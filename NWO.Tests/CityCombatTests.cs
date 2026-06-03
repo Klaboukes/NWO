@@ -19,18 +19,19 @@ public class CityCombatTests
     // ── CombatResolver.Expected (pure) ─────────────────────────────────────────
 
     [Fact]
-    public void Expected_MeleeEqualStrength_Deals30Each()
+    public void Expected_MeleeEqualStrength_DealsDamageScaleEach()
     {
+        // DamageScale is 40 since Phase 10.5 (was 30).
         var e = CombatResolver.Expected(10, 100, 10, 100, isRanged: false);
-        Assert.Equal(30, e.DefenderDamage);
-        Assert.Equal(30, e.AttackerDamage);
+        Assert.Equal(40, e.DefenderDamage);
+        Assert.Equal(40, e.AttackerDamage);
     }
 
     [Fact]
     public void Expected_Ranged_TakesNoRetaliation()
     {
         var e = CombatResolver.Expected(10, 100, 10, 100, isRanged: true);
-        Assert.Equal(30, e.DefenderDamage);
+        Assert.Equal(40, e.DefenderDamage);
         Assert.Equal(0, e.AttackerDamage);
     }
 

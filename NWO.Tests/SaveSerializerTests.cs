@@ -36,6 +36,7 @@ public class SaveSerializerTests
         state.Units.Add(new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5))
         {
             HP = 42, MovementRemaining = 1, Fortified = true, ActedThisTurn = true,
+            Experience = 30,
             CurrentTask = new ImprovementTask(new Vector2I(5, 5), ImprovementType.Mine, 2),
         });
         // Negative coords exercise the Vector2I converter through a real save.
@@ -118,6 +119,7 @@ public class SaveSerializerTests
         Assert.Equal(1,  worker.MovementRemaining);
         Assert.True(worker.Fortified);
         Assert.True(worker.ActedThisTurn);
+        Assert.Equal(30, worker.Experience);
         Assert.NotNull(worker.CurrentTask);
         Assert.Equal(ImprovementType.Mine, worker.CurrentTask!.Type);
         Assert.Equal(2, worker.CurrentTask.TurnsRemaining);
@@ -187,6 +189,32 @@ public class SaveSerializerTests
 
         Assert.NotNull(summary);
         Assert.Equal(before + 1, loaded.TurnManager.TurnNumber);
+    }
+
+    [Fact]
+    public void RoundTrip_PreservesDiplomacy()
+    {
+        var original = BuildState(out var human, out var ai);
+        original.Diplomacy.Set(human.Id, ai.Id, DiplomaticStance.Alliance);
+
+        var loaded = RoundTrip(original, out _);
+
+        Assert.Equal(DiplomaticStance.Alliance, loaded.Diplomacy.Between(human.Id, ai.Id));
+    }
+
+    [Fact]
+    public void RoundTrip_PreservesFactionId()
+    {
+        var state = new GameState(TestWorlds.FlatMap(10, 10), TestWorlds.StandardCatalog(), 1);
+        state.AddPlayer(new Player { Id = 0, Name = "P", IsHuman = true,  FactionId = "voyagers" });
+        state.AddPlayer(new Player { Id = 1, Name = "R", IsHuman = false, FactionId = null }); // legacy/untyped
+        state.RestoreTurnPointer(turnNumber: 1, currentPlayerIndex: 0, nextCityName: 0);
+
+        var json   = SaveSerializer.Serialize(state, "factions");
+        var loaded = SaveSerializer.Deserialize(json, TestWorlds.StandardCatalog());
+
+        Assert.Equal("voyagers", loaded.Players.First(p => p.Id == 0).FactionId);
+        Assert.Null(loaded.Players.First(p => p.Id == 1).FactionId);
     }
 
     [Fact]

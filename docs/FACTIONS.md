@@ -3,8 +3,13 @@
 > Setting and the Sundering: [LORE.md](LORE.md). Design intent: [OVERVIEW.md](OVERVIEW.md).
 > Current mechanics & numbers: [MECHANICS.md](MECHANICS.md).
 >
-> Status: **direction doc**. Faction asymmetry is **[planned]** (ROADMAP Phase 10). The
-> table doubles as an **implementation index** — each hook names the system it touches.
+> Status: **shipped** (ROADMAP Phase 10). The v1 roster (6 factions + the Reavers) is
+> implemented as a flat `FactionData` modifier bag in `data/factions.json`, resolved by
+> `DataCatalog.FactionOf` and read by single inline hooks in the static services. The table
+> below doubles as the **implementation index** — each hook names the system it touches.
+> v1 notes: Honor's veterancy uses a minimal unit-XP subsystem (`Unit.Experience`); the
+> Syndicate's hire-Reavers and the diplomacy stances live in `CivEconomyService` /
+> `Diplomacy`. Piety & Aesthetics remain shelved (below).
 
 ---
 

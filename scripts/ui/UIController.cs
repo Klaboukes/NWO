@@ -299,7 +299,17 @@ public partial class UIController : CanvasLayer
         string hints = unit.Data.Special == "found_city"   ? "[B] Found City   [Space] Skip"
                      : unit.Data.Special == "build_improvement" ? "Build below   [Space] Skip   [F] Fortify"
                                                               : "[Space] Skip   [F] Fortify   [H] Heal";
+
+        // Combat line: strength + attack type. Attack 0 ⇒ civilian (Settler/Worker);
+        // Range ≥ 2 ⇒ ranged (matches GameState's isRanged rule). See docs/MECHANICS.md.
+        string combatLine = unit.Data.Attack > 0
+            ? $"Atk {unit.Data.Attack}   Def {unit.Data.Defense}   " +
+              (unit.Data.Range >= 2 ? $"Ranged (range {unit.Data.Range})" : "Melee")
+            : "Civilian — non-combat";
+
         _unitStatsLabel.Text =
+            $"{combatLine}\n" +
+            $"Sight: {unit.Data.Sight}   Upkeep: {unit.Data.MaintenanceGold}g\n" +
             $"Moves: {unit.MovementRemaining} / {unit.Data.Movement}{status}\n{hints}";
     }
 

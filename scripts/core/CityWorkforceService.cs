@@ -89,6 +89,9 @@ public static class CityWorkforceService
             prod += bdef.Yields.Production;
         }
 
+        // Dominion's fortress capital out-produces a normal city.
+        if (city.IsCapital) prod += state.Catalog.FactionOf(city.Owner).CapitalProductionBonus;
+
         city.FoodYield       = food;
         city.ProductionYield = prod;
     }

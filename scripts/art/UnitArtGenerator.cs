@@ -42,6 +42,7 @@ public static class UnitArtGenerator
 
         switch (unitId)
         {
+            case "scout":     DrawScout(img);      break;
             case "warrior":   DrawWarrior(img);   break;
             case "archer":    DrawArcher(img);     break;
             case "spearman":  DrawSpearman(img);   break;
@@ -58,6 +59,42 @@ public static class UnitArtGenerator
     }
 
     // ── Silhouettes ────────────────────────────────────────────────────────────
+
+    // Spyglass / telescope held on the lower-left → upper-right diagonal: a tapered
+    // tube (narrow eyepiece → wide objective lens) with two collar bands and a round
+    // lens cap. Reads instantly as "explorer / scout".
+    private static void DrawScout(Image img)
+    {
+        const int cx = 64, cy = 64;
+        const int steps = 84;
+        float sx = cx - 38, sy = cy + 34;       // eyepiece end (lower-left)
+        const float dx =  0.7071f, dy = -0.7071f; // up-right axis (unit length)
+        const float px =  0.7071f, py =  0.7071f; // perpendicular (down-right)
+
+        // Tapered tube: half-width grows from 4 (eyepiece) to 12 (objective).
+        for (int t = 0; t <= steps; t++)
+        {
+            float ax = sx + dx * t, ay = sy + dy * t;
+            int   hw = 4 + t * 8 / steps;
+            for (int w = -hw; w <= hw; w++)
+                Plot(img, Mathf.RoundToInt(ax + px * w), Mathf.RoundToInt(ay + py * w), White);
+        }
+
+        // Two collar bands (slightly proud of the tube) for a segmented read.
+        foreach (float rf in new[] { 0.34f, 0.64f })
+        {
+            float ax = sx + dx * (rf * steps), ay = sy + dy * (rf * steps);
+            int   hw = 4 + (int)(rf * 8) + 2;
+            for (int w = -hw; w <= hw; w++)
+                Plot(img, Mathf.RoundToInt(ax + px * w), Mathf.RoundToInt(ay + py * w), Shadow);
+        }
+
+        // Objective lens cap at the wide end (bright rim + dark glass centre).
+        int ox = Mathf.RoundToInt(sx + dx * steps), oy = Mathf.RoundToInt(sy + dy * steps);
+        FilledDisc(img, ox, oy, 13, White);
+        FilledDisc(img, ox, oy, 6,  Shadow);
+        ApplyShadowHalf(img, cx, cy);
+    }
 
     // Round kite shield with a central boss and cross-brace.
     private static void DrawWarrior(Image img)

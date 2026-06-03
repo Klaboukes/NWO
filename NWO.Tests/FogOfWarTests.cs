@@ -88,7 +88,7 @@ public class FogOfWarTests
         var animPos = new Vector2I(5, 0);
         var overrides = new Dictionary<Unit, Vector2I> { [u] = animPos };
 
-        fog.Recompute(p, new[] { u }, new List<City>(), MakeMap(10, 10), 2, overrides);
+        fog.Recompute(p, new[] { u }, new List<City>(), MakeMap(10, 10), 2, animOverrides: overrides);
 
         Assert.Contains(animPos, fog.Visible);
         // The unit's authoritative position (0,0) should NOT be revealed when the

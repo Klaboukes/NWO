@@ -1,9 +1,15 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using NWO.Entities;
 using NWO.Map;
 
 namespace NWO.Core;
+
+// One player's slot in a new-match roster: which faction, and whether a human
+// controls it. The setup screen builds a list of these; GameFactory spawns one
+// player per entry. A null FactionId is a neutral/untyped slot.
+public record FactionChoice(string? FactionId, bool IsHuman);
 
 // Builds a fresh GameState for a new match: generates the map, adds the human +
 // AI players, and places their starting units (the AI is confined to the
@@ -16,36 +22,108 @@ public static class GameFactory
     public const int MapWidth  = 60;
     public const int MapHeight = 40;
 
-    private const int MinAISpawnDistance = 10;
+    // Owner tints, assigned by player index. Up to 8 players (FACTIONS.md roster cap).
+    private static readonly Color[] PlayerColors =
+    {
+        Colors.Blue, Colors.Red, Colors.Green, Colors.Gold,
+        Colors.MediumPurple, Colors.Orange, Colors.Cyan, Colors.HotPink,
+    };
 
     public record NewGameResult(GameState State, Player Viewer);
 
-    public static NewGameResult NewGame(int seed)
+    // The fallback when no setup roster is supplied (quick-start / legacy launch):
+    // today's human-vs-Reavers match.
+    public static IReadOnlyList<FactionChoice> DefaultRoster() => new[]
+    {
+        new FactionChoice(null, true),
+        new FactionChoice("reavers", false),
+    };
+
+    public static NewGameResult NewGame(int seed, IReadOnlyList<FactionChoice>? roster = null)
     {
         var map     = MapGenerator.Generate(MapWidth, MapHeight, seed);
         var catalog = DataCatalog.Load();
         var state   = new GameState(map, catalog, seed);
+        var viewer  = Populate(state, roster);
+        return new NewGameResult(state, viewer);
+    }
 
-        var viewer   = state.AddPlayer(new Player { Id = 0, Name = "Player",     IsHuman = true,  Color = Colors.Blue });
-        var aiPlayer = state.AddPlayer(new Player { Id = 1, Name = "Barbarians", IsHuman = false, Color = Colors.Red  });
-
-        var warriorDef = catalog.Unit("warrior")!;
+    // Spawns one player per roster entry into an already-built state and returns the
+    // viewer (the human). Separated from map generation so it's unit-testable headless
+    // (MapGenerator needs the Godot noise engine; this doesn't). Human(s) are placed
+    // first so the viewer lands at the map centre; the rest are spread by
+    // farthest-point sampling, confined to the centre's landmass for MVP.
+    public static Player Populate(GameState state, IReadOnlyList<FactionChoice>? roster)
+    {
+        var catalog    = state.Catalog;
+        var choices    = (roster == null || roster.Count == 0) ? DefaultRoster() : roster;
+        var scoutDef   = catalog.Unit("scout")!;
         var settlerDef = catalog.Unit("settler")!;
 
-        var startPos = state.FindWalkableTileNear(MapCenterAxial());
-        state.Units.Add(new Unit(warriorDef, viewer, startPos));
-        state.Units.Add(new Unit(settlerDef, viewer,
-            state.FindWalkableTileNear(new Vector2I(startPos.X + 3, startPos.Y))));
+        var ordered  = choices.OrderByDescending(c => c.IsHuman).ToList();
+        var center   = state.FindWalkableTileNear(MapCenterAxial());
+        var landmass = state.GetConnectedLandmass(center);
+        // Normalize the viewer's start: keep it central, but slide to the most fertile
+        // tile within a short radius so the human never opens on a barren pocket.
+        center       = MostFertileNear(state, center, NormalizeRadius, landmass);
+        var placed   = new List<Vector2I>();
+        Player? viewer = null;
 
-        // Confine the AI to the player's landmass for MVP. Cross-continent /
-        // island AI is a Post-MVP concern (needs naval movement).
-        var landmass       = state.GetConnectedLandmass(startPos);
-        var aiStart        = PickAISpawn(startPos, landmass);
-        var aiSettlerStart = FindNeighborOnLandmass(aiStart, landmass) ?? aiStart;
-        state.Units.Add(new Unit(warriorDef, aiPlayer, aiStart));
-        state.Units.Add(new Unit(settlerDef, aiPlayer, aiSettlerStart));
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            var choice = ordered[i];
+            var start  = placed.Count == 0 ? center : PickSpawn(state, placed, landmass);
+            placed.Add(start);
 
-        return new NewGameResult(state, viewer);
+            var player = state.AddPlayer(MakePlayer(i, choice, catalog));
+            if (choice.IsHuman) viewer ??= player;
+
+            state.Units.Add(new Unit(scoutDef, player, start));
+            state.Units.Add(new Unit(settlerDef, player, FindNeighborOnLandmass(start, landmass) ?? start));
+        }
+
+        PlaceKeySites(state, placed, landmass);
+        return viewer ?? state.Players[0];
+    }
+
+    private const int KeySiteCount = 3;
+
+    // Drops the objective sites onto contested ground: foundable tiles spread by
+    // farthest-point sampling from the player spawns (and each other), so they sit
+    // between players rather than in anyone's lap.
+    private static void PlaceKeySites(GameState state, List<Vector2I> spawns, HashSet<Vector2I> landmass)
+    {
+        state.Map.KeySites.Clear();
+        var anchors = new List<Vector2I>(spawns);
+        for (int i = 0; i < KeySiteCount; i++)
+        {
+            Vector2I best    = anchors.Count > 0 ? anchors[0] : Vector2I.Zero;
+            int      bestMin = -1;
+            foreach (var tile in landmass)
+            {
+                if (!TerrainYields.CanFoundCityOn(state.Map.Tiles.GetValueOrDefault(tile, TerrainType.Ocean)))
+                    continue;
+                int minD = MinDistance(anchors, tile);
+                if (minD > bestMin) { bestMin = minD; best = tile; }
+            }
+            if (bestMin < 0) break; // no foundable land left
+            state.Map.KeySites.Add(best);
+            anchors.Add(best);
+        }
+    }
+
+    private static Player MakePlayer(int index, FactionChoice choice, DataCatalog catalog)
+    {
+        var faction = choice.FactionId != null ? catalog.Faction(choice.FactionId) : null;
+        string name = faction?.Name ?? (choice.IsHuman ? "Player" : "Independents");
+        return new Player
+        {
+            Id        = index,
+            Name      = name,
+            IsHuman   = choice.IsHuman,
+            Color     = PlayerColors[index % PlayerColors.Length],
+            FactionId = choice.FactionId,
+        };
     }
 
     public static Vector2I MapCenterAxial()
@@ -55,28 +133,78 @@ public static class GameFactory
         return new Vector2I(col, row - (col - (col & 1)) / 2);
     }
 
-    // Picks an AI starting tile on `landmass` (the player's continent).
-    // Preference order:
-    //   1. Tiles at least MinAISpawnDistance away (avoids spawning adjacent).
-    //   2. Whatever's farthest if the island is too small for that rule.
-    // Falls back to playerStart only if the landmass is empty (player landed
-    // on a lone unwalkable tile — shouldn't happen in practice).
-    private static Vector2I PickAISpawn(Vector2I playerStart, HashSet<Vector2I> landmass)
+    // Start-normalization tuning (Civ-5 "fertility floor" + impact-and-ripple).
+    private const int NormalizeRadius = 3;  // how far the viewer start may slide toward fertility
+    private const int FertilityFloor  = 14; // min work-radius yield sum for a viable start
+
+    // Picks the next spawn on `landmass` by impact-and-ripple: farthest-point sampling
+    // (the tile whose nearest already-placed start is as far as possible) restricted to
+    // tiles that clear the fertility floor. If nothing clears it (barren/small island),
+    // falls back to pure spacing so a spawn is always returned.
+    private static Vector2I PickSpawn(GameState state, List<Vector2I> placed, HashSet<Vector2I> landmass)
     {
-        if (landmass.Count == 0) return playerStart;
+        if (landmass.Count == 0) return placed.Count > 0 ? placed[0] : Vector2I.Zero;
 
-        Vector2I best        = playerStart;
-        int      bestDist    = -1;
-        Vector2I farFromMin  = playerStart;
-        int      farFromMinD = -1;
-
+        Vector2I best     = placed[0];
+        int      bestMin  = -1;
+        double   bestFert = -1;
         foreach (var tile in landmass)
         {
-            int d = HexGrid.Distance(playerStart, tile);
-            if (d > farFromMinD) { farFromMinD = d; farFromMin = tile; }
-            if (d >= MinAISpawnDistance && d > bestDist) { bestDist = d; best = tile; }
+            if (Fertility(state, tile) < FertilityFloor) continue;
+            int minD = MinDistance(placed, tile);
+            double fert = Fertility(state, tile);
+            // Maximize spacing; break ties toward the more fertile site.
+            if (minD > bestMin || (minD == bestMin && fert > bestFert))
+            {
+                bestMin = minD; bestFert = fert; best = tile;
+            }
         }
-        return bestDist >= 0 ? best : farFromMin;
+        if (bestMin >= 0) return best;
+
+        // Nothing met the floor — spread purely by distance.
+        foreach (var tile in landmass)
+        {
+            int minD = MinDistance(placed, tile);
+            if (minD > bestMin) { bestMin = minD; best = tile; }
+        }
+        return best;
+    }
+
+    private static int MinDistance(List<Vector2I> placed, Vector2I tile)
+    {
+        int min = int.MaxValue;
+        foreach (var p in placed) min = System.Math.Min(min, HexGrid.Distance(p, tile));
+        return min;
+    }
+
+    // Sum of food+production over a candidate's work radius — the Civ-5 fertility
+    // proxy (mirrors AIController.SiteScore). Ignores ownership/units (start of game).
+    private static double Fertility(GameState state, Vector2I center)
+    {
+        double sum = 0;
+        foreach (var tile in HexGrid.GetRange(center, CityWorkforceService.WorkRadius))
+        {
+            if (!state.Map.Tiles.TryGetValue(tile, out var terrain)) continue;
+            sum += TerrainYields.Food(terrain) + TerrainYields.Production(terrain);
+            var feat = state.Map.FeatureAt(tile);
+            sum += FeatureYields.Food(feat) + FeatureYields.Production(feat);
+        }
+        return sum;
+    }
+
+    // The most fertile walkable tile within `radius` of `origin` (same landmass).
+    // Used to nudge the viewer's central start onto viable ground.
+    private static Vector2I MostFertileNear(GameState state, Vector2I origin, int radius, HashSet<Vector2I> landmass)
+    {
+        Vector2I best = origin;
+        double   bestFert = Fertility(state, origin);
+        foreach (var tile in HexGrid.GetRange(origin, radius))
+        {
+            if (!landmass.Contains(tile)) continue;
+            double fert = Fertility(state, tile);
+            if (fert > bestFert) { bestFert = fert; best = tile; }
+        }
+        return best;
     }
 
     // Walkable neighbour of `tile` that's on the same landmass, used to place

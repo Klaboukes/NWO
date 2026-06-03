@@ -24,6 +24,7 @@ public class GameState
     public MapData     Map         { get; }
     public DataCatalog Catalog     { get; }
     public TurnManager TurnManager { get; } = new();
+    public Diplomacy   Diplomacy   { get; } = new();
 
     public List<Player> Players { get; } = new();
     public List<Unit>   Units   { get; } = new();
@@ -75,11 +76,17 @@ public class GameState
     public Civilization Civ(Player player) => _civs[player];
 
     public void RecomputeFog(Player player, IReadOnlyDictionary<Unit, Vector2I>? animOverrides = null)
-        => _fog[player].Recompute(player, Units, Cities, Map, CitySightRadius, animOverrides);
+        => _fog[player].Recompute(player, Units, Cities, Map, CitySightRadius,
+                                  Catalog.FactionOf(player).SightBonus, animOverrides);
 
     // ── City founding ────────────────────────────────────────────────────────
 
     public enum FoundCityResult { Success, BadTerrain, TooClose }
+
+    // Per-player settle spacing: the base minimum plus the founder faction's delta
+    // (Free Settlements packs tighter). Floored at 2 so cities never overlap work tiles.
+    public int EffectiveMinCityDistance(Player player)
+        => Math.Max(2, MinCityDistance + Catalog.FactionOf(player).MinCityDistanceDelta);
 
     public FoundCityResult TryFoundCity(Unit settler, out City? city)
     {
@@ -88,8 +95,9 @@ public class GameState
         var terrain = Map.Tiles.GetValueOrDefault(pos, TerrainType.Ocean);
         if (!TerrainYields.CanFoundCityOn(terrain))
             return FoundCityResult.BadTerrain;
+        int minDist = EffectiveMinCityDistance(settler.Owner);
         foreach (var existing in Cities)
-            if (HexGrid.Distance(existing.Position, pos) < MinCityDistance)
+            if (HexGrid.Distance(existing.Position, pos) < minDist)
                 return FoundCityResult.TooClose;
 
         // The first city a player founds is its capital (Phase 6 domination
@@ -99,12 +107,32 @@ public class GameState
         Units.Remove(settler);
         city = new City(NextCityName(), settler.Owner, pos) { IsCapital = isCapital };
         Cities.Add(city);
+        SpawnNewCityDefender(city);
         CityWorkforceService.Recompute(this, city);
         // Founding a new city can shift tile control near neighbours.
         foreach (var other in Cities)
             if (other != city && HexGrid.Distance(other.Position, pos) <= CityWorkforceService.WorkRadius * 2)
                 CityWorkforceService.Recompute(this, other);
         return FoundCityResult.Success;
+    }
+
+    // The Free Settlements faction's new cities are born with a defender. Spawns the
+    // cheapest tech/resource-free combat unit (faction-resolved, so the Pioneer's
+    // militia identity carries through), placed on the new city tile.
+    private void SpawnNewCityDefender(City city)
+    {
+        if (!Catalog.FactionOf(city.Owner).Traits.Contains("new_city_defender")) return;
+
+        UnitData? best = null;
+        foreach (var u in Catalog.Units)
+        {
+            if (u.Defense <= 0 || u.RequiredTech != null || u.RequiredResource != null) continue;
+            if (best == null || u.ProductionCost < best.ProductionCost) best = u;
+        }
+        if (best == null) return;
+
+        var def = Catalog.Unit(Catalog.ResolveUnitForFaction(best.Id, city.Owner)) ?? best;
+        Units.Add(new Unit(def, city.Owner, city.Position));
     }
 
     // ── Combat ───────────────────────────────────────────────────────────────
@@ -116,13 +144,15 @@ public class GameState
     public AttackResult TryAttack(Unit attacker, Unit defender)
     {
         if (attacker.Owner == defender.Owner)                     return Invalid();
+        if (!Diplomacy.CanAttack(attacker.Owner.Id, defender.Owner.Id)) return Invalid();
         if (attacker.MovementRemaining <= 0)                      return Invalid();
         int dist = HexGrid.Distance(attacker.Position, defender.Position);
         if (dist <= 0 || dist > attacker.Data.Range)              return Invalid();
         if (attacker.Data.Attack <= 0)                            return Invalid();
 
         bool isRanged = attacker.Data.Range >= 2;
-        var  combat   = CombatResolver.Resolve(attacker, defender, _combatRng, isRanged);
+        var  combat   = CombatResolver.Resolve(
+            EffectiveAttack(attacker), attacker.HP, EffectiveDefense(defender), defender.HP, _combatRng, isRanged);
 
         attacker.HP -= combat.AttackerDamage;
         defender.HP -= combat.DefenderDamage;
@@ -130,8 +160,8 @@ public class GameState
         bool attackerDead = attacker.HP <= 0;
         bool defenderDead = defender.HP <= 0;
 
-        if (attackerDead) Units.Remove(attacker);
-        if (defenderDead) Units.Remove(defender);
+        if (attackerDead) Units.Remove(attacker); else GrantCombatXp(attacker);
+        if (defenderDead) Units.Remove(defender); else GrantCombatXp(defender);
 
         attacker.MovementRemaining = 0;
         attacker.ActedThisTurn     = true;
@@ -158,6 +188,7 @@ public class GameState
     public CityAttackResult TryAttackCity(Unit attacker, City city)
     {
         if (attacker.Owner == city.Owner)            return InvalidCity();
+        if (!Diplomacy.CanAttack(attacker.Owner.Id, city.Owner.Id)) return InvalidCity();
         if (attacker.MovementRemaining <= 0)         return InvalidCity();
         if (attacker.Data.Attack <= 0)               return InvalidCity();
         if (city.HP <= 0)                            return InvalidCity(); // already conquerable
@@ -165,16 +196,16 @@ public class GameState
         if (dist <= 0 || dist > attacker.Data.Range) return InvalidCity();
 
         bool isRanged    = attacker.Data.Range >= 2;
-        int  defStrength = city.CityDefenseStrength + GarrisonDefense(city);
+        int  defStrength = CityDefenseTotal(city);
         var  combat      = CombatResolver.Resolve(
-            attacker.Data.Attack, attacker.HP, defStrength, city.HP, _combatRng, isRanged);
+            EffectiveAttack(attacker), attacker.HP, defStrength, city.HP, _combatRng, isRanged);
 
         city.HP                = Math.Max(0, city.HP - combat.DefenderDamage);
         city.AttackedSinceTurn = true;
         attacker.HP           -= combat.AttackerDamage;
 
         bool attackerDead = attacker.HP <= 0;
-        if (attackerDead) Units.Remove(attacker);
+        if (attackerDead) Units.Remove(attacker); else GrantCombatXp(attacker);
 
         attacker.MovementRemaining = 0;
         attacker.ActedThisTurn     = true;
@@ -193,6 +224,30 @@ public class GameState
             if (u.Owner == city.Owner && u.Position == city.Position)
                 best = Math.Max(best, u.Data.Defense);
         return best;
+    }
+
+    // ── Faction-modified combat (Phase 10) ─────────────────────────────────────
+    // The faction modifier bag is resolved here, at the one layer that holds both
+    // the Catalog and the owning Player, so CombatResolver/City stay pure.
+
+    private const int CombatXpPerFight = 6;
+
+    private double CombatStrengthFactor(Unit u)
+        => Catalog.FactionOf(u.Owner).CombatStrengthMult * u.VeterancyMult;
+
+    private int EffectiveAttack(Unit u)  => Math.Max(1, (int)Math.Round(u.Data.Attack  * CombatStrengthFactor(u)));
+    private int EffectiveDefense(Unit u) => Math.Max(1, (int)Math.Round(u.Data.Defense * CombatStrengthFactor(u)));
+
+    private void GrantCombatXp(Unit u)
+        => u.Experience += Math.Max(1, (int)Math.Round(CombatXpPerFight * Catalog.FactionOf(u.Owner).XpGainMult));
+
+    // Effective defensive strength of a city under assault: intrinsic + garrison +
+    // the owner faction's fortress-capital bonus (capital only). Single source of
+    // truth for both TryAttackCity and the AI's city-attack scoring.
+    public int CityDefenseTotal(City city)
+    {
+        int bonus = city.IsCapital ? Catalog.FactionOf(city.Owner).CityDefenseBonus : 0;
+        return city.CityDefenseStrength + GarrisonDefense(city) + bonus;
     }
 
     // Transfer a city to the captor's player. Captor's own movement bookkeeping
@@ -236,7 +291,7 @@ public class GameState
 
             if (city.ProductionItem != null)
             {
-                int cost = Catalog.ItemCost(city.ProductionItem);
+                int cost = EffectiveItemCost(city.Owner, city.ProductionItem);
                 string? done = city.AdvanceProduction(cost);
                 if (done != null)
                 {
@@ -246,7 +301,8 @@ public class GameState
                 }
             }
 
-            city.RegenIfUnharassed();
+            double regenMult = city.IsCapital ? Catalog.FactionOf(city.Owner).CityRegenMult : 1.0;
+            city.RegenIfUnharassed(regenMult);
         }
 
         foreach (var unit in Units)
@@ -271,7 +327,11 @@ public class GameState
     // or next to a friendly city. Called before ResetForNewTurn clears ActedThisTurn.
     private void HealUnit(Unit unit, Player player)
     {
-        if (unit.ActedThisTurn || unit.HP >= Unit.MaxHP) return;
+        // Iron Pact's "heal in enemy land": its units recover even after fighting
+        // this turn, so an offensive keeps its strength up mid-campaign. Other
+        // factions only heal when they didn't act.
+        bool healsAfterActing = Catalog.FactionOf(player).HealInEnemyLand;
+        if ((unit.ActedThisTurn && !healsAfterActing) || unit.HP >= Unit.MaxHP) return;
         int heal = UnitHealPerTurn;
         if (Cities.Exists(c => c.Owner == player && HexGrid.Distance(c.Position, unit.Position) <= 1))
             heal += UnitHealNearCityBonus;
@@ -328,7 +388,9 @@ public class GameState
         switch (kind)
         {
             case "unit":
-                var udef = Catalog.Unit(id);
+                // Unique-unit swap: the owner faction may field a variant of the
+                // queued base unit (UI/AI keep speaking in base ids).
+                var udef = Catalog.Unit(Catalog.ResolveUnitForFaction(id, city.Owner));
                 if (udef != null) Units.Add(new Unit(udef, city.Owner, city.Position));
                 break;
             case "building":
@@ -342,6 +404,18 @@ public class GameState
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    // Production cost of a build item for a specific owner, applying the faction's
+    // settle discount to settler-class units (Free Settlements builds settlers fast).
+    public int EffectiveItemCost(Player owner, string item)
+    {
+        int cost = Catalog.ItemCost(item);
+        if (cost == int.MaxValue) return cost;
+        var (kind, id) = DataCatalog.SplitItem(item);
+        if (kind == "unit" && Catalog.Unit(Catalog.ResolveUnitForFaction(id, owner))?.Special == "found_city")
+            cost = Math.Max(1, (int)Math.Round(cost * Catalog.FactionOf(owner).SettleCostMult));
+        return cost;
+    }
+
     public int MovementCost(Vector2I axial)
     {
         if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
@@ -354,6 +428,19 @@ public class GameState
         if (Map.ImprovementAt(axial) == ImprovementType.Road)
             cost = Math.Max(1, cost / 2);
         return cost;
+    }
+
+    // Movement cost to enter `axial` for a specific unit. A unit that ignores
+    // terrain cost (Scout) pays a flat 1 for any passable tile; impassable tiles
+    // (Mountain/Ocean) stay impassable for everyone.
+    public int MovementCost(Vector2I axial, Unit unit)
+    {
+        int cost = MovementCost(axial);
+        if (cost == int.MaxValue)         return cost;
+        if (unit.Data.IgnoresTerrainCost) return 1;
+        // Voyagers' reduced terrain costs scale every tile's entry cost (min 1).
+        double mult = Catalog.FactionOf(unit.Owner).TerrainCostMult;
+        return Math.Max(1, (int)Math.Round(cost * mult));
     }
 
     public Vector2I FindWalkableTileNear(Vector2I origin)

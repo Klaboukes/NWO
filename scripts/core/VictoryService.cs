@@ -6,16 +6,18 @@ namespace NWO.Core;
 // testable without a scene: GameSession.EndTurn calls Evaluate after the AI loop
 // and surfaces the result; the scene routes to the victory screen when it's set.
 //
-// Two ways a game ends:
+// Three ways a game ends:
+//   • Objective  — one player holds every key site ("Establish the New World Order").
 //   • Domination — every rival has been eliminated; the lone survivor wins.
-//   • Score      — at turn 500 the game is called and the highest score wins.
+//   • Score      — at the turn cap the game is called and the highest score wins.
 public static class VictoryService
 {
     // The game is force-scored at the start of this turn if nobody has won by
-    // domination yet (Civ-5-style turn limit).
-    public const int ScoreVictoryTurn = 500;
+    // objective or domination yet. Phase 10.5 shortened this from the MVP's 500 so
+    // the faction war resolves decisively.
+    public const int ScoreVictoryTurn = 250;
 
-    public enum VictoryType { Domination, Score }
+    public enum VictoryType { Objective, Domination, Score }
 
     public record GameResult(Player Winner, VictoryType Type, int Score);
 
@@ -37,6 +39,11 @@ public static class VictoryService
     // single player is left standing.
     public static GameResult? Evaluate(GameState state)
     {
+        // Objective victory can fire on any turn: one player holding every key site.
+        foreach (var p in state.Players)
+            if (KeySiteService.ControlsAll(state, p))
+                return new GameResult(p, VictoryType.Objective, ScoreService.Score(state, p));
+
         if (state.Players.Count > 1)
         {
             Player? survivor = null;

@@ -17,4 +17,8 @@ public static class GameLaunch
     // NewGameSeed (or a random seed when null). WorldMap clears both once read.
     public static GameState? LoadedGame  { get; set; }
     public static int?       NewGameSeed { get; set; }
+
+    // The faction roster chosen on the setup screen (Phase 10.2). Null falls back to
+    // GameFactory.DefaultRoster (human vs Reavers). Cleared by WorldMap once read.
+    public static System.Collections.Generic.IReadOnlyList<FactionChoice>? NewGameRoster { get; set; }
 }

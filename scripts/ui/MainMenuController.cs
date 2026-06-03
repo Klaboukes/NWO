@@ -25,12 +25,9 @@ public partial class MainMenuController : Control
 
     private static void Click() => AudioManager.Instance?.Play(Sfx.Click);
 
-    private void OnNewGame()
-    {
-        GameLaunch.LoadedGame  = null;
-        GameLaunch.NewGameSeed = (int)GD.Randi();
-        GetTree().ChangeSceneToFile(Scenes.World);
-    }
+    // New Game opens the faction-setup screen (Phase 10.2); that screen builds the
+    // roster and launches WorldMap.
+    private void OnNewGame() => GetTree().ChangeSceneToFile(Scenes.FactionSetup);
 
     private void OnLoadGame() => _browser.Open(saveMode: false);
 

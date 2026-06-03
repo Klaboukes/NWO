@@ -25,6 +25,7 @@ public class FogOfWar
         IEnumerable<City> cities,
         MapData map,
         int citySightRadius,
+        int unitSightBonus = 0,
         IReadOnlyDictionary<Unit, Vector2I>? animOverrides = null)
     {
         Visible.Clear();
@@ -34,7 +35,8 @@ public class FogOfWar
             if (unit.Owner != owner) continue;
             var origin = animOverrides != null && animOverrides.TryGetValue(unit, out var p)
                 ? p : unit.Position;
-            Reveal(origin, unit.Data.Sight, map);
+            // Voyagers see farther: faction sight bonus adds to every unit's range.
+            Reveal(origin, unit.Data.Sight + unitSightBonus, map);
         }
 
         foreach (var city in cities)

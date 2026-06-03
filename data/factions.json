@@ -1,0 +1,61 @@
+{
+  "factions": [
+    {
+      "id": "dominion",
+      "name": "The Dominion",
+      "tree": "Tradition",
+      "cityDefenseBonus": 4,
+      "cityRegenMult": 1.5,
+      "capitalProductionBonus": 2,
+      "unitVariants": { "spearman": "palace_guard" }
+    },
+    {
+      "id": "free_settlements",
+      "name": "The Free Settlements",
+      "tree": "Liberty",
+      "settleCostMult": 0.66,
+      "minCityDistanceDelta": -1,
+      "traits": [ "new_city_defender" ],
+      "unitVariants": { "settler": "pioneer" }
+    },
+    {
+      "id": "iron_pact",
+      "name": "The Iron Pact",
+      "tree": "Honor",
+      "combatStrengthMult": 1.15,
+      "xpGainMult": 2.0,
+      "healInEnemyLand": true,
+      "unitVariants": { "warrior": "legionary" }
+    },
+    {
+      "id": "syndicate",
+      "name": "The Syndicate",
+      "tree": "Commerce",
+      "goldMult": 1.25,
+      "rushBuyDiscount": 0.33,
+      "traits": [ "can_hire_reavers" ],
+      "unitVariants": { "warrior": "mercenary" }
+    },
+    {
+      "id": "cognate",
+      "name": "The Cognate",
+      "tree": "Rationalism",
+      "scienceMult": 1.25,
+      "unitVariants": { "archer": "drone" }
+    },
+    {
+      "id": "voyagers",
+      "name": "The Voyagers",
+      "tree": "Exploration",
+      "sightBonus": 1,
+      "terrainCostMult": 0.5,
+      "unitVariants": { "scout": "ranger" }
+    },
+    {
+      "id": "reavers",
+      "name": "The Reavers",
+      "tree": "",
+      "combatStrengthMult": 1.1
+    }
+  ]
+}

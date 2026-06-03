@@ -36,6 +36,13 @@ public static class DataLoader
         return file?.Techs ?? new List<TechData>();
     }
 
+    public static List<FactionData> LoadFactions()
+    {
+        var json = ReadResFile("res://data/factions.json");
+        var file = JsonSerializer.Deserialize<FactionsFile>(json, Options);
+        return file?.Factions ?? new List<FactionData>();
+    }
+
     private static string ReadResFile(string resPath)
     {
         using var file = FileAccess.Open(resPath, FileAccess.ModeFlags.Read);
@@ -59,5 +66,10 @@ public static class DataLoader
     private class TechsFile
     {
         public List<TechData> Techs { get; set; } = new();
+    }
+
+    private class FactionsFile
+    {
+        public List<FactionData> Factions { get; set; } = new();
     }
 }

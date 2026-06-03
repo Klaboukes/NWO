@@ -37,6 +37,14 @@ public static class SaveSerializer
         public List<UnitDto>    Units              { get; set; } = new();
         public List<CityDto>    Cities             { get; set; } = new();
         public List<FogDto>     Fog                { get; set; } = new();
+        public List<DiploDto>   Diplomacy          { get; set; } = new();
+    }
+
+    public sealed class DiploDto
+    {
+        public int              A      { get; set; }
+        public int              B      { get; set; }
+        public DiplomaticStance Stance { get; set; }
     }
 
     public sealed class SaveHeaderDto
@@ -55,6 +63,7 @@ public static class SaveSerializer
         public Dictionary<Vector2I, ImprovementType> Improvements { get; set; } = new();
         public Dictionary<Vector2I, Feature>         Features     { get; set; } = new();
         public List<RiverEdgeDto>                    Rivers       { get; set; } = new();
+        public List<Vector2I>                        KeySites     { get; set; } = new();
     }
 
     public sealed class RiverEdgeDto
@@ -65,10 +74,11 @@ public static class SaveSerializer
 
     public sealed class PlayerDto
     {
-        public int      Id      { get; set; }
-        public string   Name    { get; set; } = "";
-        public bool     IsHuman { get; set; }
-        public ColorDto Color   { get; set; } = new();
+        public int      Id        { get; set; }
+        public string   Name      { get; set; } = "";
+        public bool     IsHuman   { get; set; }
+        public ColorDto Color     { get; set; } = new();
+        public string?  FactionId { get; set; }
     }
 
     public sealed class ColorDto
@@ -99,6 +109,7 @@ public static class SaveSerializer
         public bool                 ActedThisTurn     { get; set; }
         public bool                 SkippedThisTurn   { get; set; }
         public bool                 SleepUntilHealed  { get; set; }
+        public int                  Experience        { get; set; }
         public ImprovementTaskDto?  Task              { get; set; }
     }
 
@@ -158,13 +169,15 @@ public static class SaveSerializer
                 Features     = new(state.Map.Features),
                 Rivers       = state.Map.Rivers
                     .Select(e => new RiverEdgeDto { Tile = e.Tile, Dir = e.Dir }).ToList(),
+                KeySites     = state.Map.KeySites.ToList(),
             },
             Players = state.Players.Select(p => new PlayerDto
             {
-                Id      = p.Id,
-                Name    = p.Name,
-                IsHuman = p.IsHuman,
-                Color   = new ColorDto { R = p.Color.R, G = p.Color.G, B = p.Color.B, A = p.Color.A },
+                Id        = p.Id,
+                Name      = p.Name,
+                IsHuman   = p.IsHuman,
+                Color     = new ColorDto { R = p.Color.R, G = p.Color.G, B = p.Color.B, A = p.Color.A },
+                FactionId = p.FactionId,
             }).ToList(),
             Civs = state.Players.Select(p =>
             {
@@ -189,6 +202,7 @@ public static class SaveSerializer
                 ActedThisTurn     = u.ActedThisTurn,
                 SkippedThisTurn   = u.SkippedThisTurn,
                 SleepUntilHealed  = u.SleepUntilHealed,
+                Experience        = u.Experience,
                 Task              = u.CurrentTask is { } t
                     ? new ImprovementTaskDto { Tile = t.Tile, Type = t.Type, TurnsRemaining = t.TurnsRemaining }
                     : null,
@@ -214,6 +228,8 @@ public static class SaveSerializer
                 OwnerId    = p.Id,
                 Discovered = state.Fog(p).Discovered.ToList(),
             }).ToList(),
+            Diplomacy = state.Diplomacy.Entries()
+                .Select(e => new DiploDto { A = e.A, B = e.B, Stance = e.Stance }).ToList(),
         };
 
         return JsonSerializer.Serialize(dto, Options);
@@ -235,6 +251,7 @@ public static class SaveSerializer
         foreach (var (pos, i) in dto.Map.Improvements) map.Improvements[pos] = i;
         foreach (var (pos, f) in dto.Map.Features)     map.Features[pos]     = f;
         foreach (var e in dto.Map.Rivers)              map.Rivers.Add((e.Tile, e.Dir));
+        foreach (var s in dto.Map.KeySites)            map.KeySites.Add(s);
 
         var state    = new GameState(map, catalog, dto.CombatSeed);
         var byId      = new Dictionary<int, Player>();
@@ -242,10 +259,11 @@ public static class SaveSerializer
         {
             var player = state.AddPlayer(new Player
             {
-                Id      = pd.Id,
-                Name    = pd.Name,
-                IsHuman = pd.IsHuman,
-                Color   = new Color(pd.Color.R, pd.Color.G, pd.Color.B, pd.Color.A),
+                Id        = pd.Id,
+                Name      = pd.Name,
+                IsHuman   = pd.IsHuman,
+                Color     = new Color(pd.Color.R, pd.Color.G, pd.Color.B, pd.Color.A),
+                FactionId = pd.FactionId,
             });
             byId[pd.Id] = player;
         }
@@ -272,6 +290,7 @@ public static class SaveSerializer
                 ActedThisTurn     = ud.ActedThisTurn,
                 SkippedThisTurn   = ud.SkippedThisTurn,
                 SleepUntilHealed  = ud.SleepUntilHealed,
+                Experience        = ud.Experience,
                 CurrentTask       = ud.Task is { } t
                     ? new ImprovementTask(t.Tile, t.Type, t.TurnsRemaining)
                     : null,
@@ -302,6 +321,9 @@ public static class SaveSerializer
             var discovered = state.Fog(byId[fd.OwnerId]).Discovered;
             foreach (var tile in fd.Discovered) discovered.Add(tile);
         }
+
+        foreach (var d in dto.Diplomacy)
+            state.Diplomacy.Set(d.A, d.B, d.Stance);
 
         state.RestoreTurnPointer(dto.TurnNumber, dto.CurrentPlayerIndex, dto.NextCityName);
 

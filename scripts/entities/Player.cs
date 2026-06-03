@@ -10,4 +10,8 @@ public record Player
     public string Name    { get; init; } = "";
     public bool   IsHuman { get; init; }
     public Color  Color   { get; init; } = Colors.White;
+
+    // Faction identity (id into data/factions.json). Null = no faction / neutral —
+    // resolves to FactionData.Neutral via DataCatalog.FactionOf (legacy saves, untyped AI).
+    public string? FactionId { get; init; }
 }

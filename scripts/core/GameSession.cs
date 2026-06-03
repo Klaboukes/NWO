@@ -60,7 +60,7 @@ public class GameSession
 
         int cost = 0;
         for (int i = 1; i < path.Count; i++)
-            cost += State.MovementCost(path[i]);
+            cost += State.MovementCost(path[i], unit);
 
         unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - cost);
         unit.Position          = path[^1];
@@ -86,11 +86,13 @@ public class GameSession
         var enemyCity = State.Cities.Find(c => c.Position == tile && c.Owner != unit.Owner);
         if (enemyCity != null && !(enemyCity.IsConquerable && CanCapture(unit)))
             return int.MaxValue;
-        return State.MovementCost(tile);
+        return State.MovementCost(tile, unit);
     }
 
-    // Only melee combat units (Attack > 0, not ranged) may capture a city.
-    public static bool CanCapture(Unit unit) => unit.Data.Attack > 0 && unit.Data.Range < 2;
+    // Only melee combat units (Attack > 0, not ranged) may capture a city, and
+    // only if their type allows it — the Scout is a recon unit that can't take cities.
+    public static bool CanCapture(Unit unit) =>
+        unit.Data.Attack > 0 && unit.Data.Range < 2 && unit.Data.CanCaptureCities;
 
     // Applied by the scene when the move animation finishes; tests call inline.
     public void ResolveCapture(Unit captor, City city)

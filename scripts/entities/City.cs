@@ -52,10 +52,12 @@ public class City : IEndTurnItem
     // End-of-owner-turn regen: heal unless the city was attacked since the owner's
     // previous turn. Clears the flag so attacks during the coming enemy turns are
     // what gate the next regen.
-    public void RegenIfUnharassed()
+    // regenMult scales the heal for factions whose capital regenerates faster
+    // (Dominion); the caller passes 1.0 for ordinary cities.
+    public void RegenIfUnharassed(double regenMult = 1.0)
     {
         if (!AttackedSinceTurn && HP < MaxHP)
-            HP = System.Math.Min(MaxHP, HP + RegenPerTurn);
+            HP = System.Math.Min(MaxHP, HP + (int)System.Math.Round(RegenPerTurn * regenMult));
         AttackedSinceTurn = false;
     }
 

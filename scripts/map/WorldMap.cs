@@ -103,12 +103,13 @@ public partial class WorldMap : Node3D
         {
             int seed = GameLaunch.NewGameSeed ?? (int)GD.Randi();
             GD.Print($"Map seed: {seed}  (pass to MapGenerator.Generate to reproduce)");
-            var (state, viewer) = GameFactory.NewGame(seed);
+            var (state, viewer) = GameFactory.NewGame(seed, GameLaunch.NewGameRoster);
             _state        = state;
             _viewerPlayer = viewer;
         }
         GameLaunch.LoadedGame  = null;
         GameLaunch.NewGameSeed = null;
+        GameLaunch.NewGameRoster = null;
     }
 
     // ── Save / load / menu (HUD pause overlay) ─────────────────────────────────

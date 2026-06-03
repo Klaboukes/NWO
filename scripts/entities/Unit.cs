@@ -22,6 +22,28 @@ public class Unit : IEndTurnItem
     public bool     SkippedThisTurn   { get; set; } // [Space] skip — done this turn, but still heals
     public bool     SleepUntilHealed  { get; set; } // [H] fortify until HP is full, then auto-wake
 
+    // Combat veterancy (Phase 10). XP accrues on surviving combat (GameState.TryAttack /
+    // TryAttackCity), faster for factions with FactionData.XpGainMult > 1 (Iron Pact).
+    // Each level grants a flat combat-strength bonus applied in the combat seam.
+    public int      Experience        { get; set; }
+
+    // XP thresholds for levels 1..3. Level is the count crossed; capped at 3.
+    private static readonly int[] LevelThresholds = { 15, 45, 90 };
+
+    public int Level
+    {
+        get
+        {
+            int level = 0;
+            foreach (var t in LevelThresholds)
+                if (Experience >= t) level++;
+            return level;
+        }
+    }
+
+    // Combat-strength multiplier from veterancy: +10% per level (max +30%).
+    public double VeterancyMult => 1.0 + 0.10 * Level;
+
     // Worker only: the improvement being built. Non-null while busy; cleared when
     // the build completes or the unit is given a different order (e.g. a move).
     public ImprovementTask? CurrentTask { get; set; }

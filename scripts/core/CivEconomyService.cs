@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Godot;
 using NWO.Entities;
 using NWO.Map;
 
@@ -47,7 +48,8 @@ public static class CivEconomyService
                 if (bdef != null) science += bdef.Yields.Science;
             }
         }
-        return science;
+        // The Cognate reaches each tech tier sooner.
+        return (int)System.Math.Round(science * state.Catalog.FactionOf(player).ScienceMult);
     }
 
     public static int GoldPerTurn(GameState state, Player player)
@@ -73,6 +75,10 @@ public static class CivEconomyService
                 if (bdef != null) income += bdef.Yields.Gold;
             }
         }
+        // The Syndicate's high gold income scales gross trade/building income
+        // (maintenance is unaffected — upkeep still costs full price).
+        income = (int)System.Math.Round(income * state.Catalog.FactionOf(player).GoldMult);
+
         int maintenance = 0;
         foreach (var unit in state.Units)
         {
@@ -89,9 +95,35 @@ public static class CivEconomyService
     public static int BuyCost(GameState state, City city)
     {
         if (city.ProductionItem == null) return 0;
-        int cost      = state.Catalog.ItemCost(city.ProductionItem);
+        int cost      = state.EffectiveItemCost(city.Owner, city.ProductionItem);
         int remaining = System.Math.Max(0, cost - city.ProductionProgress);
-        return remaining * GoldPerProduction;
+        if (remaining == 0) return 0;
+        // The Syndicate rush-buys cheaply (RushBuyDiscount in 0..1).
+        double discount = state.Catalog.FactionOf(city.Owner).RushBuyDiscount;
+        return System.Math.Max(1, (int)System.Math.Round(remaining * GoldPerProduction * (1.0 - discount)));
+    }
+
+    // Gold to hire a Reaver mercenary (Phase 10.6). Only the Syndicate (the
+    // "can_hire_reavers" trait) may do this — its signature gold-for-force play.
+    public const int HireReaverCost = 60;
+
+    public static bool CanHireReaver(GameState state, Player player)
+        => state.Catalog.FactionOf(player).Traits.Contains("can_hire_reavers")
+           && state.Civ(player).Treasury >= HireReaverCost;
+
+    // Spends gold to spawn a hired mercenary on `pos` for the buyer. Returns the new
+    // unit, or null if the buyer can't hire (wrong faction or insufficient gold). The
+    // unit is the buyer's warrior variant (the Syndicate's Mercenary).
+    public static Unit? HireReaver(GameState state, Player player, Vector2I pos)
+    {
+        if (!CanHireReaver(state, player)) return null;
+        var def = state.Catalog.Unit(state.Catalog.ResolveUnitForFaction("warrior", player));
+        if (def == null) return null;
+
+        state.Civ(player).Treasury -= HireReaverCost;
+        var unit = new Unit(def, player, pos);
+        state.Units.Add(unit);
+        return unit;
     }
 
     public enum SetResearchResult { Ok, AlreadyResearched, MissingPrereq, UnknownTech }

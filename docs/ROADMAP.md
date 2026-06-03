@@ -142,42 +142,41 @@ See [MAP_GENERATION.md](MAP_GENERATION.md) for the techniques and NWO-specific n
 
 ---
 
-## Phase 10 — "The Sundering" (factions & fast-warfare reframe) 🔭 PLANNED
+## Phase 10 — "The Sundering" (factions & fast-warfare reframe) ✅ COMPLETE
 
 Goal: turn the Civ5-style MVP into the **NWO spin-off** — ideological factions, decisive
 fast warfare, and an objective victory tied to the lore. Setting & design intent:
 [LORE.md](LORE.md), [OVERVIEW.md](OVERVIEW.md), [FACTIONS.md](FACTIONS.md). Most of this is
-**data + small hooks** on the existing headless core, not new subsystems. Can run alongside
-or after Phase 7 (visuals) — they're independent.
+**data + small hooks** on the existing headless core, not new subsystems.
 
-- [ ] **10.1 — Faction data model.** Add `FactionData` (loaded via `DataLoader`/`DataCatalog`)
-      + a faction id and signature-passive hooks on `Player`/`Civilization`. Replace the
-      hard-coded "Barbarians" AI with **The Reavers**. *Done when:* a match can be seeded
-      with a named faction whose passive is read by the core.
-- [ ] **10.2 — Match setup (player-chosen factions).** Setup screen to choose faction
-      **count (2–8)** and which factions; wire through `GameFactory.NewGame` and
-      `WorldMap.ResolveLaunch` / `PickAISpawn`. *Done when:* the player picks the roster and
-      it spawns correctly.
-- [ ] **10.3 — Faction asymmetry (v1: 6 + Reavers).** Implement signature passives +
-      unique-unit variants per [FACTIONS.md](FACTIONS.md) in `data/*.json` and the static
-      services they touch (`CombatResolver`, `CivEconomyService`, movement/sight). Piety &
-      Aesthetics stay shelved. *Done when:* each faction plays to its one-sentence identity.
-- [ ] **10.4 — Anti-micro settlement model.** Capped cities / pre-placed contested sites
-      (`MinCityDistance`, `MapGenerator`, settle rules). Adopt the Civ 5 **start-normalization**
-      pattern here — guarantee each spawn is viable (normalize to a fertility floor) and use
-      impact-and-ripple spacing for sites — without Civ's full region machinery (see
-      [MAP_GENERATION.md](MAP_GENERATION.md) "Civ 5 Patterns"). *Done when:* a match is decided
-      by fighting over sites, not by settler-carpeting.
-- [ ] **10.5 — Objective victory + shorter clock.** *Establish the New World Order*
-      key-site-control win in `VictoryService`/`ScoreService`; lower the turn cap; tune
-      combat lethality via the `tune-mechanics` skill. *Done when:* a typical match resolves
-      well under the old 500-turn limit.
-- [ ] **10.6 — Light diplomacy/economy.** Alliances / non-aggression; **hire-Reavers** via
-      gold. *Done when:* gold and stance choices meaningfully affect a war without becoming
-      its focus.
+- [x] **10.1 — Faction data model.** `FactionData` (flat modifier bag, loaded via
+      `DataLoader`/`DataCatalog` from `data/factions.json`) + `Player.FactionId` resolved by
+      `DataCatalog.FactionOf` (neutral all-identity default). Hard-coded "Barbarians" AI is now
+      **The Reavers**. Faction id round-trips through save/load.
+- [x] **10.2 — Match setup (player-chosen factions).** `FactionSetup` screen chooses player
+      **count (2–8)** and each slot's faction; `GameFactory.NewGame(seed, roster)` spawns one
+      player per `FactionChoice` (spawn logic in the headless-testable `GameFactory.Populate`).
+      Wired through `GameLaunch.NewGameRoster` / `WorldMap.ResolveLaunch`.
+- [x] **10.3 — Faction asymmetry (v1: 6 + Reavers).** Signature passives + unique-unit variants
+      per [FACTIONS.md](FACTIONS.md), each a single inline hook in `CombatResolver` (via
+      `GameState`), `CivEconomyService`, `FogOfWar`, `GameState.MovementCost`, `City` /
+      `CityWorkforceService`. Includes a minimal unit-**XP/veterancy** subsystem
+      (`Unit.Experience` → level → strength bonus; Iron Pact levels faster). Piety & Aesthetics
+      stay shelved.
+- [x] **10.4 — Anti-micro settlement model.** Per-faction effective city spacing
+      (`MinCityDistanceDelta`) + settle-cost discount (`SettleCostMult`), and Civ-5
+      **start-normalization** (fertility floor + farthest-point/impact-and-ripple spawn spread)
+      in `GameFactory`.
+- [x] **10.5 — Objective victory + shorter clock.** *Establish the New World Order*
+      key-site-control win (`MapData.KeySites` + `KeySiteService`) in `VictoryService`/`ScoreService`;
+      turn cap lowered 500 → 250; combat lethality raised (`DamageScale` 30 → 40).
+- [x] **10.6 — Light diplomacy/economy.** Pairwise `Diplomacy` stances (War/Peace/NonAggression/
+      Alliance) gate combat in `GameState` and the AI; **hire-Reavers** via gold for the Syndicate
+      (`CivEconomyService.HireReaver`). Both persist through save/load.
 
-> Tech-regression art/flavour (salvaged → colony → planetary tiers) rides on Phase 7's
-> sprite pipeline as factions and tiers land — see [LORE.md](LORE.md).
+> Follow-ups (not blocking): a diplomacy UI panel to set stances in-game, and a HUD readout of
+> key-site control, both ride on the existing headless model. Tech-regression art/flavour rides
+> on Phase 7's sprite pipeline — see [LORE.md](LORE.md).
 
 ---
 

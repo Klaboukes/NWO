@@ -234,7 +234,7 @@ public class AIController
     {
         bool ranged = unit.Data.Range >= 2;
         if (ranged) return true;
-        int defStrength = city.CityDefenseStrength + _state.GarrisonDefense(city);
+        int defStrength = _state.CityDefenseTotal(city);
         var e = CombatResolver.Expected(
             unit.Data.Attack, unit.HP, defStrength, city.HP, isRanged: false);
         return e.AttackerDamage < unit.HP; // survive the reprisal
@@ -265,7 +265,7 @@ public class AIController
             if (!_state.Map.Tiles.TryGetValue(tile, out var terrain)) continue;
             if (!TerrainYields.CanFoundCityOn(terrain))                continue;
             if (_state.MovementCost(tile) == int.MaxValue)             continue;
-            if (_state.Cities.Any(c => HexGrid.Distance(c.Position, tile) < GameState.MinCityDistance))
+            if (_state.Cities.Any(c => HexGrid.Distance(c.Position, tile) < _state.EffectiveMinCityDistance(ai)))
                 continue;
 
             int score = SiteScore(tile) - HexGrid.Distance(settler.Position, tile);
@@ -346,7 +346,7 @@ public class AIController
         int   bestDist = int.MaxValue;
         foreach (var other in _state.Units)
         {
-            if (other.Owner == ai) continue;
+            if (other.Owner == ai || !_state.Diplomacy.CanAttack(ai.Id, other.Owner.Id)) continue;
             int d = HexGrid.Distance(unit.Position, other.Position);
             if (d <= 0 || d > unit.Data.Range) continue;
             if (d < bestDist) { best = other; bestDist = d; }
@@ -362,7 +362,7 @@ public class AIController
         int   bestDist = int.MaxValue;
         foreach (var city in _state.Cities)
         {
-            if (city.Owner == ai || city.HP <= 0) continue;
+            if (city.Owner == ai || city.HP <= 0 || !_state.Diplomacy.CanAttack(ai.Id, city.Owner.Id)) continue;
             int d = HexGrid.Distance(unit.Position, city.Position);
             if (d <= 0 || d > unit.Data.Range) continue;
             if (d < bestDist) { best = city; bestDist = d; }
@@ -426,7 +426,7 @@ public class AIController
         if (unit.MovementRemaining <= 0) return;
         if (unit.Position == goal)       return;
 
-        var path = HexGrid.FindPath(unit.Position, goal, _state.MovementCost);
+        var path = HexGrid.FindPath(unit.Position, goal, t => _state.MovementCost(t, unit));
         if (path.Count < 2) return;
 
         int      budget = unit.MovementRemaining;
@@ -435,7 +435,7 @@ public class AIController
 
         for (int i = 1; i < path.Count; i++)
         {
-            int cost = _state.MovementCost(path[i]);
+            int cost = _state.MovementCost(path[i], unit);
             if (cost == int.MaxValue) break;
 
             // Don't walk onto another unit's tile (enemies blocked, friendly stacking forbidden).

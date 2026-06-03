@@ -66,4 +66,60 @@ public class DataCatalogTests
         Assert.NotNull(c.Building("granary"));
         Assert.Null(c.Building("nope"));
     }
+
+    // ── Factions ─────────────────────────────────────────────────────────────
+
+    private static DataCatalog WithFactions() => new(
+        new[] { new UnitData { Id = "spearman", Name = "Spearman", ProductionCost = 60 } },
+        System.Array.Empty<BuildingData>(),
+        null,
+        new[]
+        {
+            new FactionData
+            {
+                Id = "dominion", Name = "The Dominion", CityDefenseBonus = 4,
+                UnitVariants = new() { ["spearman"] = "palace_guard" },
+            },
+        });
+
+    [Fact]
+    public void Faction_KnownId_ReturnsFaction()
+    {
+        var f = WithFactions().Faction("dominion");
+        Assert.NotNull(f);
+        Assert.Equal("The Dominion", f!.Name);
+    }
+
+    [Fact]
+    public void Faction_UnknownId_ReturnsNull()
+        => Assert.Null(WithFactions().Faction("nope"));
+
+    [Fact]
+    public void FactionOf_KnownPlayer_ReturnsItsFaction()
+    {
+        var p = new Player { Id = 0, FactionId = "dominion" };
+        Assert.Equal(4, WithFactions().FactionOf(p).CityDefenseBonus);
+    }
+
+    [Fact]
+    public void FactionOf_NullOrUnknownFaction_ReturnsNeutral()
+    {
+        var c = WithFactions();
+        Assert.Same(FactionData.Neutral, c.FactionOf(new Player { Id = 0, FactionId = null }));
+        Assert.Same(FactionData.Neutral, c.FactionOf(new Player { Id = 1, FactionId = "ghost" }));
+        // Neutral is all-identity: every hook is a no-op.
+        Assert.Equal(1.0, FactionData.Neutral.CombatStrengthMult);
+        Assert.Equal(0,   FactionData.Neutral.CityDefenseBonus);
+    }
+
+    [Fact]
+    public void ResolveUnitForFaction_MapsVariantElseBase()
+    {
+        var c = WithFactions();
+        var dominion = new Player { Id = 0, FactionId = "dominion" };
+        var neutral  = new Player { Id = 1, FactionId = null };
+        Assert.Equal("palace_guard", c.ResolveUnitForFaction("spearman", dominion));
+        Assert.Equal("warrior",      c.ResolveUnitForFaction("warrior",  dominion)); // unmapped base
+        Assert.Equal("spearman",     c.ResolveUnitForFaction("spearman", neutral));  // no faction
+    }
 }

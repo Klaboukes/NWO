@@ -201,7 +201,8 @@ Start of Turn
 ### Combat (Simplified)
 
 - Attacker and defender each roll: `strength × (HP/100) × random(0.85, 1.15)`
-- Higher roll deals damage equal to `(attacker_roll / defender_roll) × 30` to the loser, proportionally less to the winner
+- Higher roll deals damage equal to `(attacker_roll / defender_roll) × 40` to the loser, proportionally less to the winner (the `DamageScale` was raised 30 → 40 in Phase 10.5 for more decisive, faster wars)
+- A unit's effective `strength` is its base value × its faction's combat multiplier × its veterancy multiplier (see §11)
 - Attacking costs all remaining movement points
 - Ranged units attack without retaliation (range 2)
 - **Combat-odds preview:** hovering an in-range enemy with a unit selected shows
@@ -221,6 +222,7 @@ Start of Turn
 
 | Unit | Cost (Production) | Atk | Def | Move | Range |
 | --- | --- | --- | --- | --- | --- |
+| Scout | 25 | 6 | 6 | 3 | 1 |
 | Warrior | 40 | 8 | 8 | 2 | 1 |
 | Archer | 70 | 7 | 4 | 2 | 2 |
 | Spearman | 60 (needs Bronze Working) | 6 | 12 | 2 | 1 |
@@ -230,9 +232,18 @@ Start of Turn
 | Settler | 100 | 0 | 0 | 2 | — |
 | Worker | 70 | 0 | 0 | 2 | — |
 
-All units have sight radius 2 and 1 gold maintenance (Settler/Worker cost 0).
+All units have sight radius 2 (the Scout sees 3) and 1 gold maintenance
+(Settler/Worker cost 0).
 The Horseman/Swordsman `requiredResource` (`horses`/`iron`) is enforced in the
 build list — you must have access to the resource (see Resources, §1).
+
+The **Scout** is a cheap exploration unit (`ignoresTerrainCost: true`): every
+passable tile costs a flat 1 movement, so its 3 moves carry it across forest,
+hills, and jungle as fast as open ground. It also sees one tile farther than
+other units (sight 3). It still can't enter impassable tiles (Mountain/Ocean),
+and its combat strength is ~75% of a Warrior's. As a recon
+unit it **cannot capture cities** (`canCaptureCities: false`) — an enemy city
+blocks its path just like an impassable tile.
 
 ### Special Units
 
@@ -330,7 +341,7 @@ Identity (`Player`: id/name/human/color) is separate from civ-wide state
 
 ### Starting Setup
 
-- Each player begins with 1× Warrior + 1× Settler.
+- Each player begins with 1× Scout + 1× Settler.
 - The AI spawns on the **same landmass** as the player, at least 10 tiles away
   (`MinAISpawnDistance`) — not on the opposite side of the map. Cross-continent
   spawning waits on naval units (see ROADMAP Post-MVP).
@@ -387,12 +398,22 @@ opening turns — before anyone founds — from ending the game.
   cities and destroy/deny any settler. `City.IsCapital` (the first city a civ
   founds) is preserved through capture for display/flavour.
 
+### Objective Victory ("Establish the New World Order", Phase 10.5)
+
+- The map carries a few contested **key sites** (`MapData.KeySites`, placed by
+  `GameFactory` away from spawns). A site is **controlled** by whoever owns the
+  nearest city within `KeySiteService.ControlRadius` (3 tiles).
+- A player who controls **every** key site wins immediately — checked before
+  domination, so it can fire on any turn while rivals still live.
+
 ### Score Victory (fallback)
 
-- At **turn 500** (`VictoryService.ScoreVictoryTurn`), if no one has won by
-  domination, the highest-scoring civilization wins.
-- Score = (cities × 10) + (population × 3) + (techs researched × 5) + (gold ÷ 10).
-  Weights are named constants in `ScoreService`, easy to retune.
+- At **turn 250** (`VictoryService.ScoreVictoryTurn`, lowered from 500 in Phase
+  10.5), if no one has won by objective or domination, the highest-scoring
+  civilization wins.
+- Score = (cities × 10) + (population × 3) + (techs researched × 5) +
+  (key sites controlled × 25) + (gold ÷ 10). Weights are named constants in
+  `ScoreService`, easy to retune.
 
 ---
 
@@ -414,7 +435,7 @@ Handled civ-wide by `CivEconomyService` each turn:
   gold** (Coast/Ocean +1 each).
 - **Maintenance**: each unit's `maintenanceGold` (1 for military, 0 for
   Settler/Worker), minus a **2-gold free grace** (`FreeUnitMaintenance`) — so a
-  Warrior + Settler opening costs 0/turn.
+  Scout + Settler opening costs 0/turn.
 - **Negative treasury**: units are disbanded until the treasury is non-negative,
   cheapest by **production cost** first, then lowest HP. Disbanding refunds the
   unit's maintenance for the turn but no production.
@@ -453,3 +474,53 @@ selected-unit panel.
 **[planned]:** "unit under attack" alerts and the score-victory warning (last 50
 turns) aren't implemented. The banner is still a single label, not yet a
 scrolling event log (Phase 6 / M3).
+
+---
+
+## 11. Factions & Fast Warfare (Phase 10)
+
+A match is seeded with a **roster** of 2–8 players, each tied to a faction from
+`data/factions.json` (chosen on the `FactionSetup` screen). Faction identity lives
+on `Player.FactionId`; the modifier bag is resolved by `DataCatalog.FactionOf`,
+which returns a neutral all-identity faction for slots with no faction (so every
+hook is an unconditional multiply/add). See [FACTIONS.md](FACTIONS.md) for the roster.
+
+### Signature passives (the v1 hooks)
+
+- **Combat strength** — `FactionData.CombatStrengthMult` scales a unit's effective
+  attack/defense in `GameState.TryAttack`/`TryAttackCity` (Iron Pact > 1).
+- **Gold / Science / Rush-buy** — `GoldMult`, `ScienceMult`, `RushBuyDiscount` in
+  `CivEconomyService` (Syndicate gold, Cognate science).
+- **Sight & movement** — `SightBonus` (`FogOfWar`) and `TerrainCostMult`
+  (`GameState.MovementCost`) for the Voyagers.
+- **Fortress capital** — `CityDefenseBonus`, `CityRegenMult`,
+  `CapitalProductionBonus` apply to a faction's **capital** only (Dominion).
+- **Settlement** — `MinCityDistanceDelta` (effective settle spacing) and
+  `SettleCostMult` (cheaper settlers) for the Free Settlements, which also get a
+  free defender in every new city (`new_city_defender` trait).
+- **Unique units** — `UnitVariants` maps a base unit id to a faction's variant;
+  the swap happens once, at `GameState.CompleteProduction`, so UI/AI keep queuing
+  base ids.
+
+### Veterancy (unit XP)
+
+- Units accrue `Experience` by surviving combat (`CombatXpPerFight`, scaled by the
+  faction's `XpGainMult` — Iron Pact levels twice as fast).
+- XP thresholds **15 / 45 / 90** grant levels 1–3; each level adds **+10%** combat
+  strength (`Unit.VeterancyMult`). XP persists through save/load.
+
+### Settlement normalization (Phase 10.4)
+
+- `GameFactory` places the human at the map centre (nudged to the most fertile tile
+  within a short radius), then spreads the other players by **farthest-point
+  sampling** restricted to tiles clearing a **fertility floor** (work-radius yield
+  sum) — Civ-5 start-normalization without the full region machinery.
+
+### Diplomacy & hire-Reavers (Phase 10.6)
+
+- `Diplomacy` holds symmetric pairwise stances (**War / Peace / NonAggression /
+  Alliance**); the default is War (all-vs-all). Only players at War may attack each
+  other — enforced in `GameState` combat and respected by the AI's targeting.
+- The **Syndicate** (the `can_hire_reavers` trait) may spend **60 gold**
+  (`CivEconomyService.HireReaver`) to spawn a hired Mercenary — its gold-for-force
+  signature play.
