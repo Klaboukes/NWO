@@ -328,7 +328,7 @@ public partial class UIController : CanvasLayer
 
         int netFood = city.FoodYield - city.Population;
         string prod = city.ProductionItem != null
-            ? $"{catalog.ItemName(city.ProductionItem)} ({ProductionTurnsLeft(city, catalog)}) "
+            ? $"{ProductionDisplayName(catalog, city)} ({ProductionTurnsLeft(city, catalog)}) "
             : "Idle";
         int locked   = city.Workforce.Locked.Count;
         int assigned = city.Workforce.Assigned.Count;
@@ -372,11 +372,17 @@ public partial class UIController : CanvasLayer
             _buildList.AddChild(buyBtn);
         }
 
+        // Unique variants are never queued directly — they swap in for their base id
+        // at production. Skip them here, and for the owning faction relabel the base
+        // unit to the variant it actually yields (cost stays the base/charged cost).
         foreach (var u in catalog.Units.Where(u =>
-                     TechAllows(civ, u.RequiredTech)
+                     !catalog.IsFactionVariant(u.Id)
+                     && TechAllows(civ, u.RequiredTech)
                      && ResourceService.Allows(state, civ.Owner, u.RequiredResource)))
         {
-            var btn = new Button { Text = $"{u.Name} ({u.ProductionCost} prod)", FocusMode = Control.FocusModeEnum.None };
+            var shown = catalog.Unit(catalog.ResolveUnitForFaction(u.Id, civ.Owner)) ?? u;
+            int cost  = state.EffectiveItemCost(civ.Owner, $"unit:{u.Id}");
+            var btn = new Button { Text = $"{shown.Name} ({cost} prod)", FocusMode = Control.FocusModeEnum.None };
             if (city.ProductionItem == $"unit:{u.Id}") btn.Text += "  ◀";
             btn.Pressed += () => { Click(); onSetProduction($"unit:{u.Id}"); };
             _buildList.AddChild(btn);
@@ -392,6 +398,17 @@ public partial class UIController : CanvasLayer
 
     private static bool TechAllows(Civilization civ, string? requiredTech)
         => requiredTech == null || civ.ResearchedTechs.Contains(requiredTech);
+
+    // Name of the city's current build item, resolved to the owner's unique variant
+    // for units (a Voyager building "scout" shows "Ranger", matching what it yields).
+    private static string ProductionDisplayName(DataCatalog catalog, City city)
+    {
+        var (kind, id) = DataCatalog.SplitItem(city.ProductionItem!);
+        if (kind == "unit")
+            return catalog.Unit(catalog.ResolveUnitForFaction(id, city.Owner))?.Name
+                   ?? catalog.ItemName(city.ProductionItem!);
+        return catalog.ItemName(city.ProductionItem!);
+    }
 
     private static string ProductionTurnsLeft(City city, DataCatalog catalog)
     {

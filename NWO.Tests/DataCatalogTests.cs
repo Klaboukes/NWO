@@ -122,4 +122,13 @@ public class DataCatalogTests
         Assert.Equal("warrior",      c.ResolveUnitForFaction("warrior",  dominion)); // unmapped base
         Assert.Equal("spearman",     c.ResolveUnitForFaction("spearman", neutral));  // no faction
     }
+
+    [Fact]
+    public void IsFactionVariant_FlagsVariantsNotBases()
+    {
+        var c = WithFactions();
+        Assert.True(c.IsFactionVariant("palace_guard")); // a faction's unique variant
+        Assert.False(c.IsFactionVariant("spearman"));    // its base unit
+        Assert.False(c.IsFactionVariant("warrior"));     // unrelated unit
+    }
 }

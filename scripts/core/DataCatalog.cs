@@ -20,6 +20,10 @@ public class DataCatalog
     private readonly Dictionary<string, BuildingData> _buildingsById;
     private readonly Dictionary<string, TechData>     _techsById;
     private readonly Dictionary<string, FactionData>  _factionsById;
+    // Every unit id that is some faction's unique variant. These are never queued
+    // directly — they are swapped in for their base id at the production seam — so the
+    // build menu must hide them (otherwise every faction's variant lists for everyone).
+    private readonly HashSet<string>                  _variantUnitIds;
     // Reverse index: item id ("unit:horseman" / "building:granary") → tech that unlocks it.
     private readonly Dictionary<string, TechData>     _unlockedBy;
 
@@ -37,11 +41,14 @@ public class DataCatalog
         _buildingsById = new Dictionary<string, BuildingData>(buildings.Count);
         _techsById     = new Dictionary<string, TechData>(Techs.Count);
         _factionsById  = new Dictionary<string, FactionData>(Factions.Count);
+        _variantUnitIds = new HashSet<string>();
         _unlockedBy    = new Dictionary<string, TechData>();
         foreach (var u in units)     _unitsById[u.Id]     = u;
         foreach (var b in buildings) _buildingsById[b.Id] = b;
         foreach (var t in Techs)     _techsById[t.Id]     = t;
         foreach (var f in Factions)  _factionsById[f.Id]  = f;
+        foreach (var f in Factions)
+            foreach (var variantId in f.UnitVariants.Values) _variantUnitIds.Add(variantId);
         foreach (var t in Techs)
         {
             foreach (var unitId     in t.Unlocks.Units)     _unlockedBy[$"unit:{unitId}"]         = t;
@@ -70,6 +77,11 @@ public class DataCatalog
     // keep speaking in base ids (see GameState.CompleteProduction).
     public string ResolveUnitForFaction(string baseId, Player owner)
         => FactionOf(owner).UnitVariants.GetValueOrDefault(baseId, baseId);
+
+    // True if this unit id is some faction's unique variant (e.g. "palace_guard"),
+    // reachable only by building its base id while playing that faction. The build
+    // menu hides these so foreign variants don't appear as buildable options.
+    public bool IsFactionVariant(string unitId) => _variantUnitIds.Contains(unitId);
 
     public UnitData?     UnitFromItem(string item)
         => SplitItem(item) is { Kind: "unit", Id: var id } ? Unit(id) : null;
