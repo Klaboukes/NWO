@@ -63,7 +63,7 @@ public static class GameFactory
     // viewer (the human). Separated from map generation so it's unit-testable headless
     // (MapGenerator needs the Godot noise engine; this doesn't). Human(s) are placed
     // first so the viewer lands at the map centre; the rest are spread by
-    // farthest-point sampling, confined to the centre's landmass for MVP.
+    // farthest-point sampling, confined to the largest landmass for MVP.
     public static Player Populate(GameState state, IReadOnlyList<FactionChoice>? roster)
     {
         var catalog    = state.Catalog;
@@ -72,8 +72,15 @@ public static class GameFactory
         var settlerDef = catalog.Unit("settler")!;
 
         var ordered  = choices.OrderByDescending(c => c.IsHuman).ToList();
-        var center   = state.FindWalkableTileNear(MapCenterAxial(state.Map.Width, state.Map.Height));
-        var landmass = state.GetConnectedLandmass(center);
+        // Use the largest connected landmass so all factions share the main continent.
+        // The map-centre anchor is then the tile in that landmass closest to grid centre
+        // (avoids crashing onto a tiny island when noise/percentile calibration fragments
+        // the map and the geometric centre happens to fall on a small pocket).
+        var mapCenter = MapCenterAxial(state.Map.Width, state.Map.Height);
+        var landmass  = FindLargestLandmass(state);
+        var center    = landmass.Count > 0
+            ? ClosestInSet(landmass, mapCenter)
+            : state.FindWalkableTileNear(mapCenter);
         // Normalize the viewer's start: keep it central, but slide to the most fertile
         // tile within a short radius so the human never opens on a barren pocket.
         center       = MostFertileNear(state, center, NormalizeRadius, landmass);
@@ -225,5 +232,36 @@ public static class GameFactory
         foreach (var n in HexGrid.GetNeighbors(tile))
             if (landmass.Contains(n)) return n;
         return null;
+    }
+
+    // Returns the largest connected passable region on the map. Visits every tile
+    // once via flood-fill so the cost is O(tiles). On a fragmented Archipelago map
+    // this is the biggest island; on a Continents map it's the main continent.
+    private static HashSet<Vector2I> FindLargestLandmass(GameState state)
+    {
+        var visited = new HashSet<Vector2I>();
+        var largest = new HashSet<Vector2I>();
+        foreach (var tile in state.Map.Tiles.Keys)
+        {
+            if (visited.Contains(tile)) continue;
+            if (state.MovementCost(tile) == int.MaxValue) { visited.Add(tile); continue; }
+            var region = state.GetConnectedLandmass(tile);
+            foreach (var t in region) visited.Add(t);
+            if (region.Count > largest.Count) largest = region;
+        }
+        return largest;
+    }
+
+    // The tile in `set` with the smallest hex distance to `target`.
+    private static Vector2I ClosestInSet(HashSet<Vector2I> set, Vector2I target)
+    {
+        Vector2I best    = default;
+        int      bestDist = int.MaxValue;
+        foreach (var t in set)
+        {
+            int d = HexGrid.Distance(t, target);
+            if (d < bestDist) { bestDist = d; best = t; }
+        }
+        return best;
     }
 }
