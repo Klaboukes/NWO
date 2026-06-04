@@ -25,4 +25,13 @@ public record UnitData
     // GameSession.CanCapture). Defaults true; the Scout opts out. Absent from
     // JSON keeps the default, so existing units need no change.
     public bool    CanCaptureCities   { get; init; } = true;
+
+    // Naval units move on Ocean/Coast tiles and are blocked on land tiles.
+    // Land units continue to treat Ocean/Coast as impassable. See
+    // GameState.MovementCost(axial, unit).
+    public bool    IsNaval            { get; init; }
+
+    // Number of land units this transport can carry as cargo (0 = not a transport).
+    // Only naval units with CargoCapacity > 0 support Load/Unload actions.
+    public int     CargoCapacity      { get; init; }
 }

@@ -73,6 +73,20 @@
       "scienceCost": 100,
       "prerequisites": ["bronze_working"],
       "unlocks": { "units": ["swordsman", "catapult"] }
+    },
+    {
+      "id": "sailing",
+      "name": "Sailing",
+      "scienceCost": 55,
+      "prerequisites": ["pottery"],
+      "unlocks": { "units": ["galley", "transport"] }
+    },
+    {
+      "id": "navigation",
+      "name": "Navigation",
+      "scienceCost": 80,
+      "prerequisites": ["sailing"],
+      "unlocks": { "units": ["frigate", "galleon"] }
     }
   ]
 }

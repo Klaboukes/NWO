@@ -59,7 +59,18 @@
     "resource:wheat": "Golden fields that add food to a worked tile and hurry a city's growth.",
     "resource:fish": "Coastal shoals that feed a seaside city straight from the water.",
     "resource:gems": "Glittering stones prized across the Sundering — a luxury that fills the treasury when worked.",
-    "resource:ivory": "Carved tusk and bone, a frontier luxury traded between the factions for gold."
+    "resource:ivory": "Carved tusk and bone, a frontier luxury traded between the factions for gold.",
+
+    "unit:galley": "Open-decked war galleys that rule the coastal lanes — oar-powered, quick to manoeuvre, and armed for ramming and boarding. A city with sea access can field one wherever the horizon matters.",
+    "unit:frigate": "Square-rigged frigates that project power across open ocean. Their broadside outranges anything the early-tier coastal fleets can answer, making them the keystone of a naval blockade.",
+    "unit:transport": "A wide-hulled supply ship rigged for passengers, not fighting. It carries up to two ground units across water — invaluable for projecting land power to a far continent. Do not let it meet a Frigate.",
+    "unit:galleon": "A great-ship of the recovered-tech era: four companies of soldiers below decks, medium guns above. Slower than a Frigate, but the backbone of any serious cross-continent amphibious force.",
+
+    "tech:sailing": "Mastering Cradle's coastal waters — lateen rigs, tidal charts, and the first ocean-going hull designs salvaged from the Exodus archive. Opens the sea lanes and the first wave of naval power.",
+    "tech:navigation": "Celestial charts, compass bearings, and deep-ocean rigging. Transforms sailing into a strategic weapon: Frigates that dominate the open sea and Galleons that land armies where the enemy does not expect them.",
+
+    "terrain:ocean": "Deep water beyond the shallows — impassable to foot soldiers but open highway for naval fleets. Cross it with Galleys and Frigates; ferry armies aboard Transports and Galleons.",
+    "terrain:coast": "Shallow seas rich in fish and trade, hemming the land and feeding the cities along it. Coastal cities can build naval units and receive transported armies stepping ashore."
   },
   "articles": [
     {
@@ -139,6 +150,12 @@
       "category": "mechanics",
       "title": "Fog of War",
       "body": "You see only what your units and cities reveal. Explored ground stays on the map but dims to a memory once no one is watching it, hiding enemy movements until you scout again. Sight range matters: the Voyagers' extra vision lets them see threats — and opportunities — before their rivals do."
+    },
+    {
+      "id": "mech:naval-warfare",
+      "category": "mechanics",
+      "title": "Naval Warfare & Transport",
+      "body": "Ocean and Coast tiles are open water — impassable on foot but freely navigated by naval units. Galleys and Frigates fight at sea; Transports and Galleons carry ground forces across. To embark troops, move a Transport or Galleon to a Coast tile and use the Board button for an adjacent land unit (costs the unit's remaining movement). The transport then sails to the far shore; use the Land button to disembark cargo onto an adjacent land tile. Cargo units cannot act while aboard, and if the transport is destroyed they go down with it — escort your troop carriers."
     }
   ]
 }

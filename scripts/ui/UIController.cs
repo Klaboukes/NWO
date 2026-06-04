@@ -85,6 +85,8 @@ public partial class UIController : CanvasLayer
     public event Action<string>? SaveRequested;     // slot display name
     public event Action<string>? LoadRequested;     // save file name
     public event Action?         MainMenuRequested;
+    public event Action<Unit>?   LoadTransportPressed;   // board a transport ship
+    public event Action<Unit>?   UnloadCargoPressed;     // land a cargo unit
 
     public override void _Ready()
     {
@@ -297,9 +299,29 @@ public partial class UIController : CanvasLayer
         }
     }
 
-    private void ClearWorkerActions()
+    public void ClearWorkerActions()
     {
         foreach (var child in _workerActions.GetChildren()) child.QueueFree();
+    }
+
+    // Append board/unload buttons below any existing worker-action buttons.
+    // Call ClearWorkerActions() first if you want a clean slate.
+    public void ShowNavalActions(IEnumerable<Unit> boardableTransports, IEnumerable<Unit> landableCargo)
+    {
+        foreach (var transport in boardableTransports)
+        {
+            var btn = new Button { Text = $"Board {transport.Data.Name}", FocusMode = Control.FocusModeEnum.None };
+            var cap = transport;
+            btn.Pressed += () => { Click(); LoadTransportPressed?.Invoke(cap); };
+            _workerActions.AddChild(btn);
+        }
+        foreach (var cargo in landableCargo)
+        {
+            var btn = new Button { Text = $"Land {cargo.Data.Name}", FocusMode = Control.FocusModeEnum.None };
+            var cap = cargo;
+            btn.Pressed += () => { Click(); UnloadCargoPressed?.Invoke(cap); };
+            _workerActions.AddChild(btn);
+        }
     }
 
     private void RefreshUnitPanel()

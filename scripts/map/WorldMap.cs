@@ -73,6 +73,8 @@ public partial class WorldMap : Node3D
         _ui.EndTurnPressed    += OnEndTurnPressed;
         _ui.FoundCityPressed  += () => { if (_selection.Unit != null) TryFoundCity(_selection.Unit); };
         _ui.BuildImprovementPressed += OnBuildImprovement;
+        _ui.LoadTransportPressed    += OnLoadTransport;
+        _ui.UnloadCargoPressed      += OnUnloadCargo;
         _ui.EventFocusRequested     += FocusCameraOn;
         _ui.SaveRequested           += OnSaveRequested;
         _ui.LoadRequested           += OnLoadRequested;
@@ -488,13 +490,39 @@ public partial class WorldMap : Node3D
     }
 
     // Show the build menu for an idle Worker (a busy one shows its task status
-    // on the panel instead). Non-Workers get no build buttons.
+    // on the panel instead). Non-Workers get no build buttons. Also adds naval
+    // Board/Land buttons for land units near transports and for transports with cargo.
     private void RefreshWorkerActions(Unit unit)
     {
         if (unit.Data.Special == "build_improvement" && unit.CurrentTask == null)
             _ui.ShowWorkerActions(ImprovementService.BuildableOptions(_state, _viewerPlayer, unit.Position));
         else
             _ui.ShowWorkerActions(System.Array.Empty<(ImprovementType, int)>());
+
+        // Land unit: show "Board" buttons for adjacent friendly transports with free capacity.
+        IEnumerable<Unit> boardable = System.Array.Empty<Unit>();
+        if (!unit.Data.IsNaval)
+        {
+            boardable = _state.Units.Where(t =>
+                t.Owner == _viewerPlayer &&
+                t.Data.CargoCapacity > 0 &&
+                t.Cargo.Count < t.Data.CargoCapacity &&
+                HexGrid.Distance(unit.Position, t.Position) <= 1 &&
+                _state.Map.Tiles.TryGetValue(t.Position, out var tt) &&
+                (tt == TerrainType.Ocean || tt == TerrainType.Coast));
+        }
+
+        // Transport: show "Land" buttons for each cargo unit when adjacent to a land tile.
+        IEnumerable<Unit> landable = System.Array.Empty<Unit>();
+        if (unit.Data.CargoCapacity > 0 && unit.Cargo.Count > 0)
+        {
+            bool hasAdjacentLand = HexGrid.GetNeighbors(unit.Position).Any(n =>
+                _state.Map.Tiles.TryGetValue(n, out var nt) &&
+                nt != TerrainType.Ocean && nt != TerrainType.Coast && nt != TerrainType.Mountain);
+            if (hasAdjacentLand) landable = unit.Cargo;
+        }
+
+        _ui.ShowNavalActions(boardable, landable);
     }
 
     private void OnBuildImprovement(ImprovementType type)
@@ -511,6 +539,38 @@ public partial class WorldMap : Node3D
         if (_endTurnQueue.Count > 0) AdvanceEndTurnQueue();
         else                         Deselect();
         Redraw();
+    }
+
+    private void OnLoadTransport(Unit transport)
+    {
+        var unit = _selection.Unit;
+        if (unit == null) return;
+        if (!_session.TryLoad(unit, transport))
+        {
+            _ui.ShowNotification("Can't board that transport.");
+            return;
+        }
+        _ui.ShowNotification($"{unit.Data.Name} boarded {transport.Data.Name}.");
+        Deselect();
+        Redraw();
+    }
+
+    private void OnUnloadCargo(Unit cargoUnit)
+    {
+        var transport = _selection.Unit;
+        if (transport == null) return;
+        // Auto-pick the first adjacent passable land tile not blocked by enemies.
+        foreach (var n in HexGrid.GetNeighbors(transport.Position))
+        {
+            if (!_state.Map.Tiles.TryGetValue(n, out var nt)) continue;
+            if (nt == TerrainType.Ocean || nt == TerrainType.Coast || nt == TerrainType.Mountain) continue;
+            if (!_session.TryUnload(transport, cargoUnit, n)) continue;
+            _ui.ShowNotification($"{cargoUnit.Data.Name} landed.");
+            SelectUnit(transport);
+            Redraw();
+            return;
+        }
+        _ui.ShowNotification("No land tile available to unload to.");
     }
 
     private void SelectCity(City city)

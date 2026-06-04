@@ -40,12 +40,14 @@ public class AIController
     // Production preferences, best-first. Filtered by tech/resource availability.
     private static readonly string[] DefenderPrefs = { "spearman", "warrior" };
     private static readonly string[] AttackerPrefs = { "swordsman", "horseman", "warrior", "archer" };
+    private static readonly string[] NavalCombatPrefs = { "frigate", "galley" };
+    private static readonly string[] NavalTransportPrefs = { "galleon", "transport" };
 
     // Research order: cheap economy/unlock techs first, then the prereq chains.
     private static readonly string[] ResearchPrefs =
     {
-        "pottery", "mining", "bronze_working", "animal_husbandry",
-        "writing", "iron_working", "horseback_riding", "philosophy",
+        "pottery", "mining", "sailing", "bronze_working", "animal_husbandry",
+        "writing", "navigation", "iron_working", "horseback_riding", "philosophy",
     };
 
     public void TakeTurn(Player ai)
@@ -120,7 +122,15 @@ public class AIController
         if (workers < cities && _state.Catalog.Unit("worker") != null)
             return "unit:worker";
 
-        // 5. Otherwise build offensive strength (fall back to a defender).
+        // 5. Coastal cities build naval units when sailing/navigation is researched.
+        if (IsCityCoastal(city))
+        {
+            var naval = BestBuildableUnit(ai, civ, NavalCombatPrefs)
+                     ?? BestBuildableUnit(ai, civ, NavalTransportPrefs);
+            if (naval != null) return naval;
+        }
+
+        // 6. Otherwise build offensive strength (fall back to a defender).
         return BestBuildableUnit(ai, civ, AttackerPrefs)
             ?? BestBuildableUnit(ai, civ, DefenderPrefs);
     }
@@ -159,6 +169,13 @@ public class AIController
     private bool IsDefended(Player ai, City city)
         => _state.Units.Any(u =>
             u.Owner == ai && u.Data.Attack > 0 && u.Position == city.Position);
+
+    // A city is coastal if its tile or any immediate neighbour is Ocean or Coast.
+    private bool IsCityCoastal(City city)
+        => HexGrid.GetNeighbors(city.Position)
+            .Concat(new[] { city.Position })
+            .Any(t => _state.Map.Tiles.TryGetValue(t, out var tt)
+                   && (tt == TerrainType.Ocean || tt == TerrainType.Coast));
 
     private bool EnemyMilitaryNear(Player ai, Vector2I pos, int radius)
         => _state.Units.Any(u =>

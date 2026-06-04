@@ -203,6 +203,68 @@
       "requiredResource": null,
       "ignoresTerrainCost": true,
       "canCaptureCities": false
+    },
+    {
+      "id": "galley",
+      "name": "Galley",
+      "productionCost": 65,
+      "attack": 8,
+      "defense": 4,
+      "movement": 4,
+      "range": 1,
+      "sight": 3,
+      "maintenanceGold": 2,
+      "requiredTech": "sailing",
+      "requiredResource": null,
+      "isNaval": true,
+      "canCaptureCities": false
+    },
+    {
+      "id": "frigate",
+      "name": "Frigate",
+      "productionCost": 100,
+      "attack": 14,
+      "defense": 8,
+      "movement": 4,
+      "range": 2,
+      "sight": 3,
+      "maintenanceGold": 2,
+      "requiredTech": "navigation",
+      "requiredResource": null,
+      "isNaval": true,
+      "canCaptureCities": false
+    },
+    {
+      "id": "transport",
+      "name": "Transport",
+      "productionCost": 70,
+      "attack": 0,
+      "defense": 6,
+      "movement": 3,
+      "range": 1,
+      "sight": 2,
+      "maintenanceGold": 2,
+      "requiredTech": "sailing",
+      "requiredResource": null,
+      "isNaval": true,
+      "canCaptureCities": false,
+      "cargoCapacity": 2
+    },
+    {
+      "id": "galleon",
+      "name": "Galleon",
+      "productionCost": 110,
+      "attack": 0,
+      "defense": 8,
+      "movement": 4,
+      "range": 1,
+      "sight": 3,
+      "maintenanceGold": 2,
+      "requiredTech": "navigation",
+      "requiredResource": null,
+      "isNaval": true,
+      "canCaptureCities": false,
+      "cargoCapacity": 4
     }
   ]
 }

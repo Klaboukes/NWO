@@ -177,6 +177,54 @@ public class GameSession
         return true;
     }
 
+    // Board a land unit onto an adjacent friendly transport. The unit is removed
+    // from the map and stored in transport.Cargo, costing the unit all remaining
+    // movement. The transport must have capacity and be on a Coast/Ocean tile
+    // adjacent to the unit (max distance 1).
+    public bool TryLoad(Unit landUnit, Unit transport)
+    {
+        if (landUnit.Owner  != Viewer)                         return false;
+        if (transport.Owner != Viewer)                         return false;
+        if (landUnit.Data.IsNaval)                             return false;
+        if (transport.Data.CargoCapacity <= 0)                 return false;
+        if (transport.Cargo.Count >= transport.Data.CargoCapacity) return false;
+        if (HexGrid.Distance(landUnit.Position, transport.Position) > 1) return false;
+        if (!State.Map.Tiles.TryGetValue(transport.Position, out var tt)) return false;
+        if (tt != TerrainType.Ocean && tt != TerrainType.Coast) return false;
+
+        WakeIfFortified(landUnit);
+        State.Units.Remove(landUnit);
+        landUnit.MovementRemaining = 0;
+        landUnit.ActedThisTurn     = true;
+        transport.Cargo.Add(landUnit);
+        return true;
+    }
+
+    // Disembark one cargo unit from a transport onto an adjacent land tile. The
+    // unit is placed at destTile with 0 movement. The transport spends all its
+    // remaining movement to complete the unload.
+    public bool TryUnload(Unit transport, Unit cargoUnit, Vector2I destTile)
+    {
+        if (transport.Owner != Viewer)                return false;
+        if (transport.Data.CargoCapacity <= 0)        return false;
+        if (!transport.Cargo.Contains(cargoUnit))     return false;
+        if (HexGrid.Distance(transport.Position, destTile) != 1) return false;
+        if (!State.Map.Tiles.TryGetValue(destTile, out var dt)) return false;
+        if (dt == TerrainType.Ocean || dt == TerrainType.Coast || dt == TerrainType.Mountain)
+            return false;
+        if (State.Units.Any(u => u.Position == destTile && u.Owner != Viewer)) return false;
+
+        transport.Cargo.Remove(cargoUnit);
+        cargoUnit.Position          = destTile;
+        cargoUnit.MovementRemaining = 0;
+        cargoUnit.ActedThisTurn     = true;
+        State.Units.Add(cargoUnit);
+        transport.MovementRemaining = 0;
+        transport.ActedThisTurn     = true;
+        State.RecomputeFog(Viewer);
+        return true;
+    }
+
     // Rush-buy the city's current production with gold. Fails if the city isn't
     // the viewer's, nothing is producing, or the treasury can't cover the cost.
     public bool TryBuyProduction(City city, out GameState.ProductionCompletion? completion)

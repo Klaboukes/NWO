@@ -272,6 +272,15 @@ public partial class WorldOverlay : Node2D
                 DrawArc(p.Value, HexProjection.HexSize * 0.44f * scale, 0f, Mathf.Tau, 24, new Color(0.4f, 0.8f, 1f), 1.5f);
             if (unit.HP < Unit.MaxHP)
                 DrawHpBar(p.Value - new Vector2(0f, HexProjection.HexSize * 0.55f * scale), unit.HP / (float)Unit.MaxHP, HexProjection.HexSize * 0.6f * scale);
+            // Cargo badge: show "N/M" below transport ships so the player knows how many
+            // units are aboard and how many slots remain.
+            if (unit.Data.CargoCapacity > 0)
+            {
+                var badge = $"{unit.Cargo.Count}/{unit.Data.CargoCapacity}";
+                DrawString(ThemeDB.FallbackFont,
+                    p.Value + new Vector2(-5f * scale, HexProjection.HexSize * 0.35f * scale),
+                    badge, HorizontalAlignment.Left, -1, FontPx(9, scale), new Color(0.9f, 0.9f, 0.1f));
+            }
         }
     }
 

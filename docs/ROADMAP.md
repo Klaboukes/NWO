@@ -235,35 +235,30 @@ pulled from `DataCatalog` / `TerrainYields` so entries never go stale. Copy is a
 
 ---
 
-## Phase 13 — Naval System & Cross-Continent Play
+## Phase 13 — Naval System & Cross-Continent Play ✅ COMPLETE
 
-Goal: introduce **naval units** (ships that move on ocean/coast tiles) and a basic
-**embarkation** system so armies can cross water — then drop the same-landmass
+Goal: introduce **naval units** (ships that move on ocean/coast tiles) and a
+**transport-ship** system so armies can cross water — then drop the same-landmass
 constraint in `GameFactory.Populate()` so factions can spawn on separate continents on
-Continents and Archipelago maps. Until this phase ships the single-largest-landmass
-restriction remains in place by design.
+Continents and Archipelago maps.
 
-- [ ] **13.1 — Naval units.** Add a `Galley` unit (early naval, ocean+coast only,
-      melee) and a `Frigate` (mid naval, ocean+coast, ranged) to `data/units.json`.
-      `MovementCost` returns 1 for Ocean/Coast when the unit's `IsNaval` flag is set
-      (new boolean on `UnitData`). Naval units cannot enter land tiles; land units
-      cannot enter ocean/coast tiles without embarkation (13.2). Update AI production
-      mix to queue ships when it owns a coastal city. *Done when:* naval units move on
-      water and AI builds them.
-- [ ] **13.2 — Embarkation.** Coastal cities act as embarkation/disembarkation points.
-      A land unit adjacent to a coastal city can board a naval transport (or the city
-      itself acts as the ferry — simpler first cut: a land unit can "step onto" an
-      adjacent coast/ocean tile at movement cost equal to its full movement, then moves
-      as a naval unit for the remainder of its turn). Naval and land stats are preserved
-      separately; the unit reverts to land mode when it steps onto a land tile. *Done
-      when:* a Scout can cross a sea channel to reach a far continent.
-- [ ] **13.3 — Cross-continent spawning.** Remove the "largest landmass only"
-      constraint from `GameFactory.Populate()` for scripts with multiple landmasses
-      (Continents, Archipelago). Assign landmasses by decreasing size; give each human
-      the biggest landmass, AI players take the others (or share if there are fewer
-      continents than players). Farthest-point sampling within each landmass still
-      applies. Update `GameFactory` tests. *Done when:* a 4-player Continents game
-      reliably starts players on separate continents rather than one shared landmass.
+- [x] **13.1 — Naval units.** Added `Galley` (early melee naval) and `Frigate` (mid
+      ranged naval) to `data/units.json`; `IsNaval` flag on `UnitData`; `sailing` and
+      `navigation` techs in `data/techs.json`. `MovementCost(axial, unit)` reads the
+      tile before the `int.MaxValue` short-circuit so naval units pay 1 for Ocean/Coast
+      and `int.MaxValue` for land tiles. AI builds ships from coastal cities.
+- [x] **13.2 — Transport ships.** Replaced the step-onto embarkation design with
+      dedicated `Transport` (2-slot, sailing tech) and `Galleon` (4-slot, navigation
+      tech) units. `Unit.Cargo` holds off-map land units; `GameSession.TryLoad` /
+      `TryUnload` handle boarding and landing. Board/Land buttons appear in the unit
+      panel when applicable; a cargo-count badge is drawn on transports in
+      `WorldOverlay`. Cargo serializes in `SaveSerializer` so save/load is lossless.
+      Cargo units are destroyed if the transport dies.
+- [x] **13.3 — Cross-continent spawning.** `GameFactory.FindAllLandmasses()` returns
+      all regions sorted by size. `Populate()` accepts a `MapScript` parameter:
+      Continents/Archipelago assign one landmass per player (human gets the largest,
+      AI players take the rest cycling); Pangaea/Highlands still use the single
+      largest landmass.
 
 ---
 
@@ -271,7 +266,7 @@ restriction remains in place by design.
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
 (factions & fast-warfare reframe), Phase 11 (map scripts), Phase 12 (in-game
-Civilopedia), and Phase 13 (naval system), candidate directions.
+Civilopedia), and Phase 13 (naval system & cross-continent play), candidate directions.
 Factions, light diplomacy, and the objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve

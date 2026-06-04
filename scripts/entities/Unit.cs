@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using NWO.Core;
 using NWO.Map;
@@ -47,6 +48,11 @@ public class Unit : IEndTurnItem
     // Worker only: the improvement being built. Non-null while busy; cleared when
     // the build completes or the unit is given a different order (e.g. a move).
     public ImprovementTask? CurrentTask { get; set; }
+
+    // Land units held aboard this transport. Empty for non-transport units.
+    // Cargo units are removed from state.Units while aboard; they're destroyed if
+    // the transport is killed, and returned to the map via TryUnload.
+    public List<Unit> Cargo { get; } = new();
 
     public const int MaxHP = 100;
 

@@ -430,11 +430,18 @@ public class GameState
         return cost;
     }
 
-    // Movement cost to enter `axial` for a specific unit. A unit that ignores
-    // terrain cost (Scout) pays a flat 1 for any passable tile; impassable tiles
-    // (Mountain/Ocean) stay impassable for everyone.
+    // Movement cost to enter `axial` for a specific unit. Naval units move freely
+    // on Ocean/Coast and are blocked on land; land units remain blocked on Ocean/Coast.
+    // A unit that ignores terrain cost (Scout) pays a flat 1 for any passable tile.
     public int MovementCost(Vector2I axial, Unit unit)
     {
+        if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
+        bool isWater = t == TerrainType.Ocean || t == TerrainType.Coast;
+
+        if (unit.Data.IsNaval)
+            return isWater ? 1 : int.MaxValue;
+
+        // Land units: Ocean/Coast remain impassable via the base terrain cost.
         int cost = MovementCost(axial);
         if (cost == int.MaxValue)         return cost;
         if (unit.Data.IgnoresTerrainCost) return 1;

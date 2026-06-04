@@ -55,42 +55,57 @@ public static class GameFactory
         var map     = MapGenerator.Generate(w, h, seed, script);
         var catalog = DataCatalog.Load();
         var state   = new GameState(map, catalog, seed);
-        var viewer  = Populate(state, roster);
+        var viewer  = Populate(state, roster, script);
         return new NewGameResult(state, viewer);
     }
 
     // Spawns one player per roster entry into an already-built state and returns the
     // viewer (the human). Separated from map generation so it's unit-testable headless
     // (MapGenerator needs the Godot noise engine; this doesn't). Human(s) are placed
-    // first so the viewer lands at the map centre; the rest are spread by
-    // farthest-point sampling, confined to the largest landmass for MVP.
-    public static Player Populate(GameState state, IReadOnlyList<FactionChoice>? roster)
+    // first; AI players spread by farthest-point sampling. For Continents/Archipelago
+    // maps each player gets their own landmass (Phase 13.3); for Pangaea/Highlands all
+    // share the largest.
+    public static Player Populate(GameState state, IReadOnlyList<FactionChoice>? roster,
+        MapScript script = MapScript.Continents)
     {
         var catalog    = state.Catalog;
         var choices    = (roster == null || roster.Count == 0) ? DefaultRoster() : roster;
         var scoutDef   = catalog.Unit("scout")!;
         var settlerDef = catalog.Unit("settler")!;
 
-        var ordered  = choices.OrderByDescending(c => c.IsHuman).ToList();
-        // Use the largest connected landmass so all factions share the main continent.
-        // The map-centre anchor is then the tile in that landmass closest to grid centre
-        // (avoids crashing onto a tiny island when noise/percentile calibration fragments
-        // the map and the geometric centre happens to fall on a small pocket).
+        var ordered = choices.OrderByDescending(c => c.IsHuman).ToList();
+
+        // Multi-continent scripts assign one landmass per player (largest → human).
+        // Single-landmass scripts (Pangaea, Highlands) fall back to the biggest mass.
+        bool multiContinent = script is MapScript.Continents or MapScript.Archipelago;
+        var landmasses = multiContinent
+            ? FindAllLandmasses(state)
+            : new List<HashSet<Vector2I>> { FindLargestLandmass(state) };
+        if (landmasses.Count == 0) landmasses.Add(new HashSet<Vector2I>());
+
         var mapCenter = MapCenterAxial(state.Map.Width, state.Map.Height);
-        var landmass  = FindLargestLandmass(state);
-        var center    = landmass.Count > 0
-            ? ClosestInSet(landmass, mapCenter)
-            : state.FindWalkableTileNear(mapCenter);
-        // Normalize the viewer's start: keep it central, but slide to the most fertile
-        // tile within a short radius so the human never opens on a barren pocket.
-        center       = MostFertileNear(state, center, NormalizeRadius, landmass);
-        var placed   = new List<Vector2I>();
+        var placed    = new List<Vector2I>();
         Player? viewer = null;
 
         for (int i = 0; i < ordered.Count; i++)
         {
-            var choice = ordered[i];
-            var start  = placed.Count == 0 ? center : PickSpawn(state, placed, landmass);
+            var choice   = ordered[i];
+            // Cycle landmasses if there are fewer landmasses than players.
+            var landmass = landmasses[i % landmasses.Count];
+
+            Vector2I start;
+            if (placed.Count == 0)
+            {
+                // First player (human): anchor near map centre within their landmass.
+                var anchor = landmass.Count > 0
+                    ? ClosestInSet(landmass, mapCenter)
+                    : state.FindWalkableTileNear(mapCenter);
+                start = MostFertileNear(state, anchor, NormalizeRadius, landmass);
+            }
+            else
+            {
+                start = PickSpawn(state, placed, landmass);
+            }
             placed.Add(start);
 
             var player = state.AddPlayer(MakePlayer(i, choice, catalog));
@@ -100,7 +115,7 @@ public static class GameFactory
             state.Units.Add(new Unit(settlerDef, player, FindNeighborOnLandmass(start, landmass) ?? start));
         }
 
-        PlaceKeySites(state, placed, landmass);
+        PlaceKeySites(state, placed, landmasses[0]);
         return viewer ?? state.Players[0];
     }
 
@@ -250,6 +265,24 @@ public static class GameFactory
             if (region.Count > largest.Count) largest = region;
         }
         return largest;
+    }
+
+    // Returns all connected passable regions sorted by size descending. Used by
+    // cross-continent spawning (Phase 13.3) to assign one landmass per player.
+    private static List<HashSet<Vector2I>> FindAllLandmasses(GameState state)
+    {
+        var visited   = new HashSet<Vector2I>();
+        var landmasses = new List<HashSet<Vector2I>>();
+        foreach (var tile in state.Map.Tiles.Keys)
+        {
+            if (visited.Contains(tile)) continue;
+            if (state.MovementCost(tile) == int.MaxValue) { visited.Add(tile); continue; }
+            var region = state.GetConnectedLandmass(tile);
+            foreach (var t in region) visited.Add(t);
+            landmasses.Add(region);
+        }
+        landmasses.Sort((a, b) => b.Count.CompareTo(a.Count));
+        return landmasses;
     }
 
     // The tile in `set` with the smallest hex distance to `target`.

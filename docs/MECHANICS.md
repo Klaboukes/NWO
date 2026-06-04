@@ -62,9 +62,10 @@ have none until improvements/buildings provide it (see §9).
 Savanna, Jungle, and Wetlands (Phase 9.1) are climate-driven biomes placed by the
 moisture axis rather than by height alone.
 
-Ocean and Coast are currently **impassable** (no naval units yet); their food
-values only matter to coastal cities working those tiles. Naval movement costs
-are **[planned]**.
+Ocean and Coast are **impassable for land units** but freely traversed by naval
+units (`UnitData.IsNaval`). Naval units pay movement cost **1** for Ocean/Coast and
+cannot enter land tiles. Civilian cargo (land units stored in a `Transport` or
+`Galleon`) is off-map while at sea and moves with the transport.
 
 ### Features
 
@@ -342,9 +343,10 @@ Identity (`Player`: id/name/human/color) is separate from civ-wide state
 ### Starting Setup
 
 - Each player begins with 1× Scout + 1× Settler.
-- The AI spawns on the **same landmass** as the player, at least 10 tiles away
-  (`MinAISpawnDistance`) — not on the opposite side of the map. Cross-continent
-  spawning waits on naval units (see ROADMAP Post-MVP).
+- On **Continents** and **Archipelago** maps (Phase 13.3) each player is assigned their
+  own landmass (human gets the largest; AI players take smaller ones, cycling if needed).
+  On **Pangaea** and **Highlands** all players share the single largest landmass.
+  Farthest-point sampling and the fertility floor apply within each player's assigned landmass.
 
 ### Unique Abilities (MVP — placeholder, implement in post-MVP)
 

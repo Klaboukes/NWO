@@ -111,6 +111,8 @@ public static class SaveSerializer
         public bool                 SleepUntilHealed  { get; set; }
         public int                  Experience        { get; set; }
         public ImprovementTaskDto?  Task              { get; set; }
+        // Cargo units aboard this transport. Null/empty for non-transports.
+        public List<UnitDto>?       Cargo             { get; set; }
     }
 
     public sealed class ImprovementTaskDto
@@ -141,6 +143,44 @@ public static class SaveSerializer
     {
         public int            OwnerId    { get; set; }
         public List<Vector2I> Discovered { get; set; } = new();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static UnitDto UnitToDto(Unit u) => new()
+    {
+        DataId            = u.Data.Id,
+        OwnerId           = u.Owner.Id,
+        Position          = u.Position,
+        HP                = u.HP,
+        MovementRemaining = u.MovementRemaining,
+        Fortified         = u.Fortified,
+        ActedThisTurn     = u.ActedThisTurn,
+        SkippedThisTurn   = u.SkippedThisTurn,
+        SleepUntilHealed  = u.SleepUntilHealed,
+        Experience        = u.Experience,
+        Task              = u.CurrentTask is { } t
+            ? new ImprovementTaskDto { Tile = t.Tile, Type = t.Type, TurnsRemaining = t.TurnsRemaining }
+            : null,
+        Cargo             = u.Cargo.Count > 0 ? u.Cargo.Select(UnitToDto).ToList() : null,
+    };
+
+    private static Unit UnitFromDto(UnitDto ud, DataCatalog catalog, Dictionary<int, Player> byId)
+    {
+        var def = catalog.Unit(ud.DataId)!;
+        return new Unit(def, byId[ud.OwnerId], ud.Position)
+        {
+            HP                = ud.HP,
+            MovementRemaining = ud.MovementRemaining,
+            Fortified         = ud.Fortified,
+            ActedThisTurn     = ud.ActedThisTurn,
+            SkippedThisTurn   = ud.SkippedThisTurn,
+            SleepUntilHealed  = ud.SleepUntilHealed,
+            Experience        = ud.Experience,
+            CurrentTask       = ud.Task is { } t
+                ? new ImprovementTask(t.Tile, t.Type, t.TurnsRemaining)
+                : null,
+        };
     }
 
     // ── Serialize ────────────────────────────────────────────────────────────
@@ -191,22 +231,7 @@ public static class SaveSerializer
                     ResearchedTechs    = civ.ResearchedTechs.ToList(),
                 };
             }).ToList(),
-            Units = state.Units.Select(u => new UnitDto
-            {
-                DataId            = u.Data.Id,
-                OwnerId           = u.Owner.Id,
-                Position          = u.Position,
-                HP                = u.HP,
-                MovementRemaining = u.MovementRemaining,
-                Fortified         = u.Fortified,
-                ActedThisTurn     = u.ActedThisTurn,
-                SkippedThisTurn   = u.SkippedThisTurn,
-                SleepUntilHealed  = u.SleepUntilHealed,
-                Experience        = u.Experience,
-                Task              = u.CurrentTask is { } t
-                    ? new ImprovementTaskDto { Tile = t.Tile, Type = t.Type, TurnsRemaining = t.TurnsRemaining }
-                    : null,
-            }).ToList(),
+            Units = state.Units.Select(UnitToDto).ToList(),
             Cities = state.Cities.Select(c => new CityDto
             {
                 Name               = c.Name,
@@ -280,22 +305,15 @@ public static class SaveSerializer
 
         foreach (var ud in dto.Units)
         {
-            var def = catalog.Unit(ud.DataId);
-            if (def == null) continue; // unknown unit id (data drift) — drop it
-            var unit = new Unit(def, byId[ud.OwnerId], ud.Position)
-            {
-                HP                = ud.HP,
-                MovementRemaining = ud.MovementRemaining,
-                Fortified         = ud.Fortified,
-                ActedThisTurn     = ud.ActedThisTurn,
-                SkippedThisTurn   = ud.SkippedThisTurn,
-                SleepUntilHealed  = ud.SleepUntilHealed,
-                Experience        = ud.Experience,
-                CurrentTask       = ud.Task is { } t
-                    ? new ImprovementTask(t.Tile, t.Type, t.TurnsRemaining)
-                    : null,
-            };
+            if (catalog.Unit(ud.DataId) == null) continue; // unknown unit id — drop it
+            var unit = UnitFromDto(ud, catalog, byId);
             state.Units.Add(unit);
+            if (ud.Cargo == null) continue;
+            foreach (var cargoDto in ud.Cargo)
+            {
+                if (catalog.Unit(cargoDto.DataId) == null) continue;
+                unit.Cargo.Add(UnitFromDto(cargoDto, catalog, byId));
+            }
         }
 
         foreach (var cd in dto.Cities)
