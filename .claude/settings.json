@@ -9,7 +9,24 @@
       "Edit(/.claude/skills/build-standalone/**)",
       "Edit(/.claude/skills/tune-map-generation/**)",
       "Edit(/.claude/skills/add-art-asset/**)",
-      "Edit(/.claude/skills/add-content/**)"
+      "Edit(/.claude/skills/add-content/**)",
+      "Edit(/.claude/skills/run-checks/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "pwsh -NoProfile -File .claude/skills/run-checks/pre-commit-hook.ps1",
+            "timeout": 600,
+            "statusMessage": "Running checks before commit/push…"
+          }
+        ]
+      }
     ]
   }
 }
