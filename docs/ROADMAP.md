@@ -235,11 +235,43 @@ pulled from `DataCatalog` / `TerrainYields` so entries never go stale. Copy is a
 
 ---
 
+## Phase 13 — Naval System & Cross-Continent Play
+
+Goal: introduce **naval units** (ships that move on ocean/coast tiles) and a basic
+**embarkation** system so armies can cross water — then drop the same-landmass
+constraint in `GameFactory.Populate()` so factions can spawn on separate continents on
+Continents and Archipelago maps. Until this phase ships the single-largest-landmass
+restriction remains in place by design.
+
+- [ ] **13.1 — Naval units.** Add a `Galley` unit (early naval, ocean+coast only,
+      melee) and a `Frigate` (mid naval, ocean+coast, ranged) to `data/units.json`.
+      `MovementCost` returns 1 for Ocean/Coast when the unit's `IsNaval` flag is set
+      (new boolean on `UnitData`). Naval units cannot enter land tiles; land units
+      cannot enter ocean/coast tiles without embarkation (13.2). Update AI production
+      mix to queue ships when it owns a coastal city. *Done when:* naval units move on
+      water and AI builds them.
+- [ ] **13.2 — Embarkation.** Coastal cities act as embarkation/disembarkation points.
+      A land unit adjacent to a coastal city can board a naval transport (or the city
+      itself acts as the ferry — simpler first cut: a land unit can "step onto" an
+      adjacent coast/ocean tile at movement cost equal to its full movement, then moves
+      as a naval unit for the remainder of its turn). Naval and land stats are preserved
+      separately; the unit reverts to land mode when it steps onto a land tile. *Done
+      when:* a Scout can cross a sea channel to reach a far continent.
+- [ ] **13.3 — Cross-continent spawning.** Remove the "largest landmass only"
+      constraint from `GameFactory.Populate()` for scripts with multiple landmasses
+      (Continents, Archipelago). Assign landmasses by decreasing size; give each human
+      the biggest landmass, AI players take the others (or share if there are fewer
+      continents than players). Farthest-point sampling within each landmass still
+      applies. Update `GameFactory` tests. *Done when:* a 4-player Continents game
+      reliably starts players on separate continents rather than one shared landmass.
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
-(factions & fast-warfare reframe), Phase 11 (map scripts), and Phase 12 (in-game
-Civilopedia), candidate directions.
+(factions & fast-warfare reframe), Phase 11 (map scripts), Phase 12 (in-game
+Civilopedia), and Phase 13 (naval system), candidate directions.
 Factions, light diplomacy, and the objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve
@@ -247,10 +279,7 @@ Factions, light diplomacy, and the objective victory now live in **Phase 10**, n
 - Full tech tree (50+ techs), extending the salvaged → colony → planetary regression arc
 - Deeper diplomacy (trade deals beyond the Phase 10 alliance/non-aggression basics)
 - Culture and borders; Religion (currently out of scope)
-- More unit types (naval, siege; plus the sci-fi late-tier units from the regression arc)
-- **Cross-continent / multi-island AI spawning** — once naval units exist, drop the
-  `WorldMap.PickAISpawn` same-landmass constraint and spawn players on separate
-  continents.
+- More unit types (siege, sci-fi late-tier units from the regression arc)
 - Map editor; Multiplayer (hot-seat → network); Mod support (data-driven JSON helps)
 - Possible later: **free camera rotation** (the world is already true 3D as of
   Phase 7, but the tilt/heading is fixed Civ5-style — orbiting would add picking,
