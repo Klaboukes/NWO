@@ -19,8 +19,15 @@ public record FactionChoice(string? FactionId, bool IsHuman);
 // GameLaunch, while a new game runs NewGame here.
 public static class GameFactory
 {
-    public const int MapWidth  = 60;
+    public const int MapWidth  = 60;  // Standard size (default)
     public const int MapHeight = 40;
+
+    public static (int W, int H) MapDimensions(MapSize size) => size switch
+    {
+        MapSize.Small => (44, 28),
+        MapSize.Large => (80, 52),
+        _             => (MapWidth, MapHeight),
+    };
 
     // Owner tints, assigned by player index. Up to 8 players (FACTIONS.md roster cap).
     private static readonly Color[] PlayerColors =
@@ -39,9 +46,13 @@ public static class GameFactory
         new FactionChoice("reavers", false),
     };
 
-    public static NewGameResult NewGame(int seed, IReadOnlyList<FactionChoice>? roster = null)
+    public static NewGameResult NewGame(int seed,
+        IReadOnlyList<FactionChoice>? roster = null,
+        MapScript script = MapScript.Continents,
+        MapSize size = MapSize.Standard)
     {
-        var map     = MapGenerator.Generate(MapWidth, MapHeight, seed);
+        var (w, h) = MapDimensions(size);
+        var map     = MapGenerator.Generate(w, h, seed, script);
         var catalog = DataCatalog.Load();
         var state   = new GameState(map, catalog, seed);
         var viewer  = Populate(state, roster);
@@ -61,7 +72,7 @@ public static class GameFactory
         var settlerDef = catalog.Unit("settler")!;
 
         var ordered  = choices.OrderByDescending(c => c.IsHuman).ToList();
-        var center   = state.FindWalkableTileNear(MapCenterAxial());
+        var center   = state.FindWalkableTileNear(MapCenterAxial(state.Map.Width, state.Map.Height));
         var landmass = state.GetConnectedLandmass(center);
         // Normalize the viewer's start: keep it central, but slide to the most fertile
         // tile within a short radius so the human never opens on a barren pocket.
@@ -126,10 +137,10 @@ public static class GameFactory
         };
     }
 
-    public static Vector2I MapCenterAxial()
+    public static Vector2I MapCenterAxial(int width = MapWidth, int height = MapHeight)
     {
-        int col = MapWidth  / 2;
-        int row = MapHeight / 2;
+        int col = width  / 2;
+        int row = height / 2;
         return new Vector2I(col, row - (col - (col & 1)) / 2);
     }
 

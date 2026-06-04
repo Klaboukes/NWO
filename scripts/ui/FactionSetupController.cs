@@ -3,6 +3,7 @@ using Godot;
 using NWO.Audio;
 using NWO.Core;
 using NWO.Entities;
+using NWO.Map;
 
 namespace NWO.UI;
 
@@ -17,8 +18,10 @@ public partial class FactionSetupController : Control
     private const int MaxPlayers = 8;
     private const int RandomIndex = 0; // option 0 in every picker is "Random"
 
-    private OptionButton  _playerCount = null!;
-    private VBoxContainer _slots       = null!;
+    private OptionButton  _playerCount  = null!;
+    private VBoxContainer _slots        = null!;
+    private OptionButton  _mapType      = null!;
+    private OptionButton  _mapSize      = null!;
     private readonly List<OptionButton> _slotPicks = new();
     private readonly List<int>          _selection = new(); // picker index per slot (0 = Random)
     private List<FactionData> _selectable = new();
@@ -31,11 +34,26 @@ public partial class FactionSetupController : Control
 
         _playerCount = GetNode<OptionButton>("CenterPanel/VBox/CountRow/PlayerCount");
         _slots       = GetNode<VBoxContainer>("CenterPanel/VBox/Slots");
+        _mapType     = GetNode<OptionButton>("CenterPanel/VBox/MapTypeRow/MapType");
+        _mapSize     = GetNode<OptionButton>("CenterPanel/VBox/MapSizeRow/MapSize");
 
         for (int n = MinPlayers; n <= MaxPlayers; n++)
             _playerCount.AddItem(n.ToString());
         _playerCount.Selected = 2; // default 4 players (index 2 → value 4)
         _playerCount.ItemSelected += _ => { Click(); RebuildSlots(); };
+
+        _mapType.AddItem("Continents");
+        _mapType.AddItem("Pangaea");
+        _mapType.AddItem("Archipelago");
+        _mapType.AddItem("Highlands");
+        _mapType.Selected = 0; // Continents
+        _mapType.ItemSelected += _ => Click();
+
+        _mapSize.AddItem("Small");
+        _mapSize.AddItem("Standard");
+        _mapSize.AddItem("Large");
+        _mapSize.Selected = 1; // Standard
+        _mapSize.ItemSelected += _ => Click();
 
         GetNode<Button>("CenterPanel/VBox/Buttons/StartButton").Pressed += () => { Click(); OnStart(); };
         GetNode<Button>("CenterPanel/VBox/Buttons/BackButton").Pressed  += () => { Click(); OnBack(); };
@@ -111,9 +129,11 @@ public partial class FactionSetupController : Control
             roster.Add(new FactionChoice(_selectable[factionIdx].Id, IsHuman: i == 0));
         }
 
-        GameLaunch.LoadedGame    = null;
-        GameLaunch.NewGameSeed   = (int)GD.Randi();
-        GameLaunch.NewGameRoster = roster;
+        GameLaunch.LoadedGame      = null;
+        GameLaunch.NewGameSeed     = (int)GD.Randi();
+        GameLaunch.NewGameRoster   = roster;
+        GameLaunch.NewGameMapScript = (MapScript)_mapType.Selected;
+        GameLaunch.NewGameMapSize   = (MapSize)_mapSize.Selected;
         GetTree().ChangeSceneToFile(Scenes.World);
     }
 

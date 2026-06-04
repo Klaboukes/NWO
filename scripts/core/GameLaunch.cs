@@ -1,3 +1,5 @@
+using NWO.Map;
+
 namespace NWO.Core;
 
 // Cross-scene handoff. A plain C# static survives GetTree().ChangeSceneToFile,
@@ -21,4 +23,9 @@ public static class GameLaunch
     // The faction roster chosen on the setup screen (Phase 10.2). Null falls back to
     // GameFactory.DefaultRoster (human vs Reavers). Cleared by WorldMap once read.
     public static System.Collections.Generic.IReadOnlyList<FactionChoice>? NewGameRoster { get; set; }
+
+    // Map script and size chosen on the setup screen (Phase 11). Default values are
+    // used when launching from a path that bypasses FactionSetup (e.g. save-load).
+    public static MapScript NewGameMapScript { get; set; } = MapScript.Continents;
+    public static MapSize   NewGameMapSize   { get; set; } = MapSize.Standard;
 }

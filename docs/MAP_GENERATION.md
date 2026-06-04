@@ -821,7 +821,7 @@ we took, what's worth taking, and what we won't.
 
 | Civ 5 pattern | Where it lands | Effort / ripple |
 | --- | --- | --- |
-| **Map scripts** (Continents / Pangaea / Archipelago / Highlands…) selectable at setup | **ROADMAP Phase 11** — needs a map-script abstraction + setup-screen UI | ~2–4 days |
+| **Map scripts** (Continents / Pangaea / Archipelago / Highlands) selectable at setup | ✅ **Phase 11 complete** — `MapScript` enum + `MapScriptParams` record; percentile OceanLevel trick; World + Size dropdowns on FactionSetup | shipped |
 | ~~Start normalization + region balancing~~ — **shipped in Phase 10.4** (see Adopted table): fertility-floor + farthest-point spawn spread in `GameFactory`, without Civ's region machinery | ✅ done | — |
 | **Terrain vs. features split** (forest/jungle/marsh/oasis/floodplain as *features* on a base terrain, like Civ) | post-MVP phase only if we want Civ-depth terrain — **partly started**: Hills already shipped as a `Feature` (`MapData.Features`), so the scaffolding exists | ~1 week+ for the rest; architectural — ripples through `MapData`, save format, yields, workforce, AI, art, tooltips |
 

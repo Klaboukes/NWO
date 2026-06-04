@@ -180,28 +180,31 @@ fast warfare, and an objective victory tied to the lore. Setting & design intent
 
 ---
 
-## Phase 11 — Map scripts (Civ5-style world types) 🔭 PLANNED
+## Phase 11 — Map scripts (Civ5-style world types) ✅ COMPLETE
 
 Goal: add selectable **map scripts** so a match can be Continents, Pangaea,
 Archipelago, Highlands, etc., instead of one fixed continental layout — borrowing the
 Civ 5 pattern (each script parameterizes the same generation core differently). See
 the "Civ 5 Patterns" matrix in [MAP_GENERATION.md](MAP_GENERATION.md).
 
-- [ ] **11.1 — Map-script abstraction.** Factor `MapGenerator.Generate` so the
-      continental-shape / sea-level / landmass-splitting step is pluggable (a `MapScript`
-      strategy), leaving climate, mountains, rivers, and resources shared. *Done when:*
-      the current map is one script among an interface, with no behaviour change by default.
-- [ ] **11.2 — Script library.** Implement Continents, Pangaea, Archipelago, and
-      Highlands by varying the shape/falloff/uplift parameters (+ ideally the Civ 5
-      **percentile-threshold** trick for a stable land ratio per script). *Done when:*
-      each script produces a recognisably different, playable world.
-- [ ] **11.3 — Setup-screen selection.** Expose the map-script (and size) choice in the
-      new-game setup UI, wired through `GameFactory.NewGame`. *Done when:* the player picks
-      a world type and it generates.
-
-> The two cheap Civ 5 wins — **percentile thresholds** and **impact-and-ripple resource
-> spacing** — are small, isolated tuning jobs; do them anytime under the
-> `tune-map-generation` skill rather than blocking on this phase.
+- [x] **11.1 — Map-script abstraction.** `MapScript` enum + `MapScriptParams` record
+      (`scripts/map/MapScript.cs`) bundle every shape-controlling constant (radial
+      falloff, base frequency, ocean/mountain levels, uplift, hilliness). `MapGenerator
+      .Generate` now accepts a `MapScript` parameter and uses `MapScriptParams.For(script)`
+      instead of hardcoded `const` values. Climate (moisture/temperature) and resource
+      layers remain shared. *Done.*
+- [x] **11.2 — Script library.** Four scripts implemented via per-script
+      `MapScriptParams`: **Continents** (current default, 35% land), **Pangaea** (low
+      falloff + wide noise → one large mass, 50% land), **Archipelago** (high falloff +
+      tight noise → many islands, 22% land), **Highlands** (higher mountain boost + lower
+      thresholds → mountain-heavy interior). Includes the Civ 5 **percentile-threshold**
+      trick: after computing raw heights, the effective `OceanLevel` is calibrated so
+      each script's `TargetLandPercent` is met deterministically across seeds. *Done.*
+- [x] **11.3 — Setup-screen selection.** `FactionSetup` screen now has **World** and
+      **Size** (Small 44×28 / Standard 60×40 / Large 80×52) `OptionButton` rows wired
+      through `GameLaunch.NewGameMapScript` / `NewGameMapSize` → `GameFactory.NewGame`
+      → `MapGenerator.Generate`. `MapCenterAxial` uses actual map dimensions instead of
+      global constants so spawns are correct for non-Standard sizes. *Done.*
 
 ---
 

@@ -75,8 +75,9 @@ public class SettlementTests
         var map = TestWorlds.FlatMap(40, 30);
         foreach (var key in new System.Collections.Generic.List<Vector2I>(map.Tiles.Keys))
             map.Tiles[key] = TerrainType.Desert;
-        // Grassland pocket next to the map centre (MapCenterAxial → (30,5)).
-        foreach (var t in HexGrid.GetRange(new Vector2I(29, 5), 2))
+        // Grassland pocket next to the map centre (uses actual map dimensions, not global consts).
+        var mapCenter = GameFactory.MapCenterAxial(map.Width, map.Height);
+        foreach (var t in HexGrid.GetRange(new Vector2I(mapCenter.X + 1, mapCenter.Y), 2))
             if (map.Tiles.ContainsKey(t)) map.Tiles[t] = TerrainType.Grassland;
 
         var state  = new GameState(map, Catalog(), 1);

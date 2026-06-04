@@ -3,6 +3,7 @@ using NWO.Core;
 using NWO.Entities;
 using NWO.Map;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace NWO.Tests;
 
@@ -83,5 +84,56 @@ public class GameFactoryTests
         Assert.True(viewer.IsHuman);
         Assert.Null(viewer.FactionId);                                  // neutral human slot
         Assert.Contains(state.Players, p => p.FactionId == "reavers");  // AI Reavers
+    }
+
+    // ── Phase 11: MapScript / MapSize data tests (no Godot engine needed) ────────
+
+    [Fact]
+    public void MapScriptParams_PangaeaHasMoreLandThanContinents()
+    {
+        var continents  = MapScriptParams.For(MapScript.Continents);
+        var pangaea     = MapScriptParams.For(MapScript.Pangaea);
+        Assert.True(pangaea.TargetLandPercent > continents.TargetLandPercent,
+            "Pangaea should target more land than Continents");
+        Assert.True(pangaea.RadialFalloff < continents.RadialFalloff,
+            "Pangaea should have a smaller radial falloff (less ocean push)");
+    }
+
+    [Fact]
+    public void MapScriptParams_ArchipelagoHasLessLandThanContinents()
+    {
+        var continents  = MapScriptParams.For(MapScript.Continents);
+        var archipelago = MapScriptParams.For(MapScript.Archipelago);
+        Assert.True(archipelago.TargetLandPercent < continents.TargetLandPercent,
+            "Archipelago should target less land than Continents");
+        Assert.True(archipelago.RadialFalloff > continents.RadialFalloff,
+            "Archipelago should have a larger radial falloff (more ocean push)");
+    }
+
+    [Fact]
+    public void MapScriptParams_HighlandsHasMoreMountainsThanContinents()
+    {
+        var continents = MapScriptParams.For(MapScript.Continents);
+        var highlands  = MapScriptParams.For(MapScript.Highlands);
+        Assert.True(highlands.MountainBoost > continents.MountainBoost,
+            "Highlands should have a higher mountain boost");
+        Assert.True(highlands.MountainLevel < continents.MountainLevel,
+            "Highlands should have a lower mountain height threshold (more mountains)");
+    }
+
+    [Fact]
+    public void MapDimensions_StandardIsDefault()
+    {
+        var (w, h) = GameFactory.MapDimensions(MapSize.Standard);
+        Assert.Equal(GameFactory.MapWidth,  w);
+        Assert.Equal(GameFactory.MapHeight, h);
+    }
+
+    [Fact]
+    public void MapDimensions_LargerThanSmaller()
+    {
+        var (ws, hs) = GameFactory.MapDimensions(MapSize.Small);
+        var (wl, hl) = GameFactory.MapDimensions(MapSize.Large);
+        Assert.True(wl > ws && hl > hs, "Large map must be bigger than Small in both dimensions");
     }
 }

@@ -5,9 +5,12 @@ namespace NWO.Map;
 
 public static class MapGenerator
 {
-    // ── Generation pipeline (Phase 9.1, retuned 9.x) ────────────────────────────
+    // ── Generation pipeline (Phase 9.1, retuned 9.x; Phase 11: map scripts) ───────
     // The world is built from independent layers rather than one noise map:
     //   1. Continental shape  — low-freq FBM + radial falloff → land/ocean height.
+    //      Parameters come from MapScriptParams so each map script (Continents,
+    //      Pangaea, Archipelago, Highlands) can vary shape/falloff/uplift while
+    //      sharing all downstream layers.
     //   2. Mountain layer      — domain-warped ridged Simplex, gated by a low-freq
     //                            uplift mask, so peaks form coherent directional
     //                            chains. Its strength ("relief") also rings the peaks
@@ -16,101 +19,102 @@ public static class MapGenerator
     //   3. Climate axes        — independent moisture (longitudinal) and temperature
     //                            (latitudinal + jitter) passes. Climate, not height,
     //                            drives the biome, so the map varies even where it's
-    //                            flat. See docs/MAP_GENERATION.md.
+    //                            flat. Shared across all scripts.
+    //      See docs/MAP_GENERATION.md.
 
-    // Continental shape
-    private const float BaseFrequency   = 0.045f;
-    private const float DetailFrequency = 0.11f;
-    private const float RadialFalloff   = 0.33f;
+    // Mountain shape — not per-script (warp/ridge geometry is the same for all).
+    private const float WarpFrequency   = 0.05f;
+    private const float WarpStrength    = 20f;
+    private const float RidgeFrequency  = 0.07f;
 
-    // Mountain layer
-    private const float WarpFrequency    = 0.05f;
-    private const float WarpStrength     = 20f;    // px the ridge field is bent by
-    private const float RidgeFrequency   = 0.07f;
-    private const float UpliftFrequency  = 0.03f;  // where mountain belts are allowed
-    private const float MountainBoost    = 0.55f;  // max height added at a ridge crest
-    private const float UpliftLow        = 0.45f;  // uplift mask ramp (more belts when wider)
-    private const float UpliftHigh       = 0.80f;
-    private const float HillRelief       = 0.52f;  // relief above this → foothills (Hills)
-
-    // Scattered hills, independent of mountains (mid-freq patches across open land).
-    private const float HillFrequency    = 0.14f;
-    private const float HillThreshold    = 0.68f;  // hilliness above this → Hills
-
-    // Climate
-    private const float MoistureFrequency    = 0.095f; // higher → more biome transitions
+    // Climate — shared across all scripts per ROADMAP §11.
+    private const float MoistureFrequency    = 0.095f;
     private const float TemperatureFrequency = 0.060f;
 
-    // Biome height bands (after the radial falloff, in [0,1] height space).
-    private const float OceanLevel    = 0.25f;
-    private const float CoastLevel    = 0.30f;
-    private const float MountainLevel = 0.72f; // land ↔ mountain (hills come from relief)
-
-    // Generates a map of (width x height) tiles.
-    public static MapData Generate(int width, int height, int seed = 0)
+    // Generates a map of (width × height) tiles using the given map script.
+    public static MapData Generate(int width, int height, int seed = 0,
+        MapScript script = MapScript.Continents)
     {
         var data = new MapData(width, height);
+        var p    = MapScriptParams.For(script);
+        int total = width * height;
 
-        var baseNoise   = MakeNoise(seed,     BaseFrequency);
-        var detailNoise = MakeNoise(seed + 1, DetailFrequency);
+        var baseNoise   = MakeNoise(seed,     p.BaseFrequency);
+        var detailNoise = MakeNoise(seed + 1, p.DetailFrequency);
         var warpNoise   = MakeNoise(seed + 2, WarpFrequency);
         var ridgeNoise  = MakeNoise(seed + 3, RidgeFrequency);
-        var upliftNoise = MakeNoise(seed + 4, UpliftFrequency);
+        var upliftNoise = MakeNoise(seed + 4, p.UpliftFrequency);
         var moistNoise  = MakeNoise(seed + 5, MoistureFrequency);
         var tempNoise   = MakeNoise(seed + 6, TemperatureFrequency);
-        var hillNoise   = MakeNoise(seed + 7, HillFrequency);
+        var hillNoise   = MakeNoise(seed + 7, p.HillFrequency);
 
-        // Final heights kept so rivers can trace downhill after classification.
-        var heights = new Dictionary<Vector2I, float>(width * height);
+        // Pass 1: compute raw heights + climate data for every tile.
+        var raw = new Dictionary<Vector2I, (float h, float moist, float temp, float lat, float hilly, float relief)>(total);
 
         for (int col = 0; col < width; col++)
+        for (int row = 0; row < height; row++)
         {
-            for (int row = 0; row < height; row++)
-            {
-                var axial = EvenQOffsetToAxial(col, row);
+            var axial = EvenQOffsetToAxial(col, row);
 
-                // 1. Continental shape: 70% base, 30% detail, remapped to [0,1].
-                float h = baseNoise.GetNoise2D(col, row) * 0.7f
-                        + detailNoise.GetNoise2D(col, row) * 0.3f;
-                h = (h + 1f) / 2f;
+            // 1. Continental shape: 70% base, 30% detail, remapped to [0,1].
+            float h = baseNoise.GetNoise2D(col, row) * 0.7f
+                    + detailNoise.GetNoise2D(col, row) * 0.3f;
+            h = (h + 1f) / 2f;
 
-                // Radial falloff: tiles far from centre become ocean (→ 2+ landmasses).
-                float nx = col / (float)(width  - 1) - 0.5f;
-                float ny = row / (float)(height - 1) - 0.5f;
-                float dist = Mathf.Sqrt(nx * nx + ny * ny) * 2f; // 0 at centre, ~1.4 at corners
-                h -= dist * RadialFalloff;
+            // Radial falloff: tiles far from centre become ocean (→ 2+ landmasses).
+            float nx   = col / (float)(width  - 1) - 0.5f;
+            float ny   = row / (float)(height - 1) - 0.5f;
+            float dist = Mathf.Sqrt(nx * nx + ny * ny) * 2f; // 0 at centre, ~1.4 at corners
+            h -= dist * p.RadialFalloff;
 
-                // 2. Mountain layer: ridged Simplex sampled through a domain warp,
-                //    raised only where the uplift mask is high → coherent chains.
-                //    `relief` (unsquared) is broader than the height bump (squared),
-                //    so it spreads foothills around each crest.
-                float wx = col + warpNoise.GetNoise2D(col,        row)        * WarpStrength;
-                float wy = row + warpNoise.GetNoise2D(col + 100f, row + 100f) * WarpStrength;
-                float ridge  = 1f - Mathf.Abs(ridgeNoise.GetNoise2D(wx, wy)); // crest = 1
-                float uplift = (upliftNoise.GetNoise2D(col, row) + 1f) / 2f;
-                float mask   = Mathf.SmoothStep(UpliftLow, UpliftHigh, uplift);
-                float relief = ridge * mask;
-                h += ridge * ridge * mask * MountainBoost;
+            // 2. Mountain layer: ridged Simplex sampled through a domain warp,
+            //    raised only where the uplift mask is high → coherent chains.
+            //    `relief` (unsquared) is broader than the height bump (squared),
+            //    so it spreads foothills around each crest.
+            float wx     = col + warpNoise.GetNoise2D(col,        row)        * WarpStrength;
+            float wy     = row + warpNoise.GetNoise2D(col + 100f, row + 100f) * WarpStrength;
+            float ridge  = 1f - Mathf.Abs(ridgeNoise.GetNoise2D(wx, wy)); // crest = 1
+            float uplift = (upliftNoise.GetNoise2D(col, row) + 1f) / 2f;
+            float mask   = Mathf.SmoothStep(p.UpliftLow, p.UpliftHigh, uplift);
+            float relief = ridge * mask;
+            h += ridge * ridge * mask * p.MountainBoost;
 
-                // 3. Climate: moisture (longitudinal noise) + temperature (warm at the
-                //    equator, cold at the poles, with a noise wobble so it's not banded).
-                float moisture = (moistNoise.GetNoise2D(col, row) + 1f) / 2f;
-                float half     = (height - 1) / 2f;
-                float lat      = half <= 0f ? 0f : Mathf.Abs(row - half) / half; // 0 eq → 1 pole
-                float tJitter  = (tempNoise.GetNoise2D(col, row) + 1f) / 2f;
-                float temperature = Mathf.Clamp((1f - lat) * 0.70f + tJitter * 0.36f, 0f, 1f);
-                float hilly    = (hillNoise.GetNoise2D(col, row) + 1f) / 2f;
+            // 3. Climate: moisture (longitudinal) + temperature (latitudinal + jitter).
+            float moisture    = (moistNoise.GetNoise2D(col, row) + 1f) / 2f;
+            float half        = (height - 1) / 2f;
+            float lat         = half <= 0f ? 0f : Mathf.Abs(row - half) / half; // 0 eq → 1 pole
+            float tJitter     = (tempNoise.GetNoise2D(col, row) + 1f) / 2f;
+            float temperature = Mathf.Clamp((1f - lat) * 0.70f + tJitter * 0.36f, 0f, 1f);
+            float hilly       = (hillNoise.GetNoise2D(col, row) + 1f) / 2f;
 
-                heights[axial]    = h;
-                var terrain       = Classify(h, moisture, temperature, lat);
-                data.Tiles[axial] = terrain;
+            raw[axial] = (h, moisture, temperature, lat, hilly, relief);
+        }
 
-                // Hills is a feature on top of the base biome: the mountain-relief
-                // skirt (foothills) plus an independent mid-freq hilliness field, on
-                // any open land terrain (not water, mountains, or low marsh).
-                if (HillEligible(terrain) && (relief > HillRelief || hilly > HillThreshold))
-                    data.Features[axial] = Feature.Hills;
-            }
+        // Percentile OceanLevel (Civ 5 trick): sort all heights and find the value
+        // at the (1 − TargetLandPercent) percentile so the land-ratio is stable
+        // across seeds. Use whichever is higher — the authored floor or the percentile
+        // value — so a script can't accidentally go below its minimum ocean level.
+        var sortedH  = new float[total];
+        int si       = 0;
+        foreach (var v in raw.Values) sortedH[si++] = v.h;
+        System.Array.Sort(sortedH);
+        int   cutoffIdx    = Mathf.Clamp((int)((1f - p.TargetLandPercent) * total), 0, total - 1);
+        float effOcean     = Mathf.Max(p.OceanLevel, sortedH[cutoffIdx]);
+        float effCoast     = effOcean + (p.CoastLevel - p.OceanLevel);
+
+        // Pass 2: classify terrain and apply Hills using the calibrated thresholds.
+        var heights = new Dictionary<Vector2I, float>(total);
+        foreach (var (axial, (h, moist, temp, lat, hilly, relief)) in raw)
+        {
+            heights[axial]    = h;
+            var terrain       = Classify(h, moist, temp, lat, effOcean, effCoast, p.MountainLevel);
+            data.Tiles[axial] = terrain;
+
+            // Hills is a feature on top of the base biome: the mountain-relief skirt
+            // (foothills) plus an independent mid-freq hilliness field, on any open
+            // land terrain (not water, mountains, or low marsh).
+            if (HillEligible(terrain) && (relief > p.HillRelief || hilly > p.HillThreshold))
+                data.Features[axial] = Feature.Hills;
         }
 
         TraceRivers(data, heights, seed);
@@ -422,11 +426,12 @@ public static class MapGenerator
     // Water and mountains come from height; everything else from a temperature ×
     // moisture matrix (so flat land still varies), with a polar Snow/Tundra cap.
     // Hills are NOT here — they're a feature applied in Generate (see HillEligible).
-    private static TerrainType Classify(float h, float moisture, float temperature, float lat)
+    private static TerrainType Classify(float h, float moisture, float temperature, float lat,
+        float oceanLevel, float coastLevel, float mountainLevel)
     {
-        if (h < OceanLevel)     return TerrainType.Ocean;
-        if (h < CoastLevel)     return TerrainType.Coast;
-        if (h >= MountainLevel) return TerrainType.Mountain;
+        if (h < oceanLevel)     return TerrainType.Ocean;
+        if (h < coastLevel)     return TerrainType.Coast;
+        if (h >= mountainLevel) return TerrainType.Mountain;
 
         // Polar caps.
         if (lat > 0.80f) return moisture < 0.45f ? TerrainType.Snow : TerrainType.Tundra;

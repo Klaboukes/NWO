@@ -101,15 +101,19 @@ public partial class WorldMap : Node3D
         }
         else
         {
-            int seed = GameLaunch.NewGameSeed ?? (int)GD.Randi();
-            GD.Print($"Map seed: {seed}  (pass to MapGenerator.Generate to reproduce)");
-            var (state, viewer) = GameFactory.NewGame(seed, GameLaunch.NewGameRoster);
+            int       seed   = GameLaunch.NewGameSeed ?? (int)GD.Randi();
+            MapScript script = GameLaunch.NewGameMapScript;
+            MapSize   size   = GameLaunch.NewGameMapSize;
+            GD.Print($"Map seed: {seed}  script: {script}  size: {size}  (pass to MapGenerator.Generate to reproduce)");
+            var (state, viewer) = GameFactory.NewGame(seed, GameLaunch.NewGameRoster, script, size);
             _state        = state;
             _viewerPlayer = viewer;
         }
-        GameLaunch.LoadedGame  = null;
-        GameLaunch.NewGameSeed = null;
-        GameLaunch.NewGameRoster = null;
+        GameLaunch.LoadedGame      = null;
+        GameLaunch.NewGameSeed     = null;
+        GameLaunch.NewGameRoster   = null;
+        GameLaunch.NewGameMapScript = MapScript.Continents;
+        GameLaunch.NewGameMapSize   = MapSize.Standard;
     }
 
     // ── Save / load / menu (HUD pause overlay) ─────────────────────────────────

@@ -384,12 +384,18 @@ constants). `WorldMap.ProcessTurn` routes a non-null result through the
 `MainMenu.tscn` is the boot scene (`run/main_scene`). All paths into a match
 converge in `WorldMap.ResolveLaunch`, which reads the `GameLaunch` static handoff:
 `LoadedGame` (a deserialized `GameState`) resumes that save, otherwise
-`GameFactory.NewGame(seed)` builds a fresh world (map generation, players, starting
-units, AI spawn — all extracted from the old `_Ready`). `GameLaunch` also carries
-`LastResult` to the victory screen. Scene changes use `GetTree().ChangeSceneToFile`;
-a plain C# static survives the transition, so `GameLaunch` (gameplay handoff) stays
-a static rather than an autoload — only audio, which needs a live persistent `Node`,
-is.
+`GameFactory.NewGame(seed, roster, script, size)` builds a fresh world (map
+generation, players, starting units, AI spawn). `GameLaunch` also carries the
+`MapScript` / `MapSize` chosen on `FactionSetup` and `LastResult` to the victory
+screen. Scene changes use `GetTree().ChangeSceneToFile`; a plain C# static survives
+the transition, so `GameLaunch` (gameplay handoff) stays a static rather than an
+autoload — only audio, which needs a live persistent `Node`, is.
+
+`MapScript` and `MapSize` (both in `scripts/map/MapScript.cs`) drive Phase 11 map
+variety. `MapScriptParams.For(script)` returns the per-script parameter bundle
+(radial falloff, base frequency, ocean/mountain thresholds, uplift, hilliness, and a
+`TargetLandPercent` used for the Civ 5 percentile-threshold trick that stabilises the
+land ratio across seeds). Climate and resource layers are shared across all scripts.
 
 ## Audio
 
