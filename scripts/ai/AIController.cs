@@ -24,6 +24,10 @@ public class AIController
 {
     private readonly GameState _state;
 
+    // Per-turn cache of connected landmasses (terrain geometry is stable within a
+    // turn), so the cross-continent checks below BFS each continent at most once.
+    private readonly List<HashSet<Vector2I>> _turnLandmasses = new();
+
     public AIController(GameState state) => _state = state;
 
     // How many cities the AI wants before it stops prioritising expansion.
@@ -52,6 +56,7 @@ public class AIController
 
     public void TakeTurn(Player ai)
     {
+        _turnLandmasses.Clear();
         ChooseResearch(ai);
 
         // Snapshot the unit list — combat/founding can add or remove units.
@@ -200,6 +205,10 @@ public class AIController
 
     private void HandleNaval(Player ai, Unit unit)
     {
+        // Transports ferry troops rather than fight: pick up stranded units and
+        // land them on enemy shores (see HandleTransport).
+        if (unit.Data.CargoCapacity > 0) { HandleTransport(ai, unit); return; }
+
         // Attack an in-range enemy naval unit when the forecast favours it.
         var target = NearestEnemyInRange(ai, unit);
         if (target != null && WorthAttacking(unit, target))
@@ -212,6 +221,48 @@ public class AIController
         // adjacent to an enemy city when no naval opponents exist.
         var goal = NearestNavalTarget(ai, unit.Position);
         if (goal.HasValue) StepToward(unit, goal.Value);
+    }
+
+    // A transport carrying troops makes for the nearest enemy shore and disembarks;
+    // an empty one sails to collect the nearest friendly unit stranded on a continent
+    // with no overland enemy to fight.
+    private void HandleTransport(Player ai, Unit transport)
+    {
+        if (transport.Cargo.Count > 0)
+        {
+            if (TryAmphibiousLanding(ai, transport)) return;
+            var shore = NearestEnemyShore(ai, transport.Position);
+            if (shore is { } s) StepToward(transport, s);
+            return;
+        }
+
+        var pickup = NearestStrandedPickup(ai, transport.Position);
+        if (pickup is { } p) StepToward(transport, p);
+    }
+
+    // Disembark cargo onto adjacent enemy-continent land, nearest-to-the-enemy first.
+    // Only lands on a continent that actually holds an enemy, so troops aren't dumped
+    // on an empty or friendly shore. Returns true if at least one unit was put ashore.
+    private bool TryAmphibiousLanding(Player ai, Unit transport)
+    {
+        bool landed = false;
+        foreach (var cargo in new List<Unit>(transport.Cargo))
+        {
+            Vector2I? best = null;
+            int       bestEnemyDist = int.MaxValue;
+            foreach (var n in HexGrid.GetNeighbors(transport.Position))
+            {
+                if (!_state.Map.Tiles.TryGetValue(n, out var nt))             continue;
+                if (TerrainYields.IsWater(nt) || nt == TerrainType.Mountain)  continue;
+                if (_state.Units.Any(u => u.Position == n))                   continue;
+                if (!LandmassHasEnemy(ai, LandmassAt(n)))                     continue; // only enemy soil
+                int d = NearestEnemyDistance(ai, n);
+                if (d < bestEnemyDist) { bestEnemyDist = d; best = n; }
+            }
+            if (best is { } tile && _state.UnloadUnit(transport, cargo, tile)) landed = true;
+            else break; // no open enemy-shore tile left this turn
+        }
+        return landed;
     }
 
     private Vector2I? NearestNavalTarget(Player ai, Vector2I from)
@@ -281,9 +332,32 @@ public class AIController
             return;
         }
 
-        // 6. Otherwise advance on the nearest enemy unit or city.
+        // 6. No enemy is reachable overland (they're across water) — head for the
+        //    coast and board a transport for an overseas assault.
+        var landmass = LandmassAt(unit.Position);
+        if (!LandmassHasEnemy(ai, landmass))
+        {
+            HandleStrandedLandUnit(ai, unit, landmass);
+            return;
+        }
+
+        // 7. Otherwise advance on the nearest enemy unit or city.
         var goal = NearestEnemyOrCityPosition(ai, unit.Position);
         if (goal.HasValue) StepToward(unit, goal.Value);
+    }
+
+    // A land unit with no overland enemy boards an adjacent friendly transport if it
+    // can, otherwise stages on the nearest shore so a transport can collect it.
+    private void HandleStrandedLandUnit(Player ai, Unit unit, HashSet<Vector2I> landmass)
+    {
+        var transport = _state.Units.FirstOrDefault(t =>
+            t.Owner == ai && t.Data.CargoCapacity > 0 &&
+            t.Cargo.Count < t.Data.CargoCapacity &&
+            HexGrid.Distance(unit.Position, t.Position) <= 1);
+        if (transport != null && _state.LoadUnit(unit, transport)) return;
+
+        var shore = NearestShoreTile(landmass, unit.Position);
+        if (shore is { } s && s != unit.Position) StepToward(unit, s);
     }
 
     // Melee: don't attack if the reprisal would kill us, unless we kill them first;
@@ -486,6 +560,117 @@ public class AIController
             if (d < bestDist) { best = city.Position; bestDist = d; }
         }
         return best;
+    }
+
+    // ── Cross-continent helpers (Phase 13) ───────────────────────────────────────
+
+    // The connected landmass containing `tile`, memoized for the turn so each
+    // continent is flood-filled at most once (terrain doesn't change mid-turn).
+    private HashSet<Vector2I> LandmassAt(Vector2I tile)
+    {
+        foreach (var lm in _turnLandmasses)
+            if (lm.Contains(tile)) return lm;
+        var fresh = _state.GetConnectedLandmass(tile);
+        _turnLandmasses.Add(fresh);
+        return fresh;
+    }
+
+    private bool LandmassHasEnemy(Player ai, HashSet<Vector2I> landmass)
+    {
+        foreach (var u in _state.Units)
+            if (u.Owner != ai && landmass.Contains(u.Position)) return true;
+        foreach (var c in _state.Cities)
+            if (c.Owner != ai && landmass.Contains(c.Position)) return true;
+        return false;
+    }
+
+    private int NearestEnemyDistance(Player ai, Vector2I tile)
+    {
+        int best = int.MaxValue;
+        foreach (var u in _state.Units)
+            if (u.Owner != ai) best = System.Math.Min(best, HexGrid.Distance(tile, u.Position));
+        foreach (var c in _state.Cities)
+            if (c.Owner != ai) best = System.Math.Min(best, HexGrid.Distance(tile, c.Position));
+        return best;
+    }
+
+    // Nearest land tile on `landmass` that borders water — an embarkation staging point.
+    private Vector2I? NearestShoreTile(HashSet<Vector2I> landmass, Vector2I from)
+    {
+        Vector2I? best     = null;
+        int       bestDist = int.MaxValue;
+        foreach (var tile in landmass)
+        {
+            if (!BordersWater(tile)) continue;
+            int d = HexGrid.Distance(from, tile);
+            if (d < bestDist) { bestDist = d; best = tile; }
+        }
+        return best;
+    }
+
+    // Nearest water tile bordering an enemy-held continent — a transport's approach
+    // to drop its troops (the landing itself happens in TryAmphibiousLanding once the
+    // transport is adjacent to enemy soil). Targets the coastline, not the cities, so
+    // it still works when the enemy's cities sit inland.
+    private Vector2I? NearestEnemyShore(Player ai, Vector2I from)
+    {
+        Vector2I? best     = null;
+        int       bestDist = int.MaxValue;
+        foreach (var landmass in EnemyLandmasses(ai))
+        foreach (var tile in landmass)
+        {
+            foreach (var n in HexGrid.GetNeighbors(tile))
+            {
+                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsWater(nt)) continue;
+                int d = HexGrid.Distance(from, n);
+                if (d < bestDist) { bestDist = d; best = n; }
+            }
+        }
+        return best;
+    }
+
+    // The distinct continents that hold an enemy city or land unit (deduped by the
+    // memoized landmass instance), so a transport can steer toward enemy soil.
+    private IEnumerable<HashSet<Vector2I>> EnemyLandmasses(Player ai)
+    {
+        var seen = new List<HashSet<Vector2I>>();
+        void Consider(Vector2I pos)
+        {
+            var lm = LandmassAt(pos);
+            if (lm.Count > 0 && !seen.Contains(lm)) seen.Add(lm);
+        }
+        foreach (var c in _state.Cities)
+            if (c.Owner != ai) Consider(c.Position);
+        foreach (var u in _state.Units)
+            if (u.Owner != ai && !u.Data.IsNaval) Consider(u.Position);
+        return seen;
+    }
+
+    // Nearest water tile beside a friendly military unit stranded with no overland
+    // enemy — where an empty transport should sail to pick it up.
+    private Vector2I? NearestStrandedPickup(Player ai, Vector2I from)
+    {
+        Vector2I? best     = null;
+        int       bestDist = int.MaxValue;
+        foreach (var u in _state.Units)
+        {
+            if (u.Owner != ai || u.Data.IsNaval || u.Data.Attack <= 0) continue;
+            if (LandmassHasEnemy(ai, LandmassAt(u.Position)))          continue; // can fight overland
+            foreach (var n in HexGrid.GetNeighbors(u.Position))
+            {
+                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsWater(nt)) continue;
+                int d = HexGrid.Distance(from, n);
+                if (d < bestDist) { bestDist = d; best = n; }
+            }
+        }
+        return best;
+    }
+
+    private bool BordersWater(Vector2I tile)
+    {
+        foreach (var n in HexGrid.GetNeighbors(tile))
+            if (_state.Map.Tiles.TryGetValue(n, out var nt) && TerrainYields.IsWater(nt)) return true;
+        return false;
     }
 
     // ── Movement ──────────────────────────────────────────────────────────────

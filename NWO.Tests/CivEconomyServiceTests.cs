@@ -192,8 +192,9 @@ public class CivEconomyServiceTests
     public void Treasury_DeficitDisbandsCheapestUnitFirst()
     {
         var (state, p) = MakeState(Catalog());
-        var scout      = new Unit(Scout(prodCost: 25),    p, new Vector2I(0, 0));
-        var warrior    = new Unit(Warrior(prodCost: 40),  p, new Vector2I(1, 0));
+        // Two units above the free allowance so shedding upkeep actually helps.
+        var scout      = new Unit(Scout(prodCost: 25)   with { MaintenanceGold = 2 }, p, new Vector2I(0, 0));
+        var warrior    = new Unit(Warrior(prodCost: 40, maintenance: 2),              p, new Vector2I(1, 0));
         state.Units.Add(scout);
         state.Units.Add(warrior);
         state.Civ(p).Treasury = -1;
@@ -201,8 +202,11 @@ public class CivEconomyServiceTests
         var notifs = new List<GameEvent>();
         CivEconomyService.ProcessEndOfTurn(state, p, notifs);
 
-        // GoldPerTurn = -2 (two units × 1 maint). Treasury starts -1 → -3 → disband scout (refund 1) → -2 → disband warrior (refund 1) → -1 → no units left.
+        // Total maint 4, free 2 → GoldPerTurn -2. Treasury -1 → -3. Disband cheapest
+        // (scout): freed upkeep = (4-2)-(2-2) = 2 → -1. Remaining warrior is now within
+        // the free allowance, so shedding it frees nothing → loop stops, warrior lives.
         Assert.DoesNotContain(scout, state.Units);
+        Assert.Contains(warrior, state.Units);
         Assert.Contains(notifs, n => n.Text == "Treasury depleted — disbanded Scout.");
     }
 
@@ -210,7 +214,8 @@ public class CivEconomyServiceTests
     public void Treasury_TerminatesWhenAllUnitsDisbanded()
     {
         var (state, p) = MakeState(Catalog());
-        state.Units.Add(new Unit(Scout(), p, new Vector2I(0, 0)));
+        // A maint-3 unit (above the free allowance) so disbanding it frees upkeep.
+        state.Units.Add(new Unit(Scout() with { MaintenanceGold = 3 }, p, new Vector2I(0, 0)));
         state.Civ(p).Treasury = -100;
 
         var notifs = new List<GameEvent>();

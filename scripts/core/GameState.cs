@@ -263,6 +263,54 @@ public class GameState
         CityWorkforceService.Recompute(this, city);
     }
 
+    // ── Naval transport (cargo) ────────────────────────────────────────────────
+    // Core load/unload mechanics, shared by the player path (GameSession wraps these
+    // with viewer/fog handling) and the AI (which calls them directly). Validation
+    // lives here so both agree on what a legal embark/disembark is.
+
+    // Boards a land unit onto an adjacent friendly transport (same owner) sitting on
+    // water with free capacity. The unit leaves the map into transport.Cargo, spending
+    // its move. Returns false if any precondition fails.
+    public bool LoadUnit(Unit landUnit, Unit transport)
+    {
+        if (landUnit.Owner != transport.Owner)                     return false;
+        if (landUnit.Data.IsNaval)                                 return false;
+        if (transport.Data.CargoCapacity <= 0)                     return false;
+        if (transport.Cargo.Count >= transport.Data.CargoCapacity) return false;
+        if (landUnit.MovementRemaining <= 0)                       return false; // spent units can't board
+        if (!Units.Contains(landUnit))                             return false; // prevent double-load
+        if (HexGrid.Distance(landUnit.Position, transport.Position) > 1) return false;
+        if (!Map.Tiles.TryGetValue(transport.Position, out var tt)) return false;
+        if (!TerrainYields.IsWater(tt))                            return false;
+
+        Units.Remove(landUnit);
+        landUnit.MovementRemaining = 0;
+        landUnit.ActedThisTurn     = true;
+        transport.Cargo.Add(landUnit);
+        return true;
+    }
+
+    // Disembarks one cargo unit onto an adjacent passable, unoccupied land tile. The
+    // transport spends all its remaining movement. Returns false if any precondition fails.
+    public bool UnloadUnit(Unit transport, Unit cargoUnit, Vector2I destTile)
+    {
+        if (transport.Data.CargoCapacity <= 0)        return false;
+        if (!transport.Cargo.Contains(cargoUnit))     return false;
+        if (HexGrid.Distance(transport.Position, destTile) != 1) return false;
+        if (!Map.Tiles.TryGetValue(destTile, out var dt)) return false;
+        if (TerrainYields.IsWater(dt) || dt == TerrainType.Mountain) return false;
+        if (Units.Exists(u => u.Position == destTile)) return false; // block friendly stacking too
+
+        transport.Cargo.Remove(cargoUnit);
+        cargoUnit.Position          = destTile;
+        cargoUnit.MovementRemaining = 0;
+        cargoUnit.ActedThisTurn     = true;
+        Units.Add(cargoUnit);
+        transport.MovementRemaining = 0;
+        transport.ActedThisTurn     = true;
+        return true;
+    }
+
     // ── End-of-turn processing ───────────────────────────────────────────────
 
     public record ProductionCompletion(City City, string Item);

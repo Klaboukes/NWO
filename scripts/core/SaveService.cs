@@ -77,13 +77,28 @@ public static class SaveService
     }
 
     // Maps a display name to a safe file stem (the original name is preserved in
-    // the file's header for display). Keeps letters/digits/-/_; collapses the rest.
+    // the file's header for display). Keeps letters/digits/-/_; collapses the rest,
+    // then appends a short stable hash of the normalized name so names that differ
+    // only in collapsed punctuation ("My Save!" vs "My Save?") don't slug to the
+    // same file and silently overwrite one another. The same name always maps to the
+    // same slot, so re-saving still overwrites as intended.
     private static string Slug(string name)
     {
-        var sb = new StringBuilder(name.Length);
-        foreach (char c in name.Trim().ToLowerInvariant())
+        string normalized = name.Trim().ToLowerInvariant();
+        var sb = new StringBuilder(normalized.Length);
+        foreach (char c in normalized)
             sb.Append(char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_');
-        string slug = sb.ToString().Trim('_');
-        return slug.Length == 0 ? "save" : slug;
+        string stem = sb.ToString().Trim('_');
+        if (stem.Length == 0) stem = "save";
+        return $"{stem}_{StableHash(normalized)}";
+    }
+
+    // FNV-1a 32-bit → 6 hex chars. Deterministic across runs and machines, unlike
+    // string.GetHashCode (which is randomized per process on .NET Core).
+    private static string StableHash(string s)
+    {
+        uint h = 2166136261;
+        foreach (char c in s) { h ^= c; h *= 16777619; }
+        return (h & 0xFFFFFF).ToString("x6");
     }
 }

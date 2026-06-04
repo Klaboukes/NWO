@@ -53,31 +53,9 @@ public static class CityWorkforceService
 
         foreach (var tile in assigned)
         {
-            if (!state.Map.Tiles.TryGetValue(tile, out var t)) continue;
-            int tf = TerrainYields.Food(t);
-            int tp = TerrainYields.Production(t);
-
-            // Worker-built improvements on the tile.
-            var imp = state.Map.ImprovementAt(tile);
-            tf += ImprovementService.Food(imp);
-            tp += ImprovementService.Production(imp);
-
-            // A revealed resource on a worked tile adds its tier yield (bonus/
-            // strategic add Food/Prod; luxuries add Gold via CivEconomyService).
-            var res = state.Map.ResourceAt(tile);
-            if (res != ResourceType.None && ResourceService.IsRevealed(state, city.Owner, res))
-            {
-                tf += ResourceYields.Food(res);
-                tp += ResourceYields.Production(res);
-            }
-
-            // Hills feature trades food for production; floodplain adds food.
-            var feat = state.Map.FeatureAt(tile);
-            tf += FeatureYields.Food(feat);
-            tp += FeatureYields.Production(feat);
-            if (state.Map.IsRiverAdjacent(tile)) tf += 1;
-
-            food += Math.Max(0, tf); // a tile's food can't go negative (Civ 5 clamp)
+            if (!state.Map.Tiles.ContainsKey(tile)) continue;
+            var (tf, tp) = TileYield(state, city.Owner, tile);
+            food += tf;
             prod += tp;
         }
 
@@ -139,18 +117,43 @@ public static class CityWorkforceService
         _                    => 2 * food + prod, // Balanced
     };
 
+    // Net (food, prod) a worked tile yields for `owner`: terrain + worker-built
+    // improvement + revealed resource + Hills feature + floodplain. Food is clamped
+    // ≥0 (Civ 5). Single source of truth shared by the yield total and the focus
+    // ranking, so auto-assign ranks tiles by the same value it later sums — an
+    // improved/resource tile outranks bare terrain.
+    private static (int Food, int Prod) TileYield(GameState state, Player owner, Vector2I tile)
+    {
+        var terrain = state.Map.Tiles.GetValueOrDefault(tile, TerrainType.Grassland);
+        int tf = TerrainYields.Food(terrain);
+        int tp = TerrainYields.Production(terrain);
+
+        var imp = state.Map.ImprovementAt(tile);
+        tf += ImprovementService.Food(imp);
+        tp += ImprovementService.Production(imp);
+
+        var res = state.Map.ResourceAt(tile);
+        if (res != ResourceType.None && ResourceService.IsRevealed(state, owner, res))
+        {
+            tf += ResourceYields.Food(res);
+            tp += ResourceYields.Production(res);
+        }
+
+        var feat = state.Map.FeatureAt(tile);
+        tf += FeatureYields.Food(feat);
+        tp += FeatureYields.Production(feat);
+        if (state.Map.IsRiverAdjacent(tile)) tf += 1;
+
+        return (Math.Max(0, tf), tp); // a tile's food can't go negative
+    }
+
     private static IEnumerable<Vector2I> RankByFocus(
         GameState state, City city, IEnumerable<Vector2I> tiles)
     {
         return tiles
             .Select(t =>
             {
-                var terrain = state.Map.Tiles.GetValueOrDefault(t, TerrainType.Grassland);
-                var feat    = state.Map.FeatureAt(t);
-                int food    = TerrainYields.Food(terrain) + FeatureYields.Food(feat);
-                int prod    = TerrainYields.Production(terrain) + FeatureYields.Production(feat);
-                if (state.Map.IsRiverAdjacent(t)) food += 1; // floodplain bonus
-                food        = Math.Max(0, food);
+                var (food, prod) = TileYield(state, city.Owner, t);
                 return (tile: t,
                         score: Score(city.Workforce.Focus, food, prod),
                         dist:  HexGrid.Distance(city.Position, t));

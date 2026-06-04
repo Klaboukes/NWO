@@ -79,14 +79,18 @@ public static class CivEconomyService
         // (maintenance is unaffected — upkeep still costs full price).
         income = (int)System.Math.Round(income * state.Catalog.FactionOf(player).GoldMult);
 
+        int paid = System.Math.Max(0, TotalMaintenance(state, player) - FreeUnitMaintenance);
+        return income - paid;
+    }
+
+    // Gross unit upkeep for a player, before the free-maintenance allowance. The
+    // net cost is Max(0, this − FreeUnitMaintenance); see GoldPerTurn / EnforceTreasury.
+    public static int TotalMaintenance(GameState state, Player player)
+    {
         int maintenance = 0;
         foreach (var unit in state.Units)
-        {
-            if (unit.Owner != player) continue;
-            maintenance += unit.Data.MaintenanceGold;
-        }
-        int paid = System.Math.Max(0, maintenance - FreeUnitMaintenance);
-        return income - paid;
+            if (unit.Owner == player) maintenance += unit.Data.MaintenanceGold;
+        return maintenance;
     }
 
     // Gold to rush-buy the remaining production of a city's current item.
@@ -159,8 +163,11 @@ public static class CivEconomyService
     }
 
     // While treasury is negative, disband the player's cheapest-production-cost
-    // unit. Ties broken by lowest current HP. Loop terminates when treasury
-    // is non-negative or the player has no units left.
+    // unit. Ties broken by lowest current HP. Each disband refunds the upkeep it
+    // actually frees this turn (the marginal cost above the free-maintenance
+    // allowance). Loop terminates when the treasury is non-negative, the player has
+    // no units left, or shedding the cheapest unit would free no upkeep — disbanding
+    // further can't help the deficit, so we stop rather than scrap free units.
     private static void EnforceTreasury(GameState state, Civilization civ, List<GameEvent> notifications)
     {
         while (civ.Treasury < 0)
@@ -172,17 +179,22 @@ public static class CivEconomyService
                 .FirstOrDefault();
             if (victim == null) return;
 
+            // Upkeep freed by removing this unit: the drop in billed maintenance
+            // (Max(0, total − free)) before vs after. Zero when the unit sat within
+            // the free allowance, in which case disbanding it wouldn't help.
+            int maintBefore = TotalMaintenance(state, civ.Owner);
+            int relief = System.Math.Max(0, maintBefore - FreeUnitMaintenance)
+                       - System.Math.Max(0, maintBefore - victim.Data.MaintenanceGold - FreeUnitMaintenance);
+            if (relief <= 0) return;
+
             var victimPos = victim.Position;
             state.Units.Remove(victim);
             victim.Cargo.Clear(); // destroy cargo so it doesn't become a ghost if victim was a transport
-            // Disbanding refunds nothing — gold deficit persists until income
-            // catches up. Notification surfaces the loss to the player.
             notifications.Add(new GameEvent($"Treasury depleted — disbanded {victim.Data.Name}.", victimPos));
 
-            // Maintenance is paid up-front for the turn; removing the unit gives
-            // its maintenance back as a small relief so the player doesn't lose
-            // multiple units to one shortfall.
-            civ.Treasury += victim.Data.MaintenanceGold;
+            // Maintenance is billed up-front for the turn; the freed upkeep is
+            // credited back so one shortfall doesn't cascade into extra losses.
+            civ.Treasury += relief;
         }
     }
 }
