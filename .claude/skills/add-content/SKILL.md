@@ -50,12 +50,18 @@ ids), `unlocks` object with any of `units`, `buildings`, `improvements`,
    asserting the new id loads and the unlock/gating resolves.
 4. Update the matching roster/table in [docs/MECHANICS.md](../../../docs/MECHANICS.md)
    (§3 units, §4 buildings, or §6 techs) so docs stay the source of truth.
-5. **If adding a unit:** add a `case` for the new `unitId` in
+5. **Update `data/civilopedia.json`** — every new unit, building, tech, or faction
+   needs an entry in the `prose` map (key pattern: `unit:<id>`, `building:<id>`,
+   `tech:<id>`, `faction:<id>`). Write 1–3 sentences of flavor text explaining what
+   the thing is and how to use it. If the content introduces a new mechanic, add an
+   article entry in the `articles` array too (id pattern `mech:<slug>`). The
+   Civilopedia is the in-game manual: keep it complete.
+6. **If adding a unit:** add a `case` for the new `unitId` in
    `scripts/art/UnitArtGenerator.cs` → `Generate()` (draw a distinctive silhouette),
    then invoke the **`add-art-asset`** skill to bake and commit
    `assets/art/units/<id>.png`. If you skip this, the unit falls back to the generic
    disc — acceptable temporarily, but every shipped unit should have its own shape.
-6. Run the **`run-checks`** skill.
+7. Run the **`run-checks`** skill.
 
 ## Maintenance
 

@@ -25,7 +25,7 @@ Repo-specific workflows are encoded as skills in `.claude/skills/` — invoke th
 matching the task instead of re-deriving the procedure:
 
 - `run-checks` — build + test + headless scene check (the verify loop; bundled `.ps1`).
-- `add-content` — add a unit/building/tech in `data/*.json`.
+- `add-content` — add a unit/building/tech in `data/*.json`; **always** includes a `data/civilopedia.json` prose entry for every new item.
 - `tune-mechanics` — change gameplay numbers/balance in the headless core.
 - `tune-map-generation` — tune terrain shape / biomes / mountains / rivers / resource scatter in `MapGenerator.cs` (bundled headless histogram diagnostic).
 - `add-art-asset` — drop in Phase 7 terrain tiles / sprites.

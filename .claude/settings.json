@@ -8,7 +8,8 @@
       "Edit(//c/Users/barthoukes/.claude/**)",
       "Edit(/.claude/skills/build-standalone/**)",
       "Edit(/.claude/skills/tune-map-generation/**)",
-      "Edit(/.claude/skills/add-art-asset/**)"
+      "Edit(/.claude/skills/add-art-asset/**)",
+      "Edit(/.claude/skills/add-content/**)"
     ]
   }
 }
