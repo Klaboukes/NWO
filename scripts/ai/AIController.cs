@@ -123,8 +123,16 @@ public class AIController
             return "unit:worker";
 
         // 5. Coastal cities build naval units when sailing/navigation is researched.
+        //    Always secure at least one transport for cross-continent projection before
+        //    massing combat ships.
         if (IsCityCoastal(city))
         {
+            bool hasTransport = _state.Units.Any(u => u.Owner == ai && u.Data.CargoCapacity > 0);
+            if (!hasTransport)
+            {
+                var tr = BestBuildableUnit(ai, civ, NavalTransportPrefs);
+                if (tr != null) return tr;
+            }
             var naval = BestBuildableUnit(ai, civ, NavalCombatPrefs)
                      ?? BestBuildableUnit(ai, civ, NavalTransportPrefs);
             if (naval != null) return naval;
@@ -173,9 +181,8 @@ public class AIController
     // A city is coastal if its tile or any immediate neighbour is Ocean or Coast.
     private bool IsCityCoastal(City city)
         => HexGrid.GetNeighbors(city.Position)
-            .Concat(new[] { city.Position })
-            .Any(t => _state.Map.Tiles.TryGetValue(t, out var tt)
-                   && (tt == TerrainType.Ocean || tt == TerrainType.Coast));
+            .Prepend(city.Position)
+            .Any(t => _state.Map.Tiles.TryGetValue(t, out var tt) && TerrainYields.IsWater(tt));
 
     private bool EnemyMilitaryNear(Player ai, Vector2I pos, int radius)
         => _state.Units.Any(u =>
@@ -185,9 +192,54 @@ public class AIController
 
     private void Act(Player ai, Unit unit)
     {
-        if (unit.Data.Special == "found_city")     { HandleSettler(ai, unit); return; }
+        if (unit.Data.Special == "found_city")        { HandleSettler(ai, unit); return; }
         if (unit.Data.Special == "build_improvement") { HandleWorker(ai, unit); return; }
+        if (unit.Data.IsNaval)                        { HandleNaval(ai, unit);  return; }
         HandleMilitary(ai, unit);
+    }
+
+    private void HandleNaval(Player ai, Unit unit)
+    {
+        // Attack an in-range enemy naval unit when the forecast favours it.
+        var target = NearestEnemyInRange(ai, unit);
+        if (target != null && WorthAttacking(unit, target))
+        {
+            _state.TryAttack(unit, target);
+            return;
+        }
+
+        // Patrol toward the nearest enemy naval unit, or toward a water tile
+        // adjacent to an enemy city when no naval opponents exist.
+        var goal = NearestNavalTarget(ai, unit.Position);
+        if (goal.HasValue) StepToward(unit, goal.Value);
+    }
+
+    private Vector2I? NearestNavalTarget(Player ai, Vector2I from)
+    {
+        Vector2I? best    = null;
+        int       bestDist = int.MaxValue;
+
+        foreach (var other in _state.Units)
+        {
+            if (other.Owner == ai || !other.Data.IsNaval) continue;
+            int d = HexGrid.Distance(from, other.Position);
+            if (d < bestDist) { best = other.Position; bestDist = d; }
+        }
+
+        if (best != null) return best;
+
+        // No enemy ships — advance to a coastal tile adjacent to the nearest enemy city.
+        foreach (var city in _state.Cities)
+        {
+            if (city.Owner == ai) continue;
+            foreach (var n in HexGrid.GetNeighbors(city.Position))
+            {
+                if (!_state.Map.Tiles.TryGetValue(n, out var tt) || !TerrainYields.IsWater(tt)) continue;
+                int d = HexGrid.Distance(from, n);
+                if (d < bestDist) { best = n; bestDist = d; }
+            }
+        }
+        return best;
     }
 
     private void HandleMilitary(Player ai, Unit unit)

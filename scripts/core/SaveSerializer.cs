@@ -168,7 +168,9 @@ public static class SaveSerializer
     private static Unit UnitFromDto(UnitDto ud, DataCatalog catalog, Dictionary<int, Player> byId)
     {
         var def = catalog.Unit(ud.DataId)!;
-        return new Unit(def, byId[ud.OwnerId], ud.Position)
+        if (!byId.TryGetValue(ud.OwnerId, out var owner))
+            throw new InvalidOperationException($"Save file references unknown player id {ud.OwnerId}.");
+        return new Unit(def, owner, ud.Position)
         {
             HP                = ud.HP,
             MovementRemaining = ud.MovementRemaining,

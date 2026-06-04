@@ -188,15 +188,18 @@ public class GameSession
         if (landUnit.Data.IsNaval)                             return false;
         if (transport.Data.CargoCapacity <= 0)                 return false;
         if (transport.Cargo.Count >= transport.Data.CargoCapacity) return false;
+        if (landUnit.MovementRemaining <= 0)                   return false; // spent units can't board
+        if (!State.Units.Contains(landUnit))                   return false; // prevent double-load
         if (HexGrid.Distance(landUnit.Position, transport.Position) > 1) return false;
         if (!State.Map.Tiles.TryGetValue(transport.Position, out var tt)) return false;
-        if (tt != TerrainType.Ocean && tt != TerrainType.Coast) return false;
+        if (!TerrainYields.IsWater(tt))                        return false;
 
         WakeIfFortified(landUnit);
         State.Units.Remove(landUnit);
         landUnit.MovementRemaining = 0;
         landUnit.ActedThisTurn     = true;
         transport.Cargo.Add(landUnit);
+        State.RecomputeFog(Viewer);
         return true;
     }
 
@@ -210,9 +213,8 @@ public class GameSession
         if (!transport.Cargo.Contains(cargoUnit))     return false;
         if (HexGrid.Distance(transport.Position, destTile) != 1) return false;
         if (!State.Map.Tiles.TryGetValue(destTile, out var dt)) return false;
-        if (dt == TerrainType.Ocean || dt == TerrainType.Coast || dt == TerrainType.Mountain)
-            return false;
-        if (State.Units.Any(u => u.Position == destTile && u.Owner != Viewer)) return false;
+        if (TerrainYields.IsWater(dt) || dt == TerrainType.Mountain) return false;
+        if (State.Units.Any(u => u.Position == destTile)) return false; // block friendly stacking too
 
         transport.Cargo.Remove(cargoUnit);
         cargoUnit.Position          = destTile;

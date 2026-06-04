@@ -76,12 +76,16 @@ public static class GameFactory
         var ordered = choices.OrderByDescending(c => c.IsHuman).ToList();
 
         // Multi-continent scripts assign one landmass per player (largest → human).
-        // Single-landmass scripts (Pangaea, Highlands) fall back to the biggest mass.
+        // Single-landmass scripts (Pangaea, Highlands) use only the biggest mass.
         bool multiContinent = script is MapScript.Continents or MapScript.Archipelago;
-        var landmasses = multiContinent
-            ? FindAllLandmasses(state)
-            : new List<HashSet<Vector2I>> { FindLargestLandmass(state) };
+        var landmasses = FindAllLandmasses(state);
+        if (!multiContinent)
+            landmasses = landmasses.Count > 0
+                ? new List<HashSet<Vector2I>> { landmasses[0] }
+                : new List<HashSet<Vector2I>>();
         if (landmasses.Count == 0) landmasses.Add(new HashSet<Vector2I>());
+        if (multiContinent && landmasses.Count < ordered.Count)
+            System.Console.Error.WriteLine($"[GameFactory] Only {landmasses.Count} landmass(es) for {ordered.Count} players on {script} map; some players will share a continent.");
 
         var mapCenter = MapCenterAxial(state.Map.Width, state.Map.Height);
         var placed    = new List<Vector2I>();
@@ -115,7 +119,11 @@ public static class GameFactory
             state.Units.Add(new Unit(settlerDef, player, FindNeighborOnLandmass(start, landmass) ?? start));
         }
 
-        PlaceKeySites(state, placed, landmasses[0]);
+        // Key sites should be spread across all landmasses so no single continent
+        // is both the only spawn region and the only objective region.
+        var allLand = new HashSet<Vector2I>();
+        foreach (var lm in landmasses) allLand.UnionWith(lm);
+        PlaceKeySites(state, placed, allLand);
         return viewer ?? state.Players[0];
     }
 
@@ -249,31 +257,14 @@ public static class GameFactory
         return null;
     }
 
-    // Returns the largest connected passable region on the map. Visits every tile
-    // once via flood-fill so the cost is O(tiles). On a fragmented Archipelago map
-    // this is the biggest island; on a Continents map it's the main continent.
-    private static HashSet<Vector2I> FindLargestLandmass(GameState state)
-    {
-        var visited = new HashSet<Vector2I>();
-        var largest = new HashSet<Vector2I>();
-        foreach (var tile in state.Map.Tiles.Keys)
-        {
-            if (visited.Contains(tile)) continue;
-            if (state.MovementCost(tile) == int.MaxValue) { visited.Add(tile); continue; }
-            var region = state.GetConnectedLandmass(tile);
-            foreach (var t in region) visited.Add(t);
-            if (region.Count > largest.Count) largest = region;
-        }
-        return largest;
-    }
-
-    // Returns all connected passable regions sorted by size descending. Used by
-    // cross-continent spawning (Phase 13.3) to assign one landmass per player.
+    // Returns all connected passable regions sorted by size descending. The first
+    // element is always the largest landmass. Tiles are visited in a stable
+    // (X, Y) order so results are reproducible for the same seed across runs.
     private static List<HashSet<Vector2I>> FindAllLandmasses(GameState state)
     {
-        var visited   = new HashSet<Vector2I>();
+        var visited    = new HashSet<Vector2I>();
         var landmasses = new List<HashSet<Vector2I>>();
-        foreach (var tile in state.Map.Tiles.Keys)
+        foreach (var tile in state.Map.Tiles.Keys.OrderBy(t => t.X).ThenBy(t => t.Y))
         {
             if (visited.Contains(tile)) continue;
             if (state.MovementCost(tile) == int.MaxValue) { visited.Add(tile); continue; }

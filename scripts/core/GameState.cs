@@ -160,8 +160,8 @@ public class GameState
         bool attackerDead = attacker.HP <= 0;
         bool defenderDead = defender.HP <= 0;
 
-        if (attackerDead) Units.Remove(attacker); else GrantCombatXp(attacker);
-        if (defenderDead) Units.Remove(defender); else GrantCombatXp(defender);
+        if (attackerDead) { Units.Remove(attacker); attacker.Cargo.Clear(); } else GrantCombatXp(attacker);
+        if (defenderDead) { Units.Remove(defender); defender.Cargo.Clear(); } else GrantCombatXp(defender);
 
         attacker.MovementRemaining = 0;
         attacker.ActedThisTurn     = true;
@@ -205,7 +205,7 @@ public class GameState
         attacker.HP           -= combat.AttackerDamage;
 
         bool attackerDead = attacker.HP <= 0;
-        if (attackerDead) Units.Remove(attacker); else GrantCombatXp(attacker);
+        if (attackerDead) { Units.Remove(attacker); attacker.Cargo.Clear(); } else GrantCombatXp(attacker);
 
         attacker.MovementRemaining = 0;
         attacker.ActedThisTurn     = true;
@@ -311,6 +311,17 @@ public class GameState
             AdvanceImprovementTask(unit, notifications);
             HealUnit(unit, player);
             unit.ResetForNewTurn();
+        }
+
+        // Cargo units are not in state.Units while in transit; heal and reset them separately.
+        foreach (var unit in Units)
+        {
+            if (unit.Owner != player) continue;
+            foreach (var cargo in unit.Cargo)
+            {
+                HealUnit(cargo, player);
+                cargo.ResetForNewTurn();
+            }
         }
 
         CivEconomyService.ProcessEndOfTurn(this, player, notifications);
@@ -436,7 +447,7 @@ public class GameState
     public int MovementCost(Vector2I axial, Unit unit)
     {
         if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
-        bool isWater = t == TerrainType.Ocean || t == TerrainType.Coast;
+        bool isWater = TerrainYields.IsWater(t);
 
         if (unit.Data.IsNaval)
             return isWater ? 1 : int.MaxValue;

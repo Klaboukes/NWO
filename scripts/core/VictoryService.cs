@@ -30,7 +30,12 @@ public static class VictoryService
         foreach (var city in state.Cities)
             if (city.Owner == player) return false;
         foreach (var unit in state.Units)
+        {
             if (unit.Owner == player && unit.Data.Special == "found_city") return false;
+            // A Settler aboard a transport is also a surviving founder.
+            foreach (var cargo in unit.Cargo)
+                if (cargo.Owner == player && cargo.Data.Special == "found_city") return false;
+        }
         return true;
     }
 

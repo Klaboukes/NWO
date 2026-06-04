@@ -49,6 +49,9 @@ public static class TerrainYields
         _                 => 0,
     };
 
+    public static bool IsWater(TerrainType t)
+        => t == TerrainType.Ocean || t == TerrainType.Coast;
+
     public static bool CanFoundCityOn(TerrainType t)
         => t != TerrainType.Ocean && t != TerrainType.Mountain;
 

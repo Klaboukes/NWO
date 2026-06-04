@@ -174,6 +174,7 @@ public static class CivEconomyService
 
             var victimPos = victim.Position;
             state.Units.Remove(victim);
+            victim.Cargo.Clear(); // destroy cargo so it doesn't become a ghost if victim was a transport
             // Disbanding refunds nothing — gold deficit persists until income
             // catches up. Notification surfaces the loss to the player.
             notifications.Add(new GameEvent($"Treasury depleted — disbanded {victim.Data.Name}.", victimPos));
