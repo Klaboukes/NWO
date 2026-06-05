@@ -32,8 +32,15 @@ public partial class WorldRenderer : Node3D
     // World width of a unit/city sprite (texture is 128px square).
     private const float UnitSizeWorld   = HexSizeRef * 0.80f;
     private const float CitySizeWorld   = HexSizeRef * 1.05f;
-    private const float BannerSizeWorld = HexSizeRef * 0.50f;
+    private const float BannerSizeWorld = HexSizeRef * 0.60f;
     private const float HexSizeRef      = HexProjection.HexSize;
+
+    // Banner offset from the entity's tile-top anchor. The camera is a fixed-tilt
+    // (no-yaw) lens at +Z, so world -X is screen-left and world +Z is screen-down
+    // (toward the camera) — this places the pennant at the lower-left of the unit,
+    // clear of its body, and slightly nearer the camera so it can't be occluded.
+    private static readonly Vector3 BannerOffset =
+        new(-HexSizeRef * 0.45f, BannerSizeWorld * 0.5f, HexSizeRef * 0.22f);
 
     public void Initialize(GameState state, MovementAnimator animator, Player viewer)
     {
@@ -110,7 +117,7 @@ public partial class WorldRenderer : Node3D
             sprite.Modulate = realArt ? Colors.White : unit.Owner.Color;
             if (banner != null)
             {
-                banner.Position = baseXZ + new Vector3(0f, BannerSizeWorld * 0.5f, 0f);
+                banner.Position = baseXZ + BannerOffset;
                 banner.Modulate = unit.Owner.Color;
             }
         }
@@ -142,7 +149,7 @@ public partial class WorldRenderer : Node3D
                 : (seen ? col : col.Darkened(0.45f));
             if (banner != null)
             {
-                banner.Position = top + new Vector3(0f, BannerSizeWorld * 0.5f, 0f);
+                banner.Position = top + BannerOffset;
                 banner.Modulate = seen ? col : col.Darkened(0.45f);
             }
         }
