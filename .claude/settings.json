@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Skill(*)",
-      "Edit(.claude/skills/**)"
+      "Edit(.claude/skills/**)",
+      "Bash(git commit *)",
+      "Bash(rm .git/COMMIT_MSG_TMP.txt)"
     ]
   },
   "hooks": {
@@ -12,8 +14,8 @@
         "hooks": [
           {
             "type": "command",
-            "shell": "powershell",
             "command": "pwsh -NoProfile -File .claude/skills/run-checks/pre-commit-hook.ps1",
+            "shell": "powershell",
             "timeout": 600,
             "statusMessage": "Running checks before commit/push…"
           }
