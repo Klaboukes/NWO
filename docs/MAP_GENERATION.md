@@ -787,6 +787,82 @@ Skip for NWO at this scale:
 
 ---
 
+## Post-Classification Geography (Phase 14)
+
+Phases 9 & 11 build terrain bottom-up from height + climate. The weakness is that
+water and coast are decided **per tile by height alone**: `MapGenerator.Classify`
+returns `Coast` for any tile in the `[oceanLevel, coastLevel)` band and `Ocean`
+below it. So coastlines don't follow land, every enclosed sea is `Ocean`, and large
+flat regions read as one biome. Phase 14 adds a second **post-classification pass**
+that operates on `MapData.Tiles` *after* `Classify`, fixing geography by adjacency
+rather than by height. The height/mountain/climate layers are untouched.
+
+### Lakes (inland water)
+
+Append `TerrainType.Lake` (enum is serialized — append only, never reorder).
+
+```text
+flood-fill each connected water region (Ocean ∪ Coast)
+  if region does NOT touch the map edge  → relabel all its tiles Lake
+  (optional) tiny enclosed regions (≤ N tiles) → Lake regardless of edge contact
+```
+
+A connected-component flood-fill over hex neighbours is O(tiles). "Touches the
+edge" = any tile of the region lies on col 0/width-1 or row 0/height-1; edge water
+is sea, interior water is lake. This also lets the river tracer drain into real
+lakes — replace `CarveLake` (which currently paints `Ocean`) so a bottomed-out
+river terminus becomes `Lake`.
+
+Ripple checklist (Lake is a new terrain everywhere a terrain is consumed):
+
+* `TerrainYields` — water yield + provides fresh water; **impassable to sea-going
+  `IsNaval` units** (Civ5: lakes are not the ocean), workable by adjacent cities.
+* Art — `TerrainArtGenerator` motif + `TerrainTextureRegistry` entry + elevation.
+* `MovementCost` — land units can't enter; sea ships can't enter; only matters once
+  embarked/transport rules consider it.
+* Tooltip + `data/civilopedia.json` terrain entry.
+
+### Coastlines (adjacency, not height band)
+
+Stop labelling `Coast` from the height band. After the land/water split (keep the
+calibrated percentile `OceanLevel`), relabel water by **distance to land**:
+
+```text
+for each Ocean tile:
+  if any neighbour is land → Coast            (the mandatory 1-tile shelf)
+then extend outward 1–2 more rings probabilistically (noise- or BFS-distance-driven)
+  so some coast reaches deeper while open sea stays Ocean
+```
+
+This guarantees land is always ringed by coast (today it can border raw ocean) and
+that no `Coast` appears mid-ocean except the intentional shelf. Lakes are uniformly
+shallow, so they need no separate lake-coast ring unless it's cheap to add.
+
+### Biome diversification (anti-monotony)
+
+Large single-biome slabs come from low-frequency climate noise correlating across
+many tiles. Cheaper-than-rewrite levers, ordered by payoff (validate each against
+the `tune-map-generation` histogram diagnostic):
+
+1. Raise / decorrelate `MoistureFrequency` and `TemperatureFrequency` so the climate
+   axes break up sooner.
+2. Small per-tile climate jitter applied **only near biome boundaries** (keeps cores
+   intact, ragged edges).
+3. Light region post-pass: interior tiles of an oversized uniform component nudge
+   toward a compatible neighbour biome (Forest pockets in Grassland, Plains fringe on
+   Desert). Must stay deterministic per seed and avoid salt-and-pepper — the goal is
+   *coherent variety*, not noise.
+
+### Geography polish (stretch)
+
+* **Single-tile outlier filter** — majority-vote a lone tile whose neighbours are all
+  a different biome (a stray Snow tile in jungle), preserving intended features.
+* **Oases** — rare fertile Plains/water pockets inside large deserts.
+* **Polar ice** — coldest sea tiles render as ice rather than open ocean.
+* Re-assert that every river reaches `Lake`/`Coast`/`Ocean` after the relabel.
+
+---
+
 ## Civ 5 Patterns — Adopted / Candidate / Skipped
 
 Civ 5's generator is Lua: a `Fractal` (midpoint-displacement) height field with
@@ -824,6 +900,7 @@ we took, what's worth taking, and what we won't.
 | **Map scripts** (Continents / Pangaea / Archipelago / Highlands) selectable at setup | ✅ **Phase 11 complete** — `MapScript` enum + `MapScriptParams` record; percentile OceanLevel trick; World + Size dropdowns on FactionSetup | shipped |
 | ~~Start normalization + region balancing~~ — **shipped in Phase 10.4** (see Adopted table): fertility-floor + farthest-point spawn spread in `GameFactory`, without Civ's region machinery | ✅ done | — |
 | **Terrain vs. features split** (forest/jungle/marsh/oasis/floodplain as *features* on a base terrain, like Civ) | post-MVP phase only if we want Civ-depth terrain — **partly started**: Hills already shipped as a `Feature` (`MapData.Features`), so the scaffolding exists | ~1 week+ for the rest; architectural — ripples through `MapData`, save format, yields, workforce, AI, art, tooltips |
+| **Lakes vs. sea + adjacency coastlines** (inland water flagged distinct from ocean; coast follows land, not a height band) | 🔜 **Phase 14** — flood-fill inland water → `TerrainType.Lake`; relabel `Coast` by land-adjacency with a probabilistic shelf; biome de-clumping pass. See "Post-Classification Geography" above | medium — new post-`Classify` pass + one appended enum; ripples to yields, art, movement, tooltips |
 
 ### Deliberately skipped
 

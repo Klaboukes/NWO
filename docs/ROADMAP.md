@@ -262,12 +262,68 @@ Continents and Archipelago maps.
 
 ---
 
+## Phase 14 — Map Generation Quality Pass 🔜 NEXT
+
+Goal: make generated worlds read as **believable geography** rather than noise blobs.
+Today `MapGenerator.Classify` derives water purely from a height band — `Coast` is just
+"height between ocean and coast level", so coastlines don't hug land and every enclosed
+body of water is `Ocean`. This phase reworks the **post-classification** geography:
+distinguish inland water (lakes) from sea, derive coastlines from land adjacency, and
+break up monotonous single-biome regions. Most of this is a new **adjacency/flood-fill
+pass** in `MapGenerator` after `Classify`, plus one appended `TerrainType.Lake`. See
+[MAP_GENERATION.md](MAP_GENERATION.md). Keep enum order stable (saves serialize
+`TerrainType`); append only.
+
+- [ ] **14.1 — Lakes (inland water).** Append `TerrainType.Lake`. After base
+      classification, flood-fill all water (`Ocean`/`Coast`) regions; any region that
+      does **not** touch the map edge is inland and becomes `Lake` (optionally split by
+      size: tiny enclosed basins are lakes regardless). Replace the ad-hoc `CarveLake`
+      (which currently paints `Ocean`) so river termini empty into real `Lake` tiles.
+      Wire the ripple: `TerrainYields` (lake = water yield + fresh water, impassable to
+      sea-going `IsNaval` ships per Civ5), elevation + art (`TerrainArtGenerator` /
+      `TerrainTextureRegistry`), `MovementCost`, tile tooltip, and a `civilopedia.json`
+      entry. *Done when:* enclosed water renders as Lake, sea ships can't enter it, and
+      rivers visibly drain into lakes.
+- [ ] **14.2 — Coastlines.** Stop deriving `Coast` from the height band. Reclassify so
+      **every `Ocean` tile adjacent to land becomes `Coast`**, then extend coast a
+      probabilistic 1–2 tiles further out (noise- or distance-driven shelf) so some
+      coast reaches deeper while open sea stays `Ocean`. Lakes get their own shallow
+      treatment (a Lake is uniformly shallow; no separate lake-coast unless cheap). Keep
+      the calibrated `OceanLevel` percentile for the land/water split; only the
+      Ocean/Coast *labelling* moves to adjacency. *Done when:* land is ringed by Coast
+      with a natural-looking shelf and no Coast appears mid-ocean except the shelf.
+- [ ] **14.3 — Biome diversification (anti-monotony).** Reduce large same-terrain
+      blobs so neighbourhoods read as varied. Approaches (pick by histogram payoff via
+      the `tune-map-generation` diagnostic): raise/decorrelate `MoistureFrequency` /
+      `TemperatureFrequency`; add a small per-tile climate jitter at biome boundaries;
+      and/or a light post-pass that nudges interior tiles of an oversized uniform region
+      toward a compatible neighbour biome (e.g. Forest pockets in Grassland, Plains
+      fringes on Desert). Must stay deterministic per seed and not shatter terrain into
+      single-tile noise — target *coherent variety*, not salt-and-pepper. *Done when:*
+      the terrain-type histogram is materially flatter and no biome forms a dominant
+      contiguous slab across a continent.
+- [ ] **14.4 — Geography polish (stretch).** Cheap realism wins on top of the above:
+      single-tile outlier cleanup (a lone Snow tile in jungle, etc.) via a majority
+      filter that preserves intended features; **oases** (small fertile Plains/water
+      pockets) in large deserts; **polar ice** on the coldest sea tiles; ensure rivers
+      always reach Lake/Coast/Ocean after the relabel. Each item is independently
+      shippable — land what improves the look, defer the rest. *Done when:* maps have no
+      jarring single-tile artifacts and deserts/poles feel intentional.
+
+> Scope note: this is a *quality* pass on the existing layered pipeline, not a rewrite.
+> The height/mountain/climate layers from Phases 9 & 11 stay; 14 operates on the
+> classified `MapData.Tiles` afterward. Verify with the `tune-map-generation` skill's
+> headless histogram diagnostic and `run-checks` before committing.
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
 (factions & fast-warfare reframe), Phase 11 (map scripts), Phase 12 (in-game
-Civilopedia), and Phase 13 (naval system & cross-continent play), candidate directions.
-Factions, light diplomacy, and the objective victory now live in **Phase 10**, not here.
+Civilopedia), Phase 13 (naval system & cross-continent play), and Phase 14 (map
+generation quality pass), candidate directions. Factions, light diplomacy, and the
+objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve
   the two trees held back from the Phase 10 roster (see [FACTIONS.md](FACTIONS.md)).
