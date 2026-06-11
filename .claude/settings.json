@@ -3,10 +3,25 @@
     "allow": [
       "Skill(*)",
       "Edit(.claude/skills/**)",
+      "Write(.claude/skills/**)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(rm .git/COMMIT_MSG_TMP.txt)",
-      "PowerShell(& .claude/skills/finish-phase/status.ps1)",
-      "PowerShell(git push origin main)"
+      "PowerShell(& .claude/skills/*)",
+      "PowerShell(git status)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push origin main)",
+      "PowerShell(dotnet build *)",
+      "PowerShell(dotnet test *)"
+    ],
+    "additionalDirectories": [
+      "D:\\source\\NWO\\.git"
     ]
   },
   "hooks": {
