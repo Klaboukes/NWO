@@ -21,7 +21,8 @@ public record MapScriptParams(
     float HillFrequency,
     float HillThreshold,
     float TargetLandPercent, // percentile trick: land fraction the generator targets
-    float ShelfChance)       // chance an Ocean tile beside the coast ring extends the shelf
+    float ShelfChance,       // chance an Ocean tile beside the coast ring extends the shelf
+    float ForestThreshold)   // forest clump cut-off in FeaturePlacer (lower = denser woods)
 {
     private static readonly MapScriptParams Continents = new(
         RadialFalloff:     0.33f,
@@ -37,7 +38,8 @@ public record MapScriptParams(
         HillFrequency:     0.14f,
         HillThreshold:     0.68f,
         TargetLandPercent: 0.35f,
-        ShelfChance:       0.35f);
+        ShelfChance:       0.35f,
+        ForestThreshold:   0.54f);
 
     // One large supercontinent — low radial falloff (edges stay dry) + wide noise scale.
     private static readonly MapScriptParams Pangaea = Continents with {
@@ -59,7 +61,8 @@ public record MapScriptParams(
         ShelfChance       = 0.50f,
     };
 
-    // Mountain-heavy interior — higher boost + lower thresholds + wider uplift belts.
+    // Mountain-heavy interior — higher boost + lower thresholds + wider uplift
+    // belts, with denser wooded valleys between the ranges.
     private static readonly MapScriptParams Highlands = Continents with {
         MountainBoost   = 0.85f,
         MountainLevel   = 0.60f,
@@ -67,6 +70,7 @@ public record MapScriptParams(
         UpliftLow       = 0.30f,
         HillRelief      = 0.42f,
         HillThreshold   = 0.55f,
+        ForestThreshold = 0.52f,
     };
 
     public static MapScriptParams For(MapScript script) => script switch

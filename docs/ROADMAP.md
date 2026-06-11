@@ -291,7 +291,7 @@ for this phase (pre-release decision): `TerrainType` drops its tree terrains out
       rivers recognise Lake as water, AI coastal checks move to `IsSeaWater`, histogram
       counts Lake. *Done when:* enclosed water is Lake, sea ships can't enter it, rivers
       drain into lakes, land is always ringed by Coast and no Coast appears mid-ocean.
-- [ ] **14.3 — Latitude-band terrain + feature placement.** `Classify` rewritten to
+- [x] **14.3 — Latitude-band terrain + feature placement.** `Classify` rewritten to
       Civ5-style latitude bands (snow/tundra caps, mid-latitude desert belt, savanna
       band, grass/plains heartland) with the existing climate noise as ragged-edge
       grain; new `FeaturePlacer` pass (Ice on polar water, Jungle in the equatorial

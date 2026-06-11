@@ -89,8 +89,8 @@ public static class MapPostProcess
     }
 
     // Cheap deterministic per-tile hash → [0,1). Stable for a given (tile, seed),
-    // independent of iteration order.
-    internal static float Hash01(Vector2I axial, int seed)
+    // independent of iteration order. Shared by FeaturePlacer's rolls and tests.
+    public static float Hash01(Vector2I axial, int seed)
     {
         uint h = (uint)(axial.X * 73856093) ^ (uint)(axial.Y * 19349663) ^ (uint)(seed * 83492791);
         h = (h ^ (h >> 13)) * 1274126177u;

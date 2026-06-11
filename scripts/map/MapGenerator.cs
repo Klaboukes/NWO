@@ -27,9 +27,12 @@ public static class MapGenerator
     private const float WarpStrength    = 20f;
     private const float RidgeFrequency  = 0.07f;
 
-    // Climate — shared across all scripts per ROADMAP §11.
+    // Climate — shared across all scripts per ROADMAP §11. ForestFrequency drives
+    // the dedicated clump field FeaturePlacer grows woods from (mid-freq so forests
+    // come in coherent pockets, not salt-and-pepper).
     private const float MoistureFrequency    = 0.095f;
     private const float TemperatureFrequency = 0.060f;
+    private const float ForestFrequency      = 0.13f;
 
     // Generates a map of (width × height) tiles using the given map script.
     public static MapData Generate(int width, int height, int seed = 0,
@@ -47,9 +50,11 @@ public static class MapGenerator
         var moistNoise  = MakeNoise(seed + 5, MoistureFrequency);
         var tempNoise   = MakeNoise(seed + 6, TemperatureFrequency);
         var hillNoise   = MakeNoise(seed + 7, p.HillFrequency);
+        var forestNoise = MakeNoise(seed + 8, ForestFrequency);
 
         // Pass 1: compute raw heights + climate data for every tile.
-        var raw = new Dictionary<Vector2I, (float h, float moist, float temp, float lat, float hilly, float relief)>(total);
+        var raw     = new Dictionary<Vector2I, (float h, float hilly, float relief)>(total);
+        var climate = new Dictionary<Vector2I, ClimateSample>(total);
 
         for (int col = 0; col < width; col++)
         for (int row = 0; row < height; row++)
@@ -86,8 +91,14 @@ public static class MapGenerator
             float tJitter     = (tempNoise.GetNoise2D(col, row) + 1f) / 2f;
             float temperature = Mathf.Clamp((1f - lat) * 0.70f + tJitter * 0.36f, 0f, 1f);
             float hilly       = (hillNoise.GetNoise2D(col, row) + 1f) / 2f;
+            float forest      = (forestNoise.GetNoise2D(col, row) + 1f) / 2f;
 
-            raw[axial] = (h, moisture, temperature, lat, hilly, relief);
+            // The temperature jitter doubles as the band-edge raggedness: effective
+            // latitude wobbles ±0.10 so the snow/tundra borders aren't straight rows.
+            float effLat = lat + (tJitter - 0.5f) * 0.20f;
+
+            raw[axial]     = (h, hilly, relief);
+            climate[axial] = new ClimateSample(moisture, temperature, effLat, forest);
         }
 
         // Percentile OceanLevel (Civ 5 trick): sort all heights and find the value
@@ -101,33 +112,33 @@ public static class MapGenerator
         int   cutoffIdx    = Mathf.Clamp((int)((1f - p.TargetLandPercent) * total), 0, total - 1);
         float effOcean     = Mathf.Max(p.OceanLevel, sortedH[cutoffIdx]);
 
-        // Pass 2: classify terrain (+ vegetation feature) and apply Hills using the
-        // calibrated thresholds.
+        // Pass 2: classify base terrain (latitude bands) and apply Hills using the
+        // calibrated thresholds. Vegetation comes later (FeaturePlacer) so it can
+        // read the FINAL terrain, after lakes/coasts/rivers.
         var heights = new Dictionary<Vector2I, float>(total);
-        foreach (var (axial, (h, moist, temp, lat, hilly, relief)) in raw)
+        foreach (var (axial, (h, hilly, relief)) in raw)
         {
-            heights[axial]      = h;
-            var (terrain, veg)  = Classify(h, moist, temp, lat, effOcean, p.MountainLevel);
-            data.Tiles[axial]   = terrain;
-            var features        = veg;
+            heights[axial]    = h;
+            var terrain       = Classify(h, climate[axial], effOcean, p.MountainLevel);
+            data.Tiles[axial] = terrain;
 
             // Hills is a feature on top of the base biome: the mountain-relief skirt
-            // (foothills) plus an independent mid-freq hilliness field, wherever the
-            // legality matrix allows (any open land; stacks with Forest/Jungle).
+            // (foothills) plus an independent mid-freq hilliness field, on any open
+            // land terrain.
             if ((relief > p.HillRelief || hilly > p.HillThreshold)
-                && FeatureRules.IsLegal(terrain, features | Feature.Hills))
-                features |= Feature.Hills;
-
-            if (features != Feature.None) data.Features[axial] = features;
+                && FeatureRules.IsLegal(terrain, Feature.Hills))
+                data.Features[axial] = Feature.Hills;
         }
 
         // Post-classification geography (Phase 14): water is labelled by adjacency,
         // not height — enclosed basins become lakes, then land gets ringed by Coast
-        // with a probabilistic shelf. Rivers run after so termini see final water.
+        // with a probabilistic shelf. Rivers run after so termini see final water;
+        // features run after rivers so an Oasis can veto river-adjacent desert.
         MapPostProcess.FormLakes(data);
         MapPostProcess.FormCoasts(data, p.ShelfChance, seed);
 
         TraceRivers(data, heights, seed);
+        FeaturePlacer.Place(data, climate, p, seed);
         ScatterResources(data, seed);
         return data;
     }
@@ -452,42 +463,30 @@ public static class MapGenerator
         return new Vector2I(q, r);
     }
 
-    // Classifies a tile's base biome (+ vegetation feature) from height + climate.
-    // Water and mountains come from height; everything else from a temperature ×
-    // moisture matrix (so flat land still varies), with a polar Snow/Tundra cap.
-    // Vegetation is a Feature over a base terrain (Civ5 model, Phase 14): the wooded
-    // matrix cells emit Tundra/Grassland + Forest/Jungle/Marsh instead of tree
-    // terrains. Hills are NOT here — they're applied in Generate via FeatureRules.
-    // (14.3 replaces this matrix with latitude bands + a dedicated feature placer.)
-    private static (TerrainType Terrain, Feature Veg) Classify(float h, float moisture,
-        float temperature, float lat, float oceanLevel, float mountainLevel)
+    // Classifies a tile's base biome from height + Civ5-style latitude bands
+    // (Phase 14.3): water and mountains come from height; land walks the bands from
+    // pole to equator — snow/tundra caps, then dryness decides desert vs steppe,
+    // heat + dryness the savanna belt, and moisture splits the grass/plains
+    // heartland. ClimateSample.Latitude carries the temperature jitter, so band
+    // edges are ragged, not straight rows. Vegetation (Forest/Jungle/Marsh/Oasis/
+    // Ice) is placed later by FeaturePlacer; Hills in Generate via FeatureRules.
+    private static TerrainType Classify(float h, ClimateSample c,
+        float oceanLevel, float mountainLevel)
     {
         // All water is provisionally Ocean; Coast and Lake are derived from
         // adjacency afterwards (MapPostProcess), not from a height band.
-        if (h < oceanLevel)     return (TerrainType.Ocean, Feature.None);
-        if (h >= mountainLevel) return (TerrainType.Mountain, Feature.None);
+        if (h < oceanLevel)     return TerrainType.Ocean;
+        if (h >= mountainLevel) return TerrainType.Mountain;
 
-        // Polar caps.
-        if (lat > 0.80f)
-            return (moisture < 0.45f ? TerrainType.Snow : TerrainType.Tundra, Feature.None);
+        if (c.Latitude > 0.86f) return TerrainType.Snow;          // polar cap
+        if (c.Latitude > 0.72f) return TerrainType.Tundra;        // subpolar band
 
-        int tb = temperature < 0.34f ? 0 : temperature < 0.68f ? 1 : 2; // cold / temperate / hot
-        int mb = moisture    < 0.38f ? 0 : moisture    < 0.60f ? 1 : 2; // dry / mid / wet
-
-        return (tb, mb) switch
-        {
-            (0, 0) => (TerrainType.Tundra, Feature.None),
-            (0, 1) => (TerrainType.Tundra, Feature.Forest),                 // boreal forest
-            (0, 2) => (TerrainType.Tundra, Feature.Forest),
-            (1, 0) => (TerrainType.Plains, Feature.None),
-            (1, 1) => (TerrainType.Grassland, Feature.None),
-            (1, 2) => (TerrainType.Grassland, Feature.Forest),
-            (2, 0) => (TerrainType.Desert, Feature.None),
-            (2, 1) => (TerrainType.Savanna, Feature.None),
-            (2, 2) => moisture > 0.73f
-                        ? (TerrainType.Grassland, Feature.Marsh)            // hot + wettest
-                        : (TerrainType.Grassland, Feature.Jungle),
-            _      => (TerrainType.Plains, Feature.None),
-        };
+        if (c.Moisture < 0.34f)                                   // the dry belt
+            return c.Temperature > 0.50f ? TerrainType.Desert     // hot → true desert
+                                         : TerrainType.Plains;    // cold → dry steppe
+        if (c.Temperature > 0.72f && c.Moisture < 0.55f)
+            return TerrainType.Savanna;                           // hot semi-arid band
+        return c.Moisture < 0.52f ? TerrainType.Plains
+                                  : TerrainType.Grassland;        // wet heartland
     }
 }
