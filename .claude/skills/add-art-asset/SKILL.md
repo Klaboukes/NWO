@@ -23,17 +23,20 @@ into `assets/art/` to override it with **minimal/no code change**. See Phase 7 i
   always seen at that angle, foreshortened along the view axis, *never* straight
   down. Author and judge tile art at the oblique angle; designs that only read
   top-down will look wrong in-game.
-- Top faces are UV-mapped and textured per terrain in
+- Top faces are UV-mapped and textured per `(terrain, vegetation-feature)` combo in
   `scripts/map/TerrainMeshFactory.cs` (two-surface prism: textured top + vertex-
   coloured cliffs), resolved through `TerrainTextureRegistry`. The committed tiles
-  live at `res://assets/art/tiles/<terrain>.png` (lowercase `TerrainType` name, e.g.
-  `grassland.png`) and are **procedurally generated** — to change how terrain looks,
-  use the **`generate-terrain-art`** skill (edits `TerrainArtGenerator` + re-bakes).
-- To override one terrain with hand-drawn or AI-generated art, just drop a real
-  `assets/art/tiles/<terrain>.png` over the baked one — the registry prefers a present
+  live at `res://assets/art/tiles/<stem>.png` — lowercase `TerrainType` name, plus
+  `_<feature>` for a Phase 14 composite (`grassland.png`, `grassland_forest.png`,
+  `desert_oasis.png`; Hills is geometry, never a texture) — and are **procedurally
+  generated**: to change how terrain or a feature looks, use the
+  **`generate-terrain-art`** skill (edits `TerrainArtGenerator` + re-bakes).
+- To override one combo with hand-drawn or AI-generated art, just drop a real
+  `assets/art/tiles/<stem>.png` over the baked one — the registry prefers a present
   PNG with no code change. Keep the prism geometry contract (top hex at `TopHeight`,
   cliffs to `Y = 0`) so picking and anchoring stay correct.
-- Add a new `TerrainType` enum value only if introducing genuinely new terrain.
+- Add a new `TerrainType` or `Feature` enum value only if introducing genuinely new
+  terrain (legality lives in `FeatureRules`; see `tune-map-generation`).
 
 ## Unit & city sprites (V7.3)
 

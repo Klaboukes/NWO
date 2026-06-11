@@ -135,6 +135,42 @@ public class MapPostProcessTests
     }
 
     [Fact]
+    public void SmoothOutliers_AbsorbsLoneTiles_PreservesFeaturesAndGeography()
+    {
+        var map = OffsetRectMap(11, 11);            // all Plains
+        var lone = Axial(5, 5);
+        map.Tiles[lone] = TerrainType.Snow;         // a stray Snow tile in the steppe
+        map.Features[lone] = Feature.Hills;
+
+        var mountain = Axial(8, 8);
+        map.Tiles[mountain] = TerrainType.Mountain; // lone but protected
+        var lake = Axial(2, 8);
+        map.Tiles[lake] = TerrainType.Lake;         // lone but protected
+
+        MapPostProcess.SmoothOutliers(map);
+
+        Assert.Equal(TerrainType.Plains, map.Tiles[lone]);   // absorbed by the majority
+        Assert.Equal(Feature.Hills, map.FeatureAt(lone));    // features survive the vote
+        Assert.Equal(TerrainType.Mountain, map.Tiles[mountain]);
+        Assert.Equal(TerrainType.Lake, map.Tiles[lake]);
+    }
+
+    [Fact]
+    public void SmoothOutliers_LeavesBalancedBordersAlone()
+    {
+        // A straight Grassland/Plains frontier: border tiles see 2-4 of the other
+        // terrain, never the 5+ majority, so the border doesn't creep.
+        var map = OffsetRectMap(10, 10);
+        foreach (var k in map.Tiles.Keys.ToList())
+            if (k.X >= 5) map.Tiles[k] = TerrainType.Grassland;
+        var before = new Dictionary<Vector2I, TerrainType>(map.Tiles);
+
+        MapPostProcess.SmoothOutliers(map);
+
+        foreach (var (k, t) in before) Assert.Equal(t, map.Tiles[k]);
+    }
+
+    [Fact]
     public void FormCoasts_LakesAreLeftAlone()
     {
         var map = OffsetRectMap(11, 11);

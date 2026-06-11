@@ -262,7 +262,7 @@ Continents and Archipelago maps.
 
 ---
 
-## Phase 14 — Civ5-Style Map Generation Rewrite (terrain/feature split) 🔜 NEXT
+## Phase 14 — Civ5-Style Map Generation Rewrite (terrain/feature split) ✅ COMPLETE
 
 Goal: make generated worlds read like **Civ 5 maps**. This replaces the original
 "quality pass" scope with the full Civ5 model: **Forest/Jungle/Marsh/Oasis/Ice become
@@ -306,11 +306,12 @@ for this phase (pre-release decision): `TerrainType` drops its tree terrains out
       ocean/coast_ice) and delete the retired tree-terrain tiles; optional minimap
       feature tint. *Done when:* committed PNGs override placeholders and screenshots
       read clearly at game zoom.
-- [ ] **14.5 — Polish, tuning & docs.** Majority outlier filter
+- [x] **14.5 — Polish, tuning & docs.** Majority outlier filter
       (`MapPostProcess.SmoothOutliers`); river-reaches-water assert in the histogram;
       threshold tuning per script against density targets; sync MAP_GENERATION /
-      MECHANICS / civilopedia; tick the phase. *Done when:* no single-tile artifacts,
-      histogram targets hold across seeds/scripts, run-checks green.
+      MECHANICS / civilopedia; tick the phase. *Done:* no single-tile artifacts,
+      histogram targets hold across seeds (desert belt 5–10%, Forest+Jungle 24–31%,
+      ice 15–18% of water, 0 legality violations, 0 dry rivers), run-checks green.
 
 > Verify each sub-phase with the `tune-map-generation` skill's headless histogram
 > diagnostic and `run-checks` before committing.
@@ -372,8 +373,8 @@ in a follow-up pass (same date).
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
 (factions & fast-warfare reframe), Phase 11 (map scripts), Phase 12 (in-game
-Civilopedia), Phase 13 (naval system & cross-continent play), and Phase 14 (map
-generation quality pass), candidate directions. Factions, light diplomacy, and the
+Civilopedia), Phase 13 (naval system & cross-continent play), and Phase 14
+(Civ5-style map generation rewrite — terrain/feature split), candidate directions. Factions, light diplomacy, and the
 objective victory now live in **Phase 10**, not here.
 
 - **Piety & Aesthetics factions** — once light morale / influence layers exist, un-shelve

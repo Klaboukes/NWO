@@ -41,8 +41,11 @@ Everything in §0 is `[planned]`; the rest of this document is the current imple
 
 ### Terrain Types
 
-Yields per `TerrainYields`. Coast/Ocean now carry **+1 Gold** (trade); land tiles
-have none until improvements/buildings provide it (see §9).
+Phase 14 adopts the **Civ5 terrain/feature split**: a tile is one BASE terrain
+plus a mask of **Features** (vegetation, hills, ice — next section). The old
+Forest/Jungle/Wetlands terrain types are gone; woods are now *Grassland + Forest*,
+marsh is *Grassland + Marsh*, and so on. Yields per `TerrainYields`. Water carries
+**+1 Gold** (trade); land tiles have none until improvements/buildings provide it.
 
 | Terrain | Movement Cost | Food | Production | Gold |
 | --- | --- | --- | --- | --- |
@@ -51,35 +54,44 @@ have none until improvements/buildings provide it (see §9).
 | Desert | 1 | +0 | +1 | +0 |
 | Tundra | 1 | +1 | +0 | +0 |
 | Snow | 1 | +0 | +0 | +0 |
-| Forest | 2 | +1 | +2 | +0 |
 | Savanna | 1 | +1 | +0 | +0 |
-| Jungle | 2 | +1 | +0 | +0 |
-| Wetlands | 2 | +2 | +0 | +0 |
 | Mountain | impassable | — | — | — |
 | Ocean | impassable | +1 | +0 | +1 |
 | Coast | impassable | +2 | +0 | +1 |
+| Lake | impassable | +2 | +0 | +1 |
 
-Savanna, Jungle, and Wetlands (Phase 9.1) are climate-driven biomes placed by the
-moisture axis rather than by height alone.
+Water passability splits in two (`TerrainYields`):
 
-Ocean and Coast are **impassable for land units** but freely traversed by naval
-units (`UnitData.IsNaval`). Naval units pay movement cost **1** for Ocean/Coast and
-cannot enter land tiles. Civilian cargo (land units stored in a `Transport` or
-`Galleon`) is off-map while at sea and moves with the transport.
+- **`IsWater`** (Ocean/Coast/Lake) — what land units can't enter, what cities
+  can't be founded on, what counts for fertility/working rules.
+- **`IsSeaWater`** (Ocean/Coast only) — what naval units (`UnitData.IsNaval`)
+  sail on, paying movement cost **1**, and what "coastal" means to the AI's ship
+  logic. A **Lake is water but not sea**: it's workable (2F/1G, fresh water) but
+  no ship can enter it, and a lakeside city is *not* coastal (Civ5 rule). Pack
+  **Ice** (feature) also blocks naval movement. Civilian cargo (land units stored
+  in a `Transport` or `Galleon`) is off-map while at sea and moves with the
+  transport.
 
 ### Features
 
-Features overlay a base terrain (a tile is e.g. *Grassland + Hills*) and stack with
-resources (*Grassland + Hills + Sheep*). Stored sparsely in `MapData.Features`; yields
-in `FeatureYields`.
+Features overlay a base terrain as a **flag mask** (a tile is e.g. *Grassland +
+Forest + Hills*) and stack with resources (*Grassland + Hills + Sheep*). Stored
+sparsely in `MapData.Features`; yield deltas in `FeatureYields` (flag-additive),
+legality in `FeatureRules`.
 
-| Feature | Effect |
-| --- | --- |
-| Hills | **−1 Food / +1 Production** on the worked tile (food clamped at 0), **+1 movement** cost, and raises the tile (elevation). **Mine** is built on Hills; Farm/Pasture are flatland-only. |
+| Feature | Yields | Move | Legal on | Notes |
+| --- | --- | --- | --- | --- |
+| Hills | −1 Food / +1 Prod | +1 | any land except Mountain | raises the tile; the only feature that stacks (with Forest/Jungle). **Mine** site. |
+| Forest | −1 Food / +2 Prod | +1 | Grassland, Plains, Tundra | *Grassland+Forest* = the classic 1F/2P woods; *Forest+Hills* = 0F/3P lumber-hill. Deer/Silk live here. |
+| Jungle | −1 Food | +1 | Grassland, Plains | equatorial band; Banana/Spices live here. |
+| Marsh | −1 Food | +1 | Grassland (flat) | poor, slow ground — deliberately worse than the old Wetlands terrain (Civ5 marsh). |
+| Oasis | +3 Food / +1 Gold | — | Desert (flat) | rare desert springs, never beside water/rivers/another oasis. |
+| Ice | — | blocks ships | Ocean, Coast | polar pack ice; never on a Lake. |
 
-A Hills feature can sit on any open land terrain (not water, mountains, or Wetlands).
-`MapGenerator` places hills both as a foothill skirt around mountain belts and via an
-independent hilliness field scattered across the lowlands.
+Worked-tile food is clamped at ≥0 after feature deltas. `MapGenerator` places
+Hills both as a foothill skirt around mountain belts and via an independent
+hilliness field; vegetation/ice come from the `FeaturePlacer` pass (see Map
+Generation below).
 
 ### Improvements
 
@@ -89,10 +101,14 @@ it). Rules live in `ImprovementService`; yields fold into `CityWorkforceService`
 
 | Improvement | Effect | Valid terrain | Tech | Turns |
 | --- | --- | --- | --- | --- |
-| Farm | +1 Food | Grassland/Plains (non-hill) | — | 3 |
-| Mine | +1 Prod | Hills feature | Mining | 3 |
-| Pasture | +1 Prod | Grassland/Plains (non-hill) | Animal Husbandry | 3 |
+| Farm | +1 Food | Grassland/Plains, feature-free | — | 3 |
+| Mine | +1 Prod | bare Hills feature (no vegetation) | Mining | 3 |
+| Pasture | +1 Prod | Grassland/Plains, feature-free | Animal Husbandry | 3 |
 | Road | halves entry move cost (min 1) | any passable land | — | 2 |
+
+Farm/Pasture want clear flatland and Mine a bare hill — NWO has no tree-chopping,
+so a Forest/Jungle/Marsh tile keeps its natural yields instead of taking an
+improvement.
 
 ### Resources
 
@@ -104,11 +120,15 @@ tiers (Phase 9):
   gate unit production via `requiredResource` (Horseman → Horses, Swordsman → Iron).
 - **Bonus** (Wheat, Fish, Cattle, Sheep, Deer, Stone, Banana) — **always visible**
   (no reveal tech), denser, **+1 Food** (Wheat/Fish/Cattle/Deer/Banana) or **+1 Prod**
-  (Sheep/Stone) when worked. Placed by per-terrain affinity in `ScatterResources`.
+  (Sheep/Stone) when worked. Placed by terrain *and feature* affinity in
+  `ScatterResources` (Phase 14): Deer in the Forest feature, Banana in Jungle,
+  Iron/Sheep/Stone on Hills; Marsh/Oasis/Ice/Lake tiles carry nothing.
 - **Luxury** (Gems, GoldOre, Silver, Silk, Spices, Dyes, Cotton, Incense, Ivory) —
   tech-revealed (Mining → Gems/GoldOre/Silver; Calendar → Silk/Spices/Dyes/Cotton/
-  Incense; Animal Husbandry → Ivory), **very sparse** (1–3 of each per map on
-  affinity terrain), **+1 Gold** when worked. `ResourceService.ControlledUniqueLuxuries`
+  Incense; Animal Husbandry → Ivory), **very sparse** (1–3 of each per map).
+  Gems/GoldOre/Silver sit on Hills, Silk in Forest, Spices/Dyes in Forest/Jungle
+  canopy, the rest on open affinity terrain. **+1 Gold** when worked.
+  `ResourceService.ControlledUniqueLuxuries`
   reports the distinct luxuries a civ controls — a scaffold for a future
   amenity/happiness system (Phase 10); no happiness effect yet.
 
@@ -124,28 +144,45 @@ Resource trading remains **[planned]**.
 
 ### Map Generation (Procedural)
 
-- Algorithm (Phase 9.1): independent layers — (1) a low-freq continental shape
-  (simplex base+detail blended 70/30) with a radial falloff that pushes map edges to
-  ocean → island-like continents; (2) a **domain-warped ridged Simplex** mountain
-  layer gated by a low-freq uplift mask, forming coherent mountain chains, whose
-  **relief** rings the crests with a foothill skirt of the **Hills feature**; a
-  separate mid-freq hilliness field also scatters Hills across open lowland
-  independent of the mountains; (3) independent **moisture** (longitudinal) and
-  **temperature** (warm equator → cold poles, with a noise wobble) passes. `Classify`
-  picks the base biome by height (water/mountain) then a **temperature × moisture
-  climate matrix** (so the map varies even where it's flat), with a polar Snow/Tundra
-  cap; Hills is then applied as a feature on top. This is what gives each seed several distinct biome
-  regions and visible elevation rather than large monotone stretches.
-- Rivers (Phase 9.4): rivers traced downhill from Mountain/Hills sources along tile
-  edges (count scales with highland area), stored in `MapData.Rivers`. Every river
-  ends in water — if it bottoms out inland, a lake is carved at its terminus.
-  Rendered as blue channels in `WorldOverlay` and granting a floodplain **+1 Food**
-  to adjacent worked tiles.
-- Continents: the falloff tends to produce multiple landmasses, but a minimum
-  count is **not** enforced.
-- Resource scatter: strategic + bonus resources by per-terrain affinity (one per
-  tile), seeded so a given map seed always produces the same layout (see Resources
-  above).
+Phase 14 pipeline (full detail in
+[MAP_GENERATION.md](MAP_GENERATION.md)), in order:
+
+1. **Height layers** (Phase 9.1, unchanged): a low-freq continental shape
+   (simplex base+detail blended 70/30) with a radial falloff that pushes map
+   edges to ocean, plus a **domain-warped ridged Simplex** mountain layer gated
+   by a low-freq uplift mask — coherent mountain chains whose **relief** rings
+   the crests with a foothill skirt of Hills; a separate mid-freq hilliness
+   field scatters Hills across open lowland. The land/water split is calibrated
+   to each map script's `TargetLandPercent` (percentile trick, Phase 11).
+2. **Base terrain — latitude bands** (`Classify`): snow/tundra polar caps, a
+   dryness-gated **desert belt** (cold-dry becomes steppe Plains), a hot
+   semi-arid **savanna band**, and a moisture-split grass/plains heartland. The
+   temperature jitter doubles as band-edge raggedness, so borders wobble
+   instead of running in straight rows.
+3. **Lakes & coastlines** (`MapPostProcess`): water regions are flood-filled —
+   an enclosed basin of ≤9 tiles becomes **Lake** (bigger enclosed seas stay
+   navigable); then every Ocean tile beside land becomes **Coast** and a
+   probabilistic `ShelfChance` second ring extends the shallows (Archipelago
+   gets broader shelves). A **majority filter** then absorbs single-tile land
+   outliers (a lone Snow tile in grassland) without touching water, mountains,
+   or features.
+4. **Rivers** (Phase 9.4): traced downhill from Mountain/Hills sources along
+   tile edges (count scales with highland area), stored in `MapData.Rivers`.
+   Every river ends in water — one that bottoms out inland carves a **Lake** at
+   its terminus. Rendered as blue channels in `WorldOverlay`; adjacent worked
+   tiles gain the floodplain **+1 Food**.
+5. **Features** (`FeaturePlacer`, Civ5's AddFeatures): polar **Ice** on the
+   coldest sea, an equatorial **Jungle** band, **Forest** grown from a
+   dedicated clump-noise field (per-script `ForestThreshold`), rare **Marsh**
+   on the wettest flat grassland, isolated **Oasis** springs in open desert.
+   Every placement is validated against `FeatureRules`.
+6. **Resources**: strategic + bonus by terrain/feature affinity (one per tile),
+   then sparse luxuries — all seeded so a given map seed always produces the
+   same layout (see Resources above).
+
+Continents: the falloff tends to produce multiple landmasses, but a minimum
+count is **not** enforced. Verify changes with the `tune-map-generation`
+histogram (terrain/feature percentages, legality violations, dry-river count).
 
 ---
 

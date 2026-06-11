@@ -71,6 +71,32 @@ public static class MapPostProcess
         foreach (var tile in ring2) data.Tiles[tile] = TerrainType.Coast;
     }
 
+    // Majority filter for single-tile outliers (a lone Snow tile in grassland):
+    // a LAND tile whose on-map neighbours include 5+ of one different land terrain
+    // adopts it. Water and Mountain are never source or target (geography and
+    // passability stay intact), features are untouched (Hills survive the vote),
+    // and the vote reads the ORIGINAL terrain so the pass is order-independent.
+    public static void SmoothOutliers(MapData data)
+    {
+        const int majority = 5;
+        var changes = new List<(Vector2I Tile, TerrainType To)>();
+        foreach (var (axial, t) in data.Tiles)
+        {
+            if (TerrainYields.IsWater(t) || t == TerrainType.Mountain) continue;
+
+            var counts = new Dictionary<TerrainType, int>();
+            foreach (var n in HexGrid.GetNeighbors(axial))
+            {
+                if (!data.Tiles.TryGetValue(n, out var nt)) continue;
+                if (TerrainYields.IsWater(nt) || nt == TerrainType.Mountain) continue;
+                counts[nt] = counts.GetValueOrDefault(nt) + 1;
+            }
+            foreach (var (nt, c) in counts)
+                if (nt != t && c >= majority) { changes.Add((axial, nt)); break; }
+        }
+        foreach (var (tile, to) in changes) data.Tiles[tile] = to;
+    }
+
     private static bool HasLandNeighbour(MapData data, Vector2I axial)
     {
         foreach (var n in HexGrid.GetNeighbors(axial))

@@ -18,7 +18,10 @@
       "PowerShell(git commit *)",
       "PowerShell(git push origin main)",
       "PowerShell(dotnet build *)",
-      "PowerShell(dotnet test *)"
+      "PowerShell(dotnet test *)",
+      "Edit(/.claude/skills/tune-map-generation/**)",
+      "Edit(/.claude/skills/generate-terrain-art/**)",
+      "Edit(/.claude/skills/add-art-asset/**)"
     ],
     "additionalDirectories": [
       "D:\\source\\NWO\\.git"

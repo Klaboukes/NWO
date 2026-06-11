@@ -728,15 +728,18 @@ NWO uses three resource tiers, matching Civ5 conventions:
 
 Always visible (no tech reveal). Dense scatter. +1 Food or +1 Prod on the worked tile.
 
-| Resource | Terrain affinity | Target density |
+| Resource | Affinity (terrain / **feature**) | Target density |
 | --- | --- | --- |
 | Wheat | Plains, Grassland | 6% of valid tiles |
 | Cattle | Grassland | 5% |
-| Sheep | Hills, Grassland | 5% |
-| Fish | Coast, Ocean | 7% |
-| Deer | Forest, Tundra | 6% |
-| Stone | Hills, Plains | 4% |
-| Banana | Jungle | 8% |
+| Sheep | **Hills**, Grassland | 5% |
+| Fish | Coast | 7% |
+| Deer | **Forest**, Tundra | 6% |
+| Stone | **Hills**, Plains | 4% |
+| Banana | **Jungle** | 8% |
+
+Marsh/Oasis/Ice tiles and Lakes carry no resources; a Forest/Jungle canopy hides
+the open-ground candidates beneath it.
 
 ### Strategic resources
 
@@ -754,17 +757,17 @@ Tech-revealed. Sparse. Gate unit production.
 Tech-revealed. Very sparse (1–3 per map). +1 Gold on the worked tile. Each unique type
 controlled contributes to a future amenity/happiness system.
 
-| Resource | Terrain affinity | Reveal tech |
+| Resource | Affinity (terrain / **feature**) | Reveal tech |
 | --- | --- | --- |
-| Gems | Hills, Mountains | Mining |
-| Gold (mineral) | Hills, Mountains | Mining |
-| Silver | Hills | Mining |
-| Silk | Forest | Calendar |
-| Spices | Jungle, Forest | Calendar |
-| Dyes | Forest, Jungle | Calendar |
-| Cotton | Plains, Grassland | Calendar |
-| Incense | Desert, Plains | Calendar |
-| Ivory | Plains, Grassland | Animal Husbandry |
+| Gems | **Hills** | Mining |
+| Gold (mineral) | **Hills** | Mining |
+| Silver | **Hills** | Mining |
+| Silk | **Forest** | Calendar |
+| Spices | **Jungle or Forest** | Calendar |
+| Dyes | **Forest or Jungle** | Calendar |
+| Cotton | Plains, Grassland (open) | Calendar |
+| Incense | Desert, Plains (open) | Calendar |
+| Ivory | Plains, Grassland (open) | Animal Husbandry |
 
 ---
 
@@ -787,79 +790,80 @@ Skip for NWO at this scale:
 
 ---
 
-## Post-Classification Geography (Phase 14)
+## The Phase 14 Pipeline (terrain/feature split — SHIPPED)
 
-Phases 9 & 11 build terrain bottom-up from height + climate. The weakness is that
-water and coast are decided **per tile by height alone**: `MapGenerator.Classify`
-returns `Coast` for any tile in the `[oceanLevel, coastLevel)` band and `Ocean`
-below it. So coastlines don't follow land, every enclosed sea is `Ocean`, and large
-flat regions read as one biome. Phase 14 adds a second **post-classification pass**
-that operates on `MapData.Tiles` *after* `Classify`, fixing geography by adjacency
-rather than by height. The height/mountain/climate layers are untouched.
-
-### Lakes (inland water)
-
-Append `TerrainType.Lake` (enum is serialized — append only, never reorder).
+Phase 14 replaced the temperature×moisture biome matrix with the **full Civ5
+model**. The height/mountain layers (Phases 9 & 11) are untouched; everything
+from classification on was rewritten. Order is load-bearing:
 
 ```text
-flood-fill each connected water region (Ocean ∪ Coast)
-  if region does NOT touch the map edge  → relabel all its tiles Lake
-  (optional) tiny enclosed regions (≤ N tiles) → Lake regardless of edge contact
+heights + mountains/hills fields            (unchanged; percentile land split)
+→ Classify: latitude-band BASE terrain      (water provisionally all Ocean)
+→ MapPostProcess.FormLakes                  (flood-fill; enclosed ≤9 tiles → Lake)
+→ MapPostProcess.FormCoasts                 (land-adjacency ring + ShelfChance ring 2)
+→ MapPostProcess.SmoothOutliers             (majority filter on lone land tiles)
+→ TraceRivers                               (termini carve Lake, not Ocean)
+→ FeaturePlacer.Place                       (Ice → Jungle → Forest → Marsh → Oasis)
+→ ScatterResources                          (terrain+feature affinity)
 ```
 
-A connected-component flood-fill over hex neighbours is O(tiles). "Touches the
-edge" = any tile of the region lies on col 0/width-1 or row 0/height-1; edge water
-is sea, interior water is lake. This also lets the river tracer drain into real
-lakes — replace `CarveLake` (which currently paints `Ocean`) so a bottomed-out
-river terminus becomes `Lake`.
+### Terrain vs. features
 
-Ripple checklist (Lake is a new terrain everywhere a terrain is consumed):
+`TerrainType` is down to bases: Grassland, Plains, Desert, Tundra, Snow, Savanna,
+Mountain, Ocean, Coast, **Lake**. Vegetation is a `[Flags] Feature` mask
+(Hills/Forest/Jungle/Marsh/Oasis/Ice) over the base — Forest-on-Hills works, and
+`FeatureRules` is the single legality matrix (which feature sits on which base,
+what stacks). Yields are flag-additive in `FeatureYields`, calibrated so
+*Grassland+Forest* equals the old Forest terrain exactly. The yield/legality
+tables live in [MECHANICS.md](MECHANICS.md).
 
-* `TerrainYields` — water yield + provides fresh water; **impassable to sea-going
-  `IsNaval` units** (Civ5: lakes are not the ocean), workable by adjacent cities.
-* Art — `TerrainArtGenerator` motif + `TerrainTextureRegistry` entry + elevation.
-* `MovementCost` — land units can't enter; sea ships can't enter; only matters once
-  embarked/transport rules consider it.
-* Tooltip + `data/civilopedia.json` terrain entry.
+### Latitude-band classification
 
-### Coastlines (adjacency, not height band)
-
-Stop labelling `Coast` from the height band. After the land/water split (keep the
-calibrated percentile `OceanLevel`), relabel water by **distance to land**:
+`Classify` walks Civ5-style bands using an **effective latitude** (true latitude
++ the temperature jitter ×0.20, so band edges are ragged, not straight rows):
 
 ```text
-for each Ocean tile:
-  if any neighbour is land → Coast            (the mandatory 1-tile shelf)
-then extend outward 1–2 more rings probabilistically (noise- or BFS-distance-driven)
-  so some coast reaches deeper while open sea stays Ocean
+effLat > 0.86                      → Snow         (polar cap)
+effLat > 0.72                      → Tundra       (subpolar band)
+moisture < 0.34 && temp > 0.50     → Desert       (the dry belt)
+moisture < 0.34                    → Plains       (cold-dry steppe)
+temp > 0.72 && moisture < 0.55     → Savanna      (hot semi-arid band)
+moisture < 0.52 → Plains, else     → Grassland    (heartland)
 ```
 
-This guarantees land is always ringed by coast (today it can border raw ocean) and
-that no `Coast` appears mid-ocean except the intentional shelf. Lakes are uniformly
-shallow, so they need no separate lake-coast ring unless it's cheap to add.
+### Lakes, coastlines, outliers (`MapPostProcess`)
 
-### Biome diversification (anti-monotony)
+* **FormLakes** — flood-fill connected water; a region that doesn't touch the map
+  edge AND is ≤ `LakeMaxArea = 9` tiles (Civ5's constant) becomes `Lake`. Larger
+  enclosed water stays sea — a navigable inland sea. `CarveLake` (river termini)
+  paints `Lake` directly.
+* **FormCoasts** — every Ocean tile with a land neighbour → Coast (mandatory
+  ring); Ocean beside that ring rolls the per-script `ShelfChance` (0.35;
+  Archipelago 0.50) via a deterministic per-tile hash. No third ring; lakes get
+  no coast ring (uniformly shallow).
+* **SmoothOutliers** — a land tile whose neighbours include 5+ of one *other*
+  land terrain adopts it. Water/Mountain are never source or target; features
+  survive the vote.
 
-Large single-biome slabs come from low-frequency climate noise correlating across
-many tiles. Cheaper-than-rewrite levers, ordered by payoff (validate each against
-the `tune-map-generation` histogram diagnostic):
+### Feature placement (`FeaturePlacer`)
 
-1. Raise / decorrelate `MoistureFrequency` and `TemperatureFrequency` so the climate
-   axes break up sooner.
-2. Small per-tile climate jitter applied **only near biome boundaries** (keeps cores
-   intact, ragged edges).
-3. Light region post-pass: interior tiles of an oversized uniform component nudge
-   toward a compatible neighbour biome (Forest pockets in Grassland, Plains fringe on
-   Desert). Must stay deterministic per seed and avoid salt-and-pepper — the goal is
-   *coherent variety*, not noise.
+Runs on the FINAL terrain (after rivers, so Oasis can veto river-adjacent
+desert), in order Ice → Jungle → Forest → Marsh → Oasis; every placement is
+validated by `FeatureRules.IsLegal`. All rolls are per-tile hashes — no RNG
+stream, deterministic per seed.
 
-### Geography polish (stretch)
+| Feature | Rule (constants in `FeaturePlacer`) |
+| --- | --- |
+| Ice | sea water, `lat > 0.92` always; 0.85–0.92 ramped chance ×0.6. Never on Lake. |
+| Jungle | `lat < 0.22`, `moisture > 0.55`, Grassland/Plains (flat or Hills). |
+| Forest | Grassland/Plains/Tundra; `0.55·forestNoise + 0.45·moisture > ForestThreshold` (per-script, 0.54 default; Tundra +0.05). The forest noise is its own field (seed+8, freq 0.13) so woods clump. |
+| Marsh | flat Grassland, `moisture > 0.66`, chance 0.30. |
+| Oasis | flat Desert, chance 0.05, never beside water/river/another oasis. |
 
-* **Single-tile outlier filter** — majority-vote a lone tile whose neighbours are all
-  a different biome (a stray Snow tile in jungle), preserving intended features.
-* **Oases** — rare fertile Plains/water pockets inside large deserts.
-* **Polar ice** — coldest sea tiles render as ice rather than open ocean.
-* Re-assert that every river reaches `Lake`/`Coast`/`Ocean` after the relabel.
+Density targets (Continents, 60×40, validated across seeds via the histogram):
+desert belt 5–10 % of land, Forest+Jungle ~24–31 % in coherent clumps, polar ice
+~15–18 % of water, marsh/oasis rare accents, zero legality violations, zero
+rivers that fail to reach water.
 
 ---
 
@@ -883,6 +887,9 @@ we took, what's worth taking, and what we won't.
 | Edge-based rivers from highlands to water | `MapData.Rivers` edge-set + downhill trace (+ lake carving) |
 | Foothills around uplift | mountain `relief` skirt + scattered hilliness field |
 | (improved on Civ) directional mountain chains | domain-warped **ridged** Simplex (Civ's plain fractal is blobbier) |
+| **Terrain vs. features split** (forest/jungle/marsh/oasis/ice as *features* on a base terrain) | ✅ **Phase 14** — `[Flags] Feature` mask + `FeatureRules` legality matrix + flag-additive `FeatureYields` |
+| **Lakes vs. sea + adjacency coastlines** | ✅ **Phase 14** — `MapPostProcess.FormLakes` (≤9-tile enclosed basins) + `FormCoasts` (land-adjacency ring + `ShelfChance` shelf) |
+| **Latitude-band terrain + AddFeatures pass** | ✅ **Phase 14** — banded `Classify` + `FeaturePlacer` (Ice/Jungle/Forest/Marsh/Oasis) |
 | Start normalization (fair, viable spawns) | `GameFactory` fertility floor (work-radius yield sum) + farthest-point/impact-ripple spawn spread; human nudged to the most fertile tile near map centre (Phase 10.4) |
 | Contested objective sites | `MapData.KeySites` placed away from spawns by farthest-point sampling; control = nearest city within radius (`KeySiteService`, Phase 10.5) |
 
@@ -899,8 +906,8 @@ we took, what's worth taking, and what we won't.
 | --- | --- | --- |
 | **Map scripts** (Continents / Pangaea / Archipelago / Highlands) selectable at setup | ✅ **Phase 11 complete** — `MapScript` enum + `MapScriptParams` record; percentile OceanLevel trick; World + Size dropdowns on FactionSetup | shipped |
 | ~~Start normalization + region balancing~~ — **shipped in Phase 10.4** (see Adopted table): fertility-floor + farthest-point spawn spread in `GameFactory`, without Civ's region machinery | ✅ done | — |
-| **Terrain vs. features split** (forest/jungle/marsh/oasis/floodplain as *features* on a base terrain, like Civ) | post-MVP phase only if we want Civ-depth terrain — **partly started**: Hills already shipped as a `Feature` (`MapData.Features`), so the scaffolding exists | ~1 week+ for the rest; architectural — ripples through `MapData`, save format, yields, workforce, AI, art, tooltips |
-| **Lakes vs. sea + adjacency coastlines** (inland water flagged distinct from ocean; coast follows land, not a height band) | 🔜 **Phase 14** — flood-fill inland water → `TerrainType.Lake`; relabel `Coast` by land-adjacency with a probabilistic shelf; biome de-clumping pass. See "Post-Classification Geography" above | medium — new post-`Classify` pass + one appended enum; ripples to yields, art, movement, tooltips |
+| ~~Terrain vs. features split~~ — **shipped in Phase 14** (see Adopted table) | ✅ done | — |
+| ~~Lakes vs. sea + adjacency coastlines~~ — **shipped in Phase 14** (see Adopted table and "The Phase 14 Pipeline" above) | ✅ done | — |
 
 ### Deliberately skipped
 

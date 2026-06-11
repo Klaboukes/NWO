@@ -136,6 +136,7 @@ public static class MapGenerator
         // features run after rivers so an Oasis can veto river-adjacent desert.
         MapPostProcess.FormLakes(data);
         MapPostProcess.FormCoasts(data, p.ShelfChance, seed);
+        MapPostProcess.SmoothOutliers(data); // before features, so veg respects the vote
 
         TraceRivers(data, heights, seed);
         FeaturePlacer.Place(data, climate, p, seed);

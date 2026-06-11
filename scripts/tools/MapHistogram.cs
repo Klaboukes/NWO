@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using NWO.Map;
 
@@ -17,6 +18,65 @@ namespace NWO.Tools;
 //   --size WxH     map dimensions (default 60x40)
 public partial class MapHistogram : Node
 {
+    // Connected river systems that never touch water — should always be 0 (the
+    // tracer carves a Lake when a river bottoms out inland). Edges are grouped
+    // into components via shared corner vertices; a component "reaches water"
+    // if any tile meeting at any of its corners is Ocean/Coast/Lake.
+    private static int DryRivers(MapData map)
+    {
+        var edges = new List<(Vector2I Tile, int Dir)>(map.Rivers);
+        if (edges.Count == 0) return 0;
+
+        // A corner vertex = the sorted triple of tiles meeting there.
+        static (Vector2I, Vector2I, Vector2I) Vertex(Vector2I a, Vector2I b, Vector2I c)
+        {
+            var arr = new[] { a, b, c };
+            System.Array.Sort(arr, (u, v) => u.X != v.X ? u.X - v.X : u.Y - v.Y);
+            return (arr[0], arr[1], arr[2]);
+        }
+
+        var vertexEdges = new Dictionary<(Vector2I, Vector2I, Vector2I), List<int>>();
+        var edgeVerts   = new List<(Vector2I, Vector2I, Vector2I)[]>(edges.Count);
+        for (int i = 0; i < edges.Count; i++)
+        {
+            var p  = edges[i].Tile;
+            var q  = p + HexGrid.Directions[edges[i].Dir];
+            var nb = new HashSet<Vector2I>(HexGrid.GetNeighbors(q));
+            var vs = new List<(Vector2I, Vector2I, Vector2I)>(2);
+            foreach (var c in HexGrid.GetNeighbors(p))
+                if (nb.Contains(c)) vs.Add(Vertex(p, q, c)); // the edge's two corners
+            edgeVerts.Add(vs.ToArray());
+            foreach (var v in vs)
+                (vertexEdges.TryGetValue(v, out var list) ? list : vertexEdges[v] = new()).Add(i);
+        }
+
+        bool VertexTouchesWater((Vector2I, Vector2I, Vector2I) v)
+            => new[] { v.Item1, v.Item2, v.Item3 }.Any(t =>
+                map.Tiles.TryGetValue(t, out var tt) && TerrainYields.IsWater(tt));
+
+        int dry = 0;
+        var seen = new bool[edges.Count];
+        for (int i = 0; i < edges.Count; i++)
+        {
+            if (seen[i]) continue;
+            bool wet = false;
+            var queue = new Queue<int>();
+            queue.Enqueue(i); seen[i] = true;
+            while (queue.Count > 0)
+            {
+                int e = queue.Dequeue();
+                foreach (var v in edgeVerts[e])
+                {
+                    if (VertexTouchesWater(v)) wet = true;
+                    foreach (var other in vertexEdges[v])
+                        if (!seen[other]) { seen[other] = true; queue.Enqueue(other); }
+                }
+            }
+            if (!wet) dry++;
+        }
+        return dry;
+    }
+
     public override void _Ready()
     {
         int seeds = 5, width = 60, height = 40;
@@ -71,7 +131,8 @@ public partial class MapHistogram : Node
                 int basis = onWater ? water : land;
                 GD.Print($"  +{f,-9}(feat) {c,4}  {(basis > 0 ? 100f * c / basis : 0f),5:0.0}% (of {(onWater ? "water" : "land")})");
             }
-            GD.Print($"  rivers(edges)={map.Rivers.Count}  resources={map.Resources.Count}  legality-violations={illegal}");
+            GD.Print($"  rivers(edges)={map.Rivers.Count}  resources={map.Resources.Count}"
+                   + $"  legality-violations={illegal}  rivers-not-reaching-water={DryRivers(map)}");
         }
         GetTree().Quit();
     }
