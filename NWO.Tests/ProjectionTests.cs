@@ -45,12 +45,15 @@ public class ProjectionTests
     public void TopHeight_RaisesTallTerrainMore()
     {
         Assert.Equal(0f, HexProjection.Elevation(TerrainType.Grassland));
+        // Feature lifts stack: flat < canopy (Forest) < canopy + Hills < Mountain.
         Assert.True(HexProjection.TopHeight(TerrainType.Grassland)
-                  < HexProjection.TopHeight(TerrainType.Forest));
-        Assert.True(HexProjection.TopHeight(TerrainType.Forest)
+                  < HexProjection.TopHeight(TerrainType.Grassland, Feature.Forest));
+        Assert.True(HexProjection.TopHeight(TerrainType.Grassland, Feature.Forest)
+                  < HexProjection.TopHeight(TerrainType.Grassland, Feature.Forest | Feature.Hills));
+        Assert.True(HexProjection.TopHeight(TerrainType.Grassland, Feature.Forest | Feature.Hills)
                   < HexProjection.TopHeight(TerrainType.Mountain));
         // A Hills feature raises a tile above its flat (non-hill) self.
-        Assert.True(HexProjection.TopHeight(TerrainType.Grassland, hill: false)
-                  < HexProjection.TopHeight(TerrainType.Grassland, hill: true));
+        Assert.True(HexProjection.TopHeight(TerrainType.Grassland, Feature.None)
+                  < HexProjection.TopHeight(TerrainType.Grassland, Feature.Hills));
     }
 }

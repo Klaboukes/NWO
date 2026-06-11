@@ -439,10 +439,11 @@ public partial class WorldMap : Node3D
             gold += ResourceYields.Gold(res);
         }
 
-        // Hills feature trades food for production.
+        // Feature deltas (Hills/Forest/Jungle/Marsh/Oasis) stack on the base terrain.
         var feat = _state.Map.FeatureAt(axial);
         food += FeatureYields.Food(feat);
         prod += FeatureYields.Production(feat);
+        gold += FeatureYields.Gold(feat);
 
         // Floodplain: river-adjacent tiles gain +1 Food.
         bool riverside = _state.Map.IsRiverAdjacent(axial);
@@ -455,7 +456,8 @@ public partial class WorldMap : Node3D
         if (prod > 0) yields.Add($"{prod}P");
         if (gold > 0) yields.Add($"{gold}G");
 
-        string name = feat == Feature.Hills ? $"{terrain} Hills" : terrain.ToString();
+        // "Grassland — Forest, Hills" (terrain, then its feature flags).
+        string name = feat == Feature.None ? terrain.ToString() : $"{terrain} — {feat}";
         string text = name;
         if (yields.Count > 0) text += "  " + string.Join(" ", yields);
 

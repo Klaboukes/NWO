@@ -21,7 +21,7 @@ public sealed class TerrainMeshFactory
 {
     private const float Inset = 1f; // small gap between adjacent tiles
 
-    private readonly Dictionary<(TerrainType Terrain, bool Hill), Mesh> _meshes = new();
+    private readonly Dictionary<(TerrainType Terrain, Feature Features), Mesh> _meshes = new();
     private readonly TerrainTextureRegistry _textures = new();
 
     // Shared cliff material: vertex-colour albedo so the darkened side walls shade.
@@ -33,21 +33,22 @@ public sealed class TerrainMeshFactory
         TextureFilter          = BaseMaterial3D.TextureFilterEnum.Nearest, // crisp pixel-art
     };
 
-    // A Hills feature raises the same textured prism higher, so a hilly tile reads as
-    // a bump of its own biome (Grassland + Hills = a raised grassland tile).
-    public Mesh For(TerrainType terrain, bool hill = false)
+    // Features shape the prism: Hills/canopy raise it (geometry), vegetation swaps
+    // the top-face texture for the composite (Grassland + Forest = wooded grassland
+    // art). The legality matrix (FeatureRules) keeps the cache key count tiny.
+    public Mesh For(TerrainType terrain, Feature features = Feature.None)
     {
-        var key = (terrain, hill);
+        var key = (terrain, features);
         if (_meshes.TryGetValue(key, out var mesh)) return mesh;
-        mesh = Build(terrain, hill);
+        mesh = Build(terrain, features);
         _meshes[key] = mesh;
         return mesh;
     }
 
-    private Mesh Build(TerrainType terrain, bool hill)
+    private Mesh Build(TerrainType terrain, Feature features)
     {
         float size  = HexProjection.HexSize - Inset;
-        float topY  = HexProjection.TopHeight(terrain, hill);
+        float topY  = HexProjection.TopHeight(terrain, features);
         Color cliff = new(HexProjection.TerrainColor(terrain).R * 0.5f,
                           HexProjection.TerrainColor(terrain).G * 0.5f,
                           HexProjection.TerrainColor(terrain).B * 0.5f);
@@ -67,7 +68,7 @@ public sealed class TerrainMeshFactory
             var b = HexProjection.Corner((i + 1) % 6, size) + new Vector3(0f, topY, 0f);
             AddTopTri(topSt, centre, a, b, size, centreCol, rimCol, rimCol);
         }
-        topSt.SetMaterial(_textures.Material(terrain));
+        topSt.SetMaterial(_textures.Material(terrain, features & FeatureRules.VegMask));
         var mesh = topSt.Commit();
 
         // ── Surface 1: cliff side walls (vertex-coloured, untextured) ──

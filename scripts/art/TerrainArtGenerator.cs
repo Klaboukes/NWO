@@ -17,16 +17,18 @@ namespace NWO.Art;
 // external tool. A real PNG dropped into assets/art/tiles/ still overrides any tile
 // with no code change (see TerrainTextureRegistry / the add-art-asset skill).
 //
-// PIPELINE  (per terrain)
-//   1. Ramp(base)        — 6 tones, shadow→highlight, from HexProjection.TerrainColor
-//                          (so art tracks gameplay tinting).
-//   2. PaintGround(...)  — Bayer-4x4 ordered dither over 2-octave value noise.
-//   3. Paint<Terrain>()  — the terrain's features + decorative props (outlined).
-//   4. EdgeShade(...)    — darken a rim around the hex footprint (ambient occlusion).
+// PIPELINE  (per terrain + optional vegetation Feature, Phase 14 composites)
+//   1. Ramp(base)            — 6 tones, shadow→highlight, from HexProjection
+//                              .TerrainColor (so art tracks gameplay tinting).
+//   2. PaintGround(...)      — Bayer-4x4 ordered dither over 2-octave value noise.
+//   3. Paint<Terrain>()      — the terrain's motifs + decorative props (outlined).
+//   4. Paint<Veg>Overlay()   — the feature's overlay (trees/pools/floes) painted
+//                              over the base, coloured from FeatureColor's ramp.
+//   5. EdgeShade(...)        — darken a rim around the hex footprint (AO).
 //
-// DETERMINISM  Everything is seeded from the TerrainType only — a terrain always
-// bakes byte-identical art, so committed PNGs are stable in git and the runtime
-// placeholder matches the baked file.
+// DETERMINISM  Everything is seeded from (TerrainType, Feature) only — a combo
+// always bakes byte-identical art, so committed PNGs are stable in git and the
+// runtime placeholder matches the baked file.
 //
 // TWEAKING  (see the generate-terrain-art skill for the full guide)
 //   • A terrain's colour → HexProjection.TerrainColor (drives the ramp).
@@ -52,13 +54,18 @@ public static class TerrainArtGenerator
         { 15f / 16f,  7f / 16f, 13f / 16f,  5f / 16f },
     };
 
-    // Build the finished tile for a terrain. Pure: same input → same Image.
-    public static Image Generate(TerrainType terrain)
+    // Build the finished tile for a (terrain, vegetation-feature) combination —
+    // the base terrain's ground + motifs, then the feature's overlay painted on top
+    // (Grassland + Forest = trees over the meadow). Pure: same input → same Image.
+    public static Image Generate(TerrainType terrain, Feature veg = Feature.None)
     {
+        veg &= FeatureRules.VegMask; // Hills is geometry (a taller prism), not art
+
         var img  = Image.CreateEmpty(TileSize, TileSize, false, Image.Format.Rgb8);
-        var rng  = new Rng(0x9E3779B97F4A7C15UL * (ulong)((int)terrain + 1));
+        var rng  = new Rng(0x9E3779B97F4A7C15UL * (ulong)((int)terrain + 1)
+                         + 0xBF58476D1CE4E5B9UL * (ulong)(int)veg);
         var ramp = Ramp(HexProjection.TerrainColor(terrain));
-        int seed = (int)terrain * 911;
+        int seed = ((int)terrain * 31 + (int)veg) * 911;
 
         PaintGround(img, ramp, seed);
 
@@ -66,16 +73,27 @@ public static class TerrainArtGenerator
         {
             case TerrainType.Ocean:     PaintWater(img, ramp, rng, foam: false); break;
             case TerrainType.Coast:     PaintWater(img, ramp, rng, foam: true);  break;
+            case TerrainType.Lake:      PaintLake(img, ramp, rng);      break;
             case TerrainType.Desert:    PaintDesert(img, ramp, rng);    break;
             case TerrainType.Plains:    PaintPlains(img, ramp, rng);    break;
             case TerrainType.Grassland: PaintGrassland(img, ramp, rng); break;
-            case TerrainType.Forest:    PaintForest(img, ramp, rng);    break;
             case TerrainType.Tundra:    PaintTundra(img, ramp, rng);    break;
             case TerrainType.Snow:      PaintSnow(img, ramp, rng);      break;
             case TerrainType.Mountain:  PaintMountain(img, ramp, rng);  break;
             case TerrainType.Savanna:   PaintSavanna(img, ramp, rng);   break;
-            case TerrainType.Jungle:    PaintJungle(img, ramp, rng);    break;
-            case TerrainType.Wetlands:  PaintWetlands(img, ramp, rng);  break;
+        }
+
+        if (veg != Feature.None)
+        {
+            var fRamp = Ramp(HexProjection.FeatureColor(veg));
+            switch (veg)
+            {
+                case Feature.Forest: PaintForestOverlay(img, fRamp, rng); break;
+                case Feature.Jungle: PaintJungleOverlay(img, fRamp, rng); break;
+                case Feature.Marsh:  PaintMarshOverlay(img, fRamp, rng);  break;
+                case Feature.Oasis:  PaintOasisOverlay(img, fRamp, rng);  break;
+                case Feature.Ice:    PaintIceOverlay(img, fRamp, rng);    break;
+            }
         }
 
         EdgeShade(img);
@@ -194,12 +212,14 @@ public static class TerrainArtGenerator
         ScatterFlowers(img, rng, 7);
     }
 
-    // A small forest: outlined, layered tree canopies with trunks, plus a few rocks.
-    private static void PaintForest(Image img, Color[] ramp, Rng rng)
+    // Forest overlay: outlined, layered tree canopies with trunks over the base
+    // ground (the base terrain's motifs show between the trees), plus underbrush.
+    // `ramp` is the Forest feature ramp (HexProjection.FeatureColor), not the base's.
+    private static void PaintForestOverlay(Image img, Color[] ramp, Rng rng)
     {
-        Blades(img, ramp, rng, 50);
+        Blades(img, ramp, rng, 40); // dark underbrush between the canopies
         Color leaf = Shade(ramp[3], +0.06f, +0.10f);
-        int trees = rng.Range(5, 8);
+        int trees = rng.Range(6, 9);
         for (int i = 0; i < trees; i++)
             TryProp(img, rng, 16, (cx, cy) => DrawTree(img, cx, cy, rng.Range(8, 12), leaf));
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 4);
@@ -254,11 +274,11 @@ public static class TerrainArtGenerator
         ScatterRocks(img, ramp, rng, count: 3, minR: 2, maxR: 4);
     }
 
-    // Dense rainforest: heavy grass underlayer, many tightly-packed dark canopies,
-    // a few rocks. Reads as a thicker, darker Forest.
-    private static void PaintJungle(Image img, Color[] ramp, Rng rng)
+    // Jungle overlay: many tightly-packed dark canopies over a heavy underlayer.
+    // Reads as a thicker, darker Forest. `ramp` is the Jungle feature ramp.
+    private static void PaintJungleOverlay(Image img, Color[] ramp, Rng rng)
     {
-        Blades(img, ramp, rng, 80);
+        Blades(img, ramp, rng, 70);
         Color leaf  = Shade(ramp[3], +0.04f, +0.14f);
         int   trees = rng.Range(8, 12);
         for (int i = 0; i < trees; i++)
@@ -266,9 +286,9 @@ public static class TerrainArtGenerator
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);
     }
 
-    // Marsh: dark standing-water pools over the dithered ground, with reedy tufts
-    // along their edges. Damp, low, and broken-up.
-    private static void PaintWetlands(Image img, Color[] ramp, Rng rng)
+    // Marsh overlay: dark standing-water pools over the base ground, with reedy
+    // tufts along their edges. Damp, low, and broken-up. `ramp` is the Marsh ramp.
+    private static void PaintMarshOverlay(Image img, Color[] ramp, Rng rng)
     {
         Color water = Shade(ramp[0], -0.10f, +0.10f, -0.02f); // dark cool pool
         for (int p = 0; p < 5; p++)
@@ -281,6 +301,70 @@ public static class TerrainArtGenerator
         }
         Blades(img, ramp, rng, 90); // reeds
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);
+    }
+
+    // Oasis overlay: a central spring-fed pond ringed by lush growth and a couple of
+    // palm-style trees — a green pocket in the dunes. `ramp` is the Oasis ramp.
+    private static void PaintOasisOverlay(Image img, Color[] ramp, Rng rng)
+    {
+        Color water = new(0.22f, 0.45f, 0.62f);
+        Color shore = Shade(ramp[3], -0.05f, +0.12f);
+        int cx = TileSize / 2 + rng.Range(-8, 9);
+        int cy = TileSize / 2 + rng.Range(-8, 9);
+        int r  = rng.Range(12, 17);
+        DiscOutlined(img, cx, cy, r + 3, shore, Shade(ramp[1], -0.15f)); // lush bank
+        Disc(img, cx, cy, r, water);
+        Plot(img, cx - r / 3, cy - r / 3, Colors.White); // sun glint
+        Plot(img, cx - r / 3 + 1, cy - r / 3, Colors.White);
+
+        Color palm = Shade(ramp[3], +0.10f, +0.10f);
+        for (int t = 0; t < 3; t++)
+        {
+            float a  = rng.Float() * Mathf.Tau;
+            int   tx = cx + (int)(Mathf.Cos(a) * (r + 6));
+            int   ty = cy + (int)(Mathf.Sin(a) * (r + 6));
+            if (InFootprint(tx, ty, 14)) DrawTree(img, tx, ty, rng.Range(5, 8), palm);
+        }
+        Blades(img, ramp, rng, 30); // reeds at the waterline
+    }
+
+    // Ice overlay: drifting white floes with cracked blue seams over the water —
+    // pack ice closing the polar sea. `ramp` is the Ice feature ramp.
+    private static void PaintIceOverlay(Image img, Color[] ramp, Rng rng)
+    {
+        Color floe   = Shade(ramp[4], +0.04f, -0.04f);
+        Color floeHi = Colors.White;
+        Color seam   = new(0.45f, 0.62f, 0.78f); // cold blue crack between floes
+        int floes = rng.Range(7, 11);
+        for (int i = 0; i < floes; i++)
+        {
+            int fx = rng.Range(14, 114), fy = rng.Range(14, 114);
+            int r  = rng.Range(6, 14);
+            if (!InFootprint(fx, fy, r * 0.4f)) { i--; continue; }
+            DiscOutlined(img, fx, fy, r, floe, seam);
+            Disc(img, fx - r / 3, fy - r / 3, Mathf.Max(1, r / 3), floeHi); // lit facet
+        }
+        for (int s = 0; s < 30; s++) // frost sparkle on the open leads
+            Plot(img, rng.Range(8, 120), rng.Range(8, 120), floeHi);
+    }
+
+    // Lake: calm inland water — gentler, sparser wavelets than the sea and no foam,
+    // with a few bright glints. Reads flatter and stiller than Coast/Ocean.
+    private static void PaintLake(Image img, Color[] ramp, Rng rng)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            int x = rng.Range(12, TileSize - 28);
+            int y = rng.Range(14, TileSize - 14);
+            int len = rng.Range(6, 14);
+            for (int k = 0; k < len; k++)
+            {
+                Plot(img, x + k, y,     ramp[5]); // soft crest
+                Plot(img, x + k, y + 1, ramp[2]); // shallow shadow
+            }
+        }
+        for (int g = 0; g < 8; g++)
+            Plot(img, rng.Range(10, 118), rng.Range(10, 118), Colors.White);
     }
 
     private static void DrawPeak(Image img, Color[] ramp, int peakX, int topY, int baseY, float spread, int capRows)

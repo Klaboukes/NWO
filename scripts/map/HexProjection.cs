@@ -40,30 +40,31 @@ public static class HexProjection
         return CubeRound(qf, rf);
     }
 
-    // Real prism height above the ground plane for each terrain (the top-face Y).
-    // Monotonic: flat < Forest < Hills < Mountain — the same ordering the old
-    // draw-only ElevationLift used, now as actual geometry.
-    // Extra lift a Hills feature adds on top of the base terrain's elevation, so a
-    // hilly tile reads as a raised bump regardless of its biome (Phase 9.x).
-    public const float HillLift = HexSize * 0.22f;
+    // Real prism height above the ground plane (the top-face Y). Monotonic:
+    // flat < canopy < Hills < Mountain — the same ordering the old draw-only
+    // ElevationLift used, now as actual geometry. Features stack: a Hills lift
+    // and a Forest/Jungle canopy lift both add on top of the base terrain, so a
+    // forested hill is the tallest non-mountain tile (Phase 14).
+    public const float HillLift   = HexSize * 0.22f;
+    public const float CanopyLift = HexSize * 0.12f; // dense Forest/Jungle canopy
 
     public static float Elevation(TerrainType terrain) => terrain switch
     {
         TerrainType.Mountain => HexSize * 0.55f,
-        TerrainType.Forest   => HexSize * 0.12f,
-        TerrainType.Jungle   => HexSize * 0.12f, // dense canopy, same lift as Forest
-        _                    => 0f,              // flat: Savanna, Wetlands, et al.
+        _                    => 0f, // flat: vegetation lift comes from the feature mask
     };
 
-    // Elevation including a Hills feature (the feature stacks on the base terrain).
-    public static float Elevation(TerrainType terrain, bool hill)
-        => Elevation(terrain) + (hill ? HillLift : 0f);
+    // Elevation including the tile's feature mask (lifts stack on the base terrain).
+    public static float Elevation(TerrainType terrain, Feature features)
+        => Elevation(terrain)
+         + ((features & Feature.Hills) != 0 ? HillLift : 0f)
+         + ((features & (Feature.Forest | Feature.Jungle)) != 0 ? CanopyLift : 0f);
 
     // Y of a tile's top face (where sprites, glyphs, and overlays sit).
     public static float TopHeight(TerrainType terrain) => BaseThickness + Elevation(terrain);
 
-    public static float TopHeight(TerrainType terrain, bool hill)
-        => BaseThickness + Elevation(terrain, hill);
+    public static float TopHeight(TerrainType terrain, Feature features)
+        => BaseThickness + Elevation(terrain, features);
 
     // The six flat-top hex corners on the ground plane, relative to a tile centre.
     // i in [0,6); use with AxialToWorld(...) + corner, raising Y to the top face.
@@ -91,16 +92,27 @@ public static class HexProjection
     {
         TerrainType.Ocean     => new Color(0.18f, 0.35f, 0.65f),
         TerrainType.Coast     => new Color(0.33f, 0.55f, 0.80f),
+        TerrainType.Lake      => new Color(0.28f, 0.52f, 0.72f), // calm inland water
         TerrainType.Desert    => new Color(0.87f, 0.80f, 0.55f),
         TerrainType.Plains    => new Color(0.80f, 0.78f, 0.50f),
         TerrainType.Grassland => new Color(0.38f, 0.68f, 0.32f),
-        TerrainType.Forest    => new Color(0.18f, 0.45f, 0.20f),
         TerrainType.Tundra    => new Color(0.70f, 0.75f, 0.68f),
         TerrainType.Snow      => new Color(0.92f, 0.95f, 0.98f),
         TerrainType.Mountain  => new Color(0.55f, 0.50f, 0.48f),
         TerrainType.Savanna   => new Color(0.72f, 0.70f, 0.34f), // dry golden-green
-        TerrainType.Jungle    => new Color(0.16f, 0.42f, 0.18f), // rich dark green
-        TerrainType.Wetlands  => new Color(0.34f, 0.50f, 0.38f), // muted marsh
         _                     => Colors.Magenta,
+    };
+
+    // Base colour a vegetation/overlay feature paints over its terrain (drives the
+    // composite art ramp + minimap tinting). Forest/Jungle keep the pre-split
+    // terrain greens so the look carries over.
+    public static Color FeatureColor(Feature veg) => veg switch
+    {
+        Feature.Forest => new Color(0.18f, 0.45f, 0.20f),
+        Feature.Jungle => new Color(0.16f, 0.42f, 0.18f), // rich dark green
+        Feature.Marsh  => new Color(0.34f, 0.50f, 0.38f), // muted marsh
+        Feature.Oasis  => new Color(0.30f, 0.62f, 0.45f), // lush pocket in the sand
+        Feature.Ice    => new Color(0.88f, 0.93f, 0.97f),
+        _              => Colors.Magenta,
     };
 }

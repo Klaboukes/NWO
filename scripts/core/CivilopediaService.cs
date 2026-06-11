@@ -44,6 +44,7 @@ public class CivilopediaService
         Cat("buildings", "Buildings",    _catalog.Buildings.Select(BuildingEntry)),
         Cat("techs",     "Technologies", _catalog.Techs.Select(TechEntry)),
         Cat("terrain",   "Terrain",      EnumValues<TerrainType>().Select(TerrainEntry)),
+        Cat("features",  "Features",     FeatureRules.Flags.Select(FeatureEntry)),
         Cat("resources", "Resources",    EnumValues<ResourceType>().Where(r => r != ResourceType.None).Select(ResourceEntry)),
         ArticleCategory("mechanics", "Game Mechanics"),
     };
@@ -138,6 +139,26 @@ public class CivilopediaService
         sb.AppendLine("Movement cost: " + (mc == int.MaxValue ? "impassable" : mc.ToString()));
         sb.AppendLine(TerrainYields.CanFoundCityOn(t) ? "Cities may be founded here" : "No city center");
         return Entry($"terrain:{Key(t)}", Spaced(t.ToString()), sb);
+    }
+
+    // A terrain feature (Forest, Hills, …): yield deltas + movement surcharge +
+    // which base terrains it may sit on, all from live data (FeatureYields/
+    // FeatureRules) so the entry never goes stale.
+    private CivilopediaEntry FeatureEntry(Feature f)
+    {
+        var sb = new StringBuilder();
+        var yields = new List<string>();
+        if (FeatureYields.Food(f)       != 0) yields.Add($"{Signed(FeatureYields.Food(f))} food");
+        if (FeatureYields.Production(f) != 0) yields.Add($"{Signed(FeatureYields.Production(f))} production");
+        if (FeatureYields.Gold(f)       != 0) yields.Add($"{Signed(FeatureYields.Gold(f))} gold");
+        sb.AppendLine("Yield deltas: " + (yields.Count > 0 ? string.Join(", ", yields) : "none"));
+        if (f == Feature.Ice)
+            sb.AppendLine("Blocks ships: sea units cannot enter");
+        else if (FeatureYields.MovementCost(f) != 0)
+            sb.AppendLine($"Movement cost: +{FeatureYields.MovementCost(f)}");
+        var bases = EnumValues<TerrainType>().Where(t => FeatureRules.IsLegal(t, f)).Select(t => Spaced(t.ToString()));
+        sb.AppendLine("Found on: " + string.Join(", ", bases));
+        return Entry($"feature:{Key(f)}", Spaced(f.ToString()), sb);
     }
 
     private CivilopediaEntry ResourceEntry(ResourceType r)

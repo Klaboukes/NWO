@@ -35,17 +35,23 @@ public partial class MapHistogram : Node
 
         for (int seed = 0; seed < seeds; seed++)
         {
-            var map    = MapGenerator.Generate(width, height, seed);
-            var counts = new Dictionary<TerrainType, int>();
-            int hills  = 0;
+            var map       = MapGenerator.Generate(width, height, seed);
+            var counts    = new Dictionary<TerrainType, int>();
+            var featCounts = new Dictionary<Feature, int>();
+            int illegal   = 0;
             foreach (var (pos, t) in map.Tiles)
             {
                 counts[t] = counts.GetValueOrDefault(t) + 1;
-                if (map.IsHill(pos)) hills++;
+                var mask = map.FeatureAt(pos);
+                foreach (var f in FeatureRules.Flags)
+                    if ((mask & f) != 0) featCounts[f] = featCounts.GetValueOrDefault(f) + 1;
+                if (!FeatureRules.IsLegal(t, mask)) illegal++;
             }
 
             int total = map.Tiles.Count;
-            int water = counts.GetValueOrDefault(TerrainType.Ocean) + counts.GetValueOrDefault(TerrainType.Coast);
+            int water = counts.GetValueOrDefault(TerrainType.Ocean)
+                      + counts.GetValueOrDefault(TerrainType.Coast)
+                      + counts.GetValueOrDefault(TerrainType.Lake);
             int land  = total - water;
 
             GD.Print($"── seed {seed}  ({total} tiles, {land} land) ──");
@@ -53,13 +59,19 @@ public partial class MapHistogram : Node
             {
                 int c = counts.GetValueOrDefault(t);
                 // Percent of land for land biomes; percent of all tiles for water.
-                bool isWater = t is TerrainType.Ocean or TerrainType.Coast;
+                bool isWater = TerrainYields.IsWater(t);
                 float pct = isWater ? 100f * c / total : (land > 0 ? 100f * c / land : 0f);
                 GD.Print($"  {t,-10} {c,4}  {pct,5:0.0}%{(isWater ? " (of map)" : " (of land)")}");
             }
-            // Hills is a feature overlaying the biomes above, not its own terrain row.
-            GD.Print($"  +Hills(feat) {hills,4}  {(land > 0 ? 100f * hills / land : 0f),5:0.0}% (of land)");
-            GD.Print($"  rivers(edges)={map.Rivers.Count}  resources={map.Resources.Count}");
+            // Features overlay the biomes above (Ice over water, the rest over land).
+            foreach (var f in FeatureRules.Flags)
+            {
+                int c = featCounts.GetValueOrDefault(f);
+                bool onWater = f == Feature.Ice;
+                int basis = onWater ? water : land;
+                GD.Print($"  +{f,-9}(feat) {c,4}  {(basis > 0 ? 100f * c / basis : 0f),5:0.0}% (of {(onWater ? "water" : "land")})");
+            }
+            GD.Print($"  rivers(edges)={map.Rivers.Count}  resources={map.Resources.Count}  legality-violations={illegal}");
         }
         GetTree().Quit();
     }

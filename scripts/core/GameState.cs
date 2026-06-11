@@ -541,17 +541,18 @@ public class GameState
     }
 
     // Movement cost to enter `axial` for a specific unit. Naval units move freely
-    // on Ocean/Coast and are blocked on land; land units remain blocked on Ocean/Coast.
+    // on sea water (Ocean/Coast) and are blocked on land, Lakes (inland water is
+    // not the sea — Civ5), and pack Ice; land units remain blocked on all water.
     // A unit that ignores terrain cost (Scout) pays a flat 1 for any passable tile.
     public int MovementCost(Vector2I axial, Unit unit)
     {
         if (!Map.Tiles.TryGetValue(axial, out var t)) return int.MaxValue;
-        bool isWater = TerrainYields.IsWater(t);
 
         if (unit.Data.IsNaval)
-            return isWater ? 1 : int.MaxValue;
+            return TerrainYields.IsSeaWater(t) && !Map.HasFeature(axial, Feature.Ice)
+                ? 1 : int.MaxValue;
 
-        // Land units: Ocean/Coast remain impassable via the base terrain cost.
+        // Land units: water remains impassable via the base terrain cost.
         int cost = MovementCost(axial);
         if (cost == int.MaxValue)         return cost;
         if (unit.Data.IgnoresTerrainCost) return 1;

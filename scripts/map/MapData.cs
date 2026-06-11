@@ -63,5 +63,8 @@ public class MapData
     public Feature FeatureAt(Vector2I axial)
         => Features.GetValueOrDefault(axial, Feature.None);
 
-    public bool IsHill(Vector2I axial) => FeatureAt(axial) == Feature.Hills;
+    // Feature is a flag mask (Forest+Hills etc.), so membership is a bit test.
+    public bool HasFeature(Vector2I axial, Feature f) => (FeatureAt(axial) & f) != 0;
+
+    public bool IsHill(Vector2I axial) => HasFeature(axial, Feature.Hills);
 }

@@ -105,11 +105,12 @@ public static class CivEconomyService
         foreach (var city in state.Cities)
         {
             if (city.Owner != player) continue;
-            // Worked-tile trade income (terrain + revealed luxury resources).
+            // Worked-tile trade income (terrain + features + revealed luxury resources).
             foreach (var tile in city.Workforce.Assigned)
             {
                 if (state.Map.Tiles.TryGetValue(tile, out var terrain))
                     income += TerrainYields.Gold(terrain);
+                income += FeatureYields.Gold(state.Map.FeatureAt(tile)); // Oasis: +1G
 
                 var res = state.Map.ResourceAt(tile);
                 if (res != ResourceType.None && ResourceService.IsRevealed(state, player, res))

@@ -24,11 +24,12 @@ public partial class BakeTerrainTiles : Node
         DirAccess.MakeDirRecursiveAbsolute(OutDir);
 
         int count = 0;
-        foreach (TerrainType terrain in System.Enum.GetValues<TerrainType>())
+        // Every legal (terrain, vegetation-feature) texture combo (FeatureRules),
+        // so composites like grassland_forest.png bake alongside the bare tiles.
+        foreach (var (terrain, veg) in FeatureRules.TextureCombos())
         {
-            string name = terrain.ToString().ToLowerInvariant();
-            string path = $"{OutDir}/{name}.png";
-            Error err = TerrainArtGenerator.Generate(terrain).SavePng(path);
+            string path = $"{OutDir}/{TerrainTextureRegistry.Stem(terrain, veg)}.png";
+            Error err = TerrainArtGenerator.Generate(terrain, veg).SavePng(path);
             if (err != Error.Ok)
             {
                 GD.PrintErr($"BakeTerrainTiles: failed to write {path}: {err}");

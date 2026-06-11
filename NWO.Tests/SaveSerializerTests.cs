@@ -23,7 +23,7 @@ public class SaveSerializerTests
 
         state.Map.Improvements[new Vector2I(3, 3)] = ImprovementType.Farm;
         state.Map.Resources[new Vector2I(4, 4)]    = ResourceType.Horses;
-        state.Map.Features[new Vector2I(2, 4)]     = Feature.Hills;
+        state.Map.Features[new Vector2I(2, 4)]     = Feature.Forest | Feature.Hills;
         state.Map.Rivers.Add((new Vector2I(2, 2), 0)); // E edge of (2,2)
 
         var civ = state.Civ(human);
@@ -88,7 +88,9 @@ public class SaveSerializerTests
         Assert.Equal(ImprovementType.Farm, loaded.Map.ImprovementAt(new Vector2I(3, 3)));
         Assert.Equal(ResourceType.Horses,  loaded.Map.ResourceAt(new Vector2I(4, 4)));
         Assert.Equal(TerrainType.Plains,   loaded.Map.Tiles[new Vector2I(0, 0)]);
-        Assert.True(loaded.Map.IsHill(new Vector2I(2, 4)));        // Hills feature round-trips
+        // A multi-flag feature mask round-trips ("Forest, Hills" via the enum converter).
+        Assert.Equal(Feature.Forest | Feature.Hills, loaded.Map.FeatureAt(new Vector2I(2, 4)));
+        Assert.True(loaded.Map.IsHill(new Vector2I(2, 4)));
 
         // River edge survives, and adjacency resolves from both sides of the edge.
         Assert.Contains((new Vector2I(2, 2), 0), loaded.Map.Rivers);

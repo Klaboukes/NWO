@@ -211,7 +211,7 @@ public class FactionPassiveTests
     public void TerrainCostMult_CheapensRoughTerrain()
     {
         var s = FlatState();
-        s.Map.Tiles[new Vector2I(7, 7)] = TerrainType.Forest; // base cost 2
+        s.Map.Features[new Vector2I(7, 7)] = Feature.Forest; // Plains + Forest: cost 2
         var voyager = Add(s, 0, "voyagers");
         var plain   = Add(s, 1, null, human: false);
         var vu = new Unit(s.Catalog.Unit("warrior")!, voyager, new Vector2I(6, 7));

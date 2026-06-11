@@ -47,7 +47,7 @@ public class CivilopediaServiceTests
     {
         var svc = new CivilopediaService(Catalog(), Content());
         Assert.Equal(
-            new[] { "world", "factions", "units", "buildings", "techs", "terrain", "resources", "mechanics" },
+            new[] { "world", "factions", "units", "buildings", "techs", "terrain", "features", "resources", "mechanics" },
             svc.Categories.Select(c => c.Id).ToArray());
     }
 
@@ -67,6 +67,8 @@ public class CivilopediaServiceTests
     {
         var svc = new CivilopediaService(Catalog(), Content());
         Assert.Equal(Enum.GetValues<TerrainType>().Length, Category(svc, "terrain").Entries.Count);
+        // One entry per feature flag (None is not a flag).
+        Assert.Equal(FeatureRules.Flags.Length, Category(svc, "features").Entries.Count);
         // ResourceType.None is excluded; every other value gets an entry.
         Assert.Equal(Enum.GetValues<ResourceType>().Length - 1, Category(svc, "resources").Entries.Count);
     }

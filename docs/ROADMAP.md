@@ -262,58 +262,58 @@ Continents and Archipelago maps.
 
 ---
 
-## Phase 14 — Map Generation Quality Pass 🔜 NEXT
+## Phase 14 — Civ5-Style Map Generation Rewrite (terrain/feature split) 🔜 NEXT
 
-Goal: make generated worlds read as **believable geography** rather than noise blobs.
-Today `MapGenerator.Classify` derives water purely from a height band — `Coast` is just
-"height between ocean and coast level", so coastlines don't hug land and every enclosed
-body of water is `Ocean`. This phase reworks the **post-classification** geography:
-distinguish inland water (lakes) from sea, derive coastlines from land adjacency, and
-break up monotonous single-biome regions. Most of this is a new **adjacency/flood-fill
-pass** in `MapGenerator` after `Classify`, plus one appended `TerrainType.Lake`. See
-[MAP_GENERATION.md](MAP_GENERATION.md). Keep enum order stable (saves serialize
-`TerrainType`); append only.
+Goal: make generated worlds read like **Civ 5 maps**. This replaces the original
+"quality pass" scope with the full Civ5 model: **Forest/Jungle/Marsh/Oasis/Ice become
+Features layered on base terrain** (forest-on-hills, forested tundra), base terrain
+comes from **latitude bands** with fractal grain, and water geography (lakes,
+coastlines, polar ice) comes from **adjacency**, not height bands. The height/mountain
+layers from Phases 9 & 11 stay (domain-warped ridged Simplex beats Civ's fractal); what
+changes is classification and everything after it. See
+[MAP_GENERATION.md](MAP_GENERATION.md). Save compatibility is explicitly out of scope
+for this phase (pre-release decision): `TerrainType` drops its tree terrains outright.
 
-- [ ] **14.1 — Lakes (inland water).** Append `TerrainType.Lake`. After base
-      classification, flood-fill all water (`Ocean`/`Coast`) regions; any region that
-      does **not** touch the map edge is inland and becomes `Lake` (optionally split by
-      size: tiny enclosed basins are lakes regardless). Replace the ad-hoc `CarveLake`
-      (which currently paints `Ocean`) so river termini empty into real `Lake` tiles.
-      Wire the ripple: `TerrainYields` (lake = water yield + fresh water, impassable to
-      sea-going `IsNaval` ships per Civ5), elevation + art (`TerrainArtGenerator` /
-      `TerrainTextureRegistry`), `MovementCost`, tile tooltip, and a `civilopedia.json`
-      entry. *Done when:* enclosed water renders as Lake, sea ships can't enter it, and
-      rivers visibly drain into lakes.
-- [ ] **14.2 — Coastlines.** Stop deriving `Coast` from the height band. Reclassify so
-      **every `Ocean` tile adjacent to land becomes `Coast`**, then extend coast a
-      probabilistic 1–2 tiles further out (noise- or distance-driven shelf) so some
-      coast reaches deeper while open sea stays `Ocean`. Lakes get their own shallow
-      treatment (a Lake is uniformly shallow; no separate lake-coast unless cheap). Keep
-      the calibrated `OceanLevel` percentile for the land/water split; only the
-      Ocean/Coast *labelling* moves to adjacency. *Done when:* land is ringed by Coast
-      with a natural-looking shelf and no Coast appears mid-ocean except the shelf.
-- [ ] **14.3 — Biome diversification (anti-monotony).** Reduce large same-terrain
-      blobs so neighbourhoods read as varied. Approaches (pick by histogram payoff via
-      the `tune-map-generation` diagnostic): raise/decorrelate `MoistureFrequency` /
-      `TemperatureFrequency`; add a small per-tile climate jitter at biome boundaries;
-      and/or a light post-pass that nudges interior tiles of an oversized uniform region
-      toward a compatible neighbour biome (e.g. Forest pockets in Grassland, Plains
-      fringes on Desert). Must stay deterministic per seed and not shatter terrain into
-      single-tile noise — target *coherent variety*, not salt-and-pepper. *Done when:*
-      the terrain-type histogram is materially flatter and no biome forms a dominant
-      contiguous slab across a continent.
-- [ ] **14.4 — Geography polish (stretch).** Cheap realism wins on top of the above:
-      single-tile outlier cleanup (a lone Snow tile in jungle, etc.) via a majority
-      filter that preserves intended features; **oases** (small fertile Plains/water
-      pockets) in large deserts; **polar ice** on the coldest sea tiles; ensure rivers
-      always reach Lake/Coast/Ocean after the relabel. Each item is independently
-      shippable — land what improves the look, defer the rest. *Done when:* maps have no
-      jarring single-tile artifacts and deserts/poles feel intentional.
+- [x] **14.1 — Terrain/feature model split (no map change).** `[Flags] Feature`
+      (+Forest/Jungle/Marsh/Oasis/Ice), flag-additive `FeatureYields` (+`Gold`),
+      `FeatureRules` legality matrix, `TerrainType.Lake` added and
+      Forest/Jungle/Wetlands removed with full consumer ripple (yields incl. the
+      `IsSeaWater`/`IsWater` split, elevation/colour/art/pedia/tooltip), naval Ice/Lake
+      blocking, render pipeline keyed by `(terrain, features)` with composite
+      placeholder art. The generator interim-emits Tundra/Grassland + Forest feature
+      where it used to emit tree terrains (Wetlands → Grassland+Marsh) so maps stay
+      sane before 14.3. *Done:* build/tests green; maps play as before with featured
+      tiles yielding the same numbers.
+- [ ] **14.2 — Lakes & adjacency coastlines.** `MapPostProcess.FormLakes` (flood-fill
+      water regions; enclosed AND area ≤ 9 → `Lake`, Civ5's constant; bigger enclosed
+      seas stay navigable), `CarveLake` paints `Lake`, `FormCoasts` (every Ocean tile
+      with a land neighbour → Coast, then a probabilistic `ShelfChance` second ring),
+      rivers recognise Lake as water, AI coastal checks move to `IsSeaWater`, histogram
+      counts Lake. *Done when:* enclosed water is Lake, sea ships can't enter it, rivers
+      drain into lakes, land is always ringed by Coast and no Coast appears mid-ocean.
+- [ ] **14.3 — Latitude-band terrain + feature placement.** `Classify` rewritten to
+      Civ5-style latitude bands (snow/tundra caps, mid-latitude desert belt, savanna
+      band, grass/plains heartland) with the existing climate noise as ragged-edge
+      grain; new `FeaturePlacer` pass (Ice on polar water, Jungle in the equatorial
+      band, Forest in coherent noise-driven clumps, rare Marsh/Oasis) validated by
+      `FeatureRules`; feature-aware resource + luxury scatter; `ForestThreshold` /
+      `ShelfChance` knobs on `MapScriptParams`. *Done when:* histogram shows a desert
+      belt, polar ice, and 25–35% of land in coherent Forest/Jungle clumps with zero
+      legality violations across 10 seeds.
+- [ ] **14.4 — Feature & lake art.** Refine the overlay motifs at the oblique camera;
+      `BakeTerrainTiles` iterates the legal `(terrain, veg)` matrix; commit the new
+      composite PNGs (lake, *_forest, *_jungle, grassland_marsh, desert_oasis,
+      ocean/coast_ice) and delete the retired tree-terrain tiles; optional minimap
+      feature tint. *Done when:* committed PNGs override placeholders and screenshots
+      read clearly at game zoom.
+- [ ] **14.5 — Polish, tuning & docs.** Majority outlier filter
+      (`MapPostProcess.SmoothOutliers`); river-reaches-water assert in the histogram;
+      threshold tuning per script against density targets; sync MAP_GENERATION /
+      MECHANICS / civilopedia; tick the phase. *Done when:* no single-tile artifacts,
+      histogram targets hold across seeds/scripts, run-checks green.
 
-> Scope note: this is a *quality* pass on the existing layered pipeline, not a rewrite.
-> The height/mountain/climate layers from Phases 9 & 11 stay; 14 operates on the
-> classified `MapData.Tiles` afterward. Verify with the `tune-map-generation` skill's
-> headless histogram diagnostic and `run-checks` before committing.
+> Verify each sub-phase with the `tune-map-generation` skill's headless histogram
+> diagnostic and `run-checks` before committing.
 
 ---
 

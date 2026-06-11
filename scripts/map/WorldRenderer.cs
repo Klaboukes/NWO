@@ -58,7 +58,7 @@ public partial class WorldRenderer : Node3D
         {
             var mi = new MeshInstance3D
             {
-                Mesh     = _terrain.For(terrain, _state.Map.IsHill(axial)),
+                Mesh     = _terrain.For(terrain, _state.Map.FeatureAt(axial)),
                 Position = HexProjection.AxialToWorld(axial),
             };
             AddChild(mi);
@@ -161,7 +161,7 @@ public partial class WorldRenderer : Node3D
     {
         var w = HexProjection.AxialToWorld(axial);
         if (_state.Map.Tiles.TryGetValue(axial, out var terrain))
-            w.Y = HexProjection.TopHeight(terrain, _state.Map.IsHill(axial));
+            w.Y = HexProjection.TopHeight(terrain, _state.Map.FeatureAt(axial));
         return w;
     }
 
