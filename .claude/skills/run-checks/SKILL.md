@@ -39,8 +39,10 @@ save/load click-through) still need an interactive editor run (open `project.god
 press **F5**). Flag those for the user rather than claiming they're verified.
 
 Reference: [docs/TECH_STACK.md](../../../docs/TECH_STACK.md) "Build, Test & Verify".
-The Godot .NET binary location is recorded in the `godot-binary-for-headless-checks`
-memory; `scene-check.ps1` hard-codes it with a PATH fallback.
+`scene-check.ps1` finds Godot **via PATH only** (`godot` or the stock
+`Godot_*console*.exe` name) — never hardcode install paths; this project is worked
+on from several machines with Godot in different folders. If the script throws,
+instruct the user to add their Godot directory to the PATH environment variable.
 
 ## Maintenance
 
