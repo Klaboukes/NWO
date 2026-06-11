@@ -12,7 +12,6 @@ public record MapScriptParams(
     float BaseFrequency,
     float DetailFrequency,
     float OceanLevel,
-    float CoastLevel,
     float MountainBoost,
     float MountainLevel,
     float UpliftFrequency,
@@ -21,14 +20,14 @@ public record MapScriptParams(
     float HillRelief,
     float HillFrequency,
     float HillThreshold,
-    float TargetLandPercent)  // percentile trick: land fraction the generator targets
+    float TargetLandPercent, // percentile trick: land fraction the generator targets
+    float ShelfChance)       // chance an Ocean tile beside the coast ring extends the shelf
 {
     private static readonly MapScriptParams Continents = new(
         RadialFalloff:     0.33f,
         BaseFrequency:     0.045f,
         DetailFrequency:   0.11f,
         OceanLevel:        0.25f,
-        CoastLevel:        0.30f,
         MountainBoost:     0.55f,
         MountainLevel:     0.72f,
         UpliftFrequency:   0.03f,
@@ -37,7 +36,8 @@ public record MapScriptParams(
         HillRelief:        0.52f,
         HillFrequency:     0.14f,
         HillThreshold:     0.68f,
-        TargetLandPercent: 0.35f);
+        TargetLandPercent: 0.35f,
+        ShelfChance:       0.35f);
 
     // One large supercontinent — low radial falloff (edges stay dry) + wide noise scale.
     private static readonly MapScriptParams Pangaea = Continents with {
@@ -48,6 +48,7 @@ public record MapScriptParams(
     };
 
     // Many small islands — high falloff (aggressive ocean push) + tight noise scale.
+    // Broad shallows: island chains sit on a wider continental shelf.
     private static readonly MapScriptParams Archipelago = Continents with {
         RadialFalloff     = 0.50f,
         BaseFrequency     = 0.085f,
@@ -55,6 +56,7 @@ public record MapScriptParams(
         MountainBoost     = 0.35f,
         HillThreshold     = 0.70f,
         TargetLandPercent = 0.22f,
+        ShelfChance       = 0.50f,
     };
 
     // Mountain-heavy interior — higher boost + lower thresholds + wider uplift belts.

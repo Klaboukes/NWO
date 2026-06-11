@@ -100,7 +100,6 @@ public static class MapGenerator
         System.Array.Sort(sortedH);
         int   cutoffIdx    = Mathf.Clamp((int)((1f - p.TargetLandPercent) * total), 0, total - 1);
         float effOcean     = Mathf.Max(p.OceanLevel, sortedH[cutoffIdx]);
-        float effCoast     = effOcean + (p.CoastLevel - p.OceanLevel);
 
         // Pass 2: classify terrain (+ vegetation feature) and apply Hills using the
         // calibrated thresholds.
@@ -108,7 +107,7 @@ public static class MapGenerator
         foreach (var (axial, (h, moist, temp, lat, hilly, relief)) in raw)
         {
             heights[axial]      = h;
-            var (terrain, veg)  = Classify(h, moist, temp, lat, effOcean, effCoast, p.MountainLevel);
+            var (terrain, veg)  = Classify(h, moist, temp, lat, effOcean, p.MountainLevel);
             data.Tiles[axial]   = terrain;
             var features        = veg;
 
@@ -121,6 +120,12 @@ public static class MapGenerator
 
             if (features != Feature.None) data.Features[axial] = features;
         }
+
+        // Post-classification geography (Phase 14): water is labelled by adjacency,
+        // not height — enclosed basins become lakes, then land gets ringed by Coast
+        // with a probabilistic shelf. Rivers run after so termini see final water.
+        MapPostProcess.FormLakes(data);
+        MapPostProcess.FormCoasts(data, p.ShelfChance, seed);
 
         TraceRivers(data, heights, seed);
         ScatterResources(data, seed);
@@ -233,7 +238,8 @@ public static class MapGenerator
     }
 
     // Turns a river's inland terminus into a lake: the lowest on-map tile of the
-    // bottomed-out vertex becomes Ocean, so the channel visibly empties into water.
+    // bottomed-out vertex becomes Lake, so the channel visibly empties into real
+    // inland water (it also loses any land features it carried).
     private static void CarveLake(MapData data, Dictionary<Vector2I, float> heights, Vertex v)
     {
         Vector2I lowest = default;
@@ -241,7 +247,10 @@ public static class MapGenerator
         bool     any    = false;
         foreach (var t in new[] { v.A, v.B, v.C })
             if (heights.TryGetValue(t, out var th) && th < lowH) { lowH = th; lowest = t; any = true; }
-        if (any) data.Tiles[lowest] = TerrainType.Ocean;
+        if (!any) return;
+        data.Tiles[lowest] = TerrainType.Lake;
+        data.Features.Remove(lowest);
+        data.Resources.Remove(lowest);
     }
 
     // The source tile's highest corner — gives the river the longest downhill run.
@@ -451,10 +460,11 @@ public static class MapGenerator
     // terrains. Hills are NOT here — they're applied in Generate via FeatureRules.
     // (14.3 replaces this matrix with latitude bands + a dedicated feature placer.)
     private static (TerrainType Terrain, Feature Veg) Classify(float h, float moisture,
-        float temperature, float lat, float oceanLevel, float coastLevel, float mountainLevel)
+        float temperature, float lat, float oceanLevel, float mountainLevel)
     {
+        // All water is provisionally Ocean; Coast and Lake are derived from
+        // adjacency afterwards (MapPostProcess), not from a height band.
         if (h < oceanLevel)     return (TerrainType.Ocean, Feature.None);
-        if (h < coastLevel)     return (TerrainType.Coast, Feature.None);
         if (h >= mountainLevel) return (TerrainType.Mountain, Feature.None);
 
         // Polar caps.

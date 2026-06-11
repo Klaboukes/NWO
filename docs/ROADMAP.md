@@ -284,7 +284,7 @@ for this phase (pre-release decision): `TerrainType` drops its tree terrains out
       where it used to emit tree terrains (Wetlands → Grassland+Marsh) so maps stay
       sane before 14.3. *Done:* build/tests green; maps play as before with featured
       tiles yielding the same numbers.
-- [ ] **14.2 — Lakes & adjacency coastlines.** `MapPostProcess.FormLakes` (flood-fill
+- [x] **14.2 — Lakes & adjacency coastlines.** `MapPostProcess.FormLakes` (flood-fill
       water regions; enclosed AND area ≤ 9 → `Lake`, Civ5's constant; bigger enclosed
       seas stay navigable), `CarveLake` paints `Lake`, `FormCoasts` (every Ocean tile
       with a land neighbour → Coast, then a probabilistic `ShelfChance` second ring),

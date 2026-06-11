@@ -268,11 +268,12 @@ public class AIController
         => _state.Units.Any(u =>
             u.Owner == ai && u.Data.Attack > 0 && u.Position == city.Position);
 
-    // A city is coastal if its tile or any immediate neighbour is Ocean or Coast.
+    // A city is coastal if its tile or any immediate neighbour is SEA water — a
+    // Lake doesn't count (ships built beside a lake could never leave it).
     private bool IsCityCoastal(City city)
         => HexGrid.GetNeighbors(city.Position)
             .Prepend(city.Position)
-            .Any(t => _state.Map.Tiles.TryGetValue(t, out var tt) && TerrainYields.IsWater(tt));
+            .Any(t => _state.Map.Tiles.TryGetValue(t, out var tt) && TerrainYields.IsSeaWater(tt));
 
     private bool EnemyMilitaryNear(Player ai, Vector2I pos, int radius)
         => _state.Units.Any(u =>
@@ -371,7 +372,7 @@ public class AIController
             if (!IsHostile(ai, city.Owner)) continue;
             foreach (var n in HexGrid.GetNeighbors(city.Position))
             {
-                if (!_state.Map.Tiles.TryGetValue(n, out var tt) || !TerrainYields.IsWater(tt)) continue;
+                if (!_state.Map.Tiles.TryGetValue(n, out var tt) || !TerrainYields.IsSeaWater(tt)) continue;
                 int d = HexGrid.Distance(from, n);
                 if (d < bestDist) { best = n; bestDist = d; }
             }
@@ -713,7 +714,7 @@ public class AIController
         {
             foreach (var n in HexGrid.GetNeighbors(tile))
             {
-                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsWater(nt)) continue;
+                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsSeaWater(nt)) continue;
                 int d = HexGrid.Distance(from, n);
                 if (d < bestDist) { bestDist = d; best = n; }
             }
@@ -750,7 +751,7 @@ public class AIController
             if (LandmassHasEnemy(ai, LandmassAt(u.Position)))          continue; // can fight overland
             foreach (var n in HexGrid.GetNeighbors(u.Position))
             {
-                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsWater(nt)) continue;
+                if (!_state.Map.Tiles.TryGetValue(n, out var nt) || !TerrainYields.IsSeaWater(nt)) continue;
                 int d = HexGrid.Distance(from, n);
                 if (d < bestDist) { bestDist = d; best = n; }
             }
@@ -758,10 +759,12 @@ public class AIController
         return best;
     }
 
+    // Sea water only: this feeds embarkation staging, where a transport must be
+    // able to reach the shore — lakeside tiles don't qualify.
     private bool BordersWater(Vector2I tile)
     {
         foreach (var n in HexGrid.GetNeighbors(tile))
-            if (_state.Map.Tiles.TryGetValue(n, out var nt) && TerrainYields.IsWater(nt)) return true;
+            if (_state.Map.Tiles.TryGetValue(n, out var nt) && TerrainYields.IsSeaWater(nt)) return true;
         return false;
     }
 
