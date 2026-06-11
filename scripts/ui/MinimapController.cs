@@ -85,6 +85,11 @@ public partial class MinimapController : Control
         {
             if (!fog.IsDiscovered(axial)) continue;
             var col = HexProjection.TerrainColor(_state.Map.Tiles[axial]);
+            // Vegetation/ice features tint the base colour so woods and pack ice
+            // read on the minimap (Hills stays geometry-only).
+            var veg = _state.Map.FeatureAt(axial) & FeatureRules.VegMask;
+            if (veg != Feature.None)
+                col = col.Lerp(HexProjection.FeatureColor(veg), 0.4f);
             if (!fog.IsVisible(axial)) col = col.Darkened(0.45f);
             DrawRect(CellRect(world), col);
         }

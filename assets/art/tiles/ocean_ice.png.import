@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cup5mdusskjem"
-path="res://.godot/imported/wetlands.png-6f9b388c23a2cc4b9092710ba036a7a8.ctex"
+uid="uid://c4ie4vqspah3u"
+path="res://.godot/imported/ocean_ice.png-33def603ac04011f7c02fc01a36744c8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/tiles/wetlands.png"
-dest_files=["res://.godot/imported/wetlands.png-6f9b388c23a2cc4b9092710ba036a7a8.ctex"]
+source_file="res://assets/art/tiles/ocean_ice.png"
+dest_files=["res://.godot/imported/ocean_ice.png-33def603ac04011f7c02fc01a36744c8.ctex"]
 
 [params]
 

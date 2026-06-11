@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bgp28n6s4bqjc"
-path="res://.godot/imported/jungle.png-b48dc8fa765f9d22f631b894a1c93ba5.ctex"
+uid="uid://cj5el24a2dj25"
+path="res://.godot/imported/grassland_forest.png-a03e531ddadb24a3ad9ceaf3839ab3a9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/tiles/jungle.png"
-dest_files=["res://.godot/imported/jungle.png-b48dc8fa765f9d22f631b894a1c93ba5.ctex"]
+source_file="res://assets/art/tiles/grassland_forest.png"
+dest_files=["res://.godot/imported/grassland_forest.png-a03e531ddadb24a3ad9ceaf3839ab3a9.ctex"]
 
 [params]
 

@@ -286,18 +286,21 @@ public static class TerrainArtGenerator
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);
     }
 
-    // Marsh overlay: dark standing-water pools over the base ground, with reedy
+    // Marsh overlay: murky standing-water pools over the base ground, with reedy
     // tufts along their edges. Damp, low, and broken-up. `ramp` is the Marsh ramp.
+    // The pool colour is explicit blue-grey water (NOT ramp-derived) so pools read
+    // as water, not as dark canopy discs.
     private static void PaintMarshOverlay(Image img, Color[] ramp, Rng rng)
     {
-        Color water = Shade(ramp[0], -0.10f, +0.10f, -0.02f); // dark cool pool
+        Color water = new(0.24f, 0.38f, 0.44f); // murky blue-grey pool
+        Color bank  = Shade(ramp[1], -0.10f, +0.08f);
         for (int p = 0; p < 5; p++)
         {
             int px = rng.Range(20, 108), py = rng.Range(20, 108);
             int r  = rng.Range(6, 12);
             if (!InFootprint(px, py, r * 0.5f)) { p--; continue; }
-            Disc(img, px, py, r, water);
-            Plot(img, px - r / 2, py - r / 2, ramp[5]); // glint
+            DiscOutlined(img, px, py, r, water, bank);
+            Plot(img, px - r / 2, py - r / 2, Colors.White); // glint
         }
         Blades(img, ramp, rng, 90); // reeds
         ScatterRocks(img, ramp, rng, count: 2, minR: 2, maxR: 3);

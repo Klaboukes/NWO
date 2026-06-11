@@ -300,7 +300,7 @@ for this phase (pre-release decision): `TerrainType` drops its tree terrains out
       `ShelfChance` knobs on `MapScriptParams`. *Done when:* histogram shows a desert
       belt, polar ice, and 25–35% of land in coherent Forest/Jungle clumps with zero
       legality violations across 10 seeds.
-- [ ] **14.4 — Feature & lake art.** Refine the overlay motifs at the oblique camera;
+- [x] **14.4 — Feature & lake art.** Refine the overlay motifs at the oblique camera;
       `BakeTerrainTiles` iterates the legal `(terrain, veg)` matrix; commit the new
       composite PNGs (lake, *_forest, *_jungle, grassland_marsh, desert_oasis,
       ocean/coast_ice) and delete the retired tree-terrain tiles; optional minimap
