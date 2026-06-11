@@ -14,5 +14,9 @@ public class Civilization
     public string?         CurrentResearch   { get; set; }
     public HashSet<string> ResearchedTechs   { get; } = new();
 
+    // Lifetime culture generated across all cities. Feeds civ score
+    // (ScoreService); border growth is banked per-city (City.AddCulture).
+    public int             CultureAccumulated { get; set; }
+
     public Civilization(Player owner) => Owner = owner;
 }

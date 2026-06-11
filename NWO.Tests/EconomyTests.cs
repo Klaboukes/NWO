@@ -93,4 +93,80 @@ public class EconomyTests
         session.State.Civ(human).Treasury = 500;
         Assert.False(session.TryBuyProduction(city, out _));
     }
+
+    // ── Building effects ────────────────────────────────────────────────────────
+
+    // A state whose catalog carries the Barracks (XP effect tag) and Monument
+    // (culture yield), mirroring data/buildings.json.
+    private static GameState StateWithBuildings(out Player human)
+    {
+        var buildings = new System.Collections.Generic.List<BuildingData>
+        {
+            new() { Id = "barracks", Name = "Barracks", ProductionCost = 100,
+                    Effect = "new_units_bonus_xp_15" },
+            new() { Id = "monument", Name = "Monument", ProductionCost = 60,
+                    Yields = new BuildingYields { Culture = 2 } },
+        };
+        var catalog = new DataCatalog(
+            new System.Collections.Generic.List<UnitData> { TestWorlds.Warrior() }, buildings);
+        var state = new GameState(TestWorlds.FlatMap(10, 10), catalog);
+        human = state.AddPlayer(new Player { Id = 0, Name = "P0", IsHuman = true });
+        return state;
+    }
+
+    [Fact]
+    public void Barracks_GrantsBonusXpToNewUnits()
+    {
+        var state = StateWithBuildings(out var human);
+        var city  = new City("Rome", human, new Vector2I(5, 5)) { ProductionItem = "unit:warrior" };
+        city.Buildings.Add("barracks");
+        state.Cities.Add(city);
+
+        Assert.NotNull(state.RushProduction(city));
+
+        var trained = Assert.Single(state.Units);
+        Assert.Equal(15, trained.Experience); // new_units_bonus_xp_15 → level 1 out of the gate
+        Assert.Equal(1, trained.Level);
+    }
+
+    [Fact]
+    public void Monument_CultureAccumulatesAndFeedsScore()
+    {
+        var state = StateWithBuildings(out var human);
+        var city  = new City("Rome", human, new Vector2I(5, 5));
+        city.Buildings.Add("monument");
+        state.Cities.Add(city);
+
+        // City base 1 + Monument 2.
+        Assert.Equal(3, CivEconomyService.CulturePerTurn(state, human));
+
+        state.EndPlayerTurn(new System.Collections.Generic.List<GameState.ProductionCompletion>());
+        Assert.Equal(3, state.Civ(human).CultureAccumulated);
+        Assert.Equal(3, city.CultureAccumulated); // also banks toward border growth
+
+        int before = ScoreService.Score(state, human);
+        state.Civ(human).CultureAccumulated += 10; // 1 score per CultureDivisor (5)
+        Assert.Equal(before + 2, ScoreService.Score(state, human));
+    }
+
+    [Fact]
+    public void Culture_ExpandsCityBordersAtThreshold()
+    {
+        var state = StateWithBuildings(out var human);
+        var city  = new City("Rome", human, new Vector2I(5, 5));
+        city.Buildings.Add("monument"); // 1 base + 2 monument = 3 culture/turn
+        state.Cities.Add(city);
+
+        Assert.Equal(City.InitialBorderRadius, city.BorderRadius);
+        var far = new Vector2I(8, 5); // distance 3 — outside the initial ring
+        Assert.DoesNotContain(far, CityWorkforceService.Workable(state, city));
+
+        // NextBorderCost at radius 2 is 30 → ten turns at 3 culture/turn.
+        for (int i = 0; i < 10; i++)
+            state.EndPlayerTurn(new System.Collections.Generic.List<GameState.ProductionCompletion>());
+
+        Assert.Equal(City.MaxBorderRadius, city.BorderRadius);
+        Assert.Equal(0, city.CultureAccumulated); // 30 banked, 30 spent on the ring
+        Assert.Contains(far, CityWorkforceService.Workable(state, city));
+    }
 }

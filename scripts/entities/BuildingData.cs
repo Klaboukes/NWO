@@ -1,8 +1,9 @@
 namespace NWO.Entities;
 
 // Immutable building definition loaded from data/buildings.json. Never modified
-// at runtime. Yields feed city/economy recompute; Effect is a string tag for
-// not-yet-implemented bonuses (e.g. unit XP, city defense).
+// at runtime. Yields feed city/economy recompute; Effect is a numeric string tag
+// parsed by GameState.BuildingEffectSum at its mechanic's seam —
+// "new_units_bonus_xp_<n>" (Barracks) and "city_defense_plus_<n>" (Walls).
 public record BuildingData
 {
     public string         Id             { get; init; } = "";

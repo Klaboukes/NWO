@@ -38,12 +38,24 @@ public class CityCombatTests
     // ── City defense strength ──────────────────────────────────────────────────
 
     [Fact]
-    public void Walls_RaiseCityDefenseStrength()
+    public void Walls_RaiseCityDefenseViaEffectTag()
     {
-        var city = new City("Rome", new Player { Id = 0 }, new Vector2I(0, 0)) { Population = 1 };
-        int withoutWalls = city.CityDefenseStrength;
+        // Defense comes from the data tag "city_defense_plus_<n>", not a
+        // hardcoded building id — any building carrying the tag works.
+        var catalog = new DataCatalog(
+            new List<UnitData> { TestWorlds.Warrior() },
+            new List<BuildingData>
+            {
+                new() { Id = "walls", Name = "Walls", Effect = "city_defense_plus_5" },
+            });
+        var state = new GameState(TestWorlds.FlatMap(10, 10), catalog);
+        var p     = state.AddPlayer(new Player { Id = 0, Name = "P", IsHuman = true });
+        var city  = new City("Rome", p, new Vector2I(5, 5)) { Population = 1 };
+        state.Cities.Add(city);
+
+        int withoutWalls = state.CityDefenseTotal(city);
         city.Buildings.Add("walls");
-        Assert.Equal(withoutWalls + 5, city.CityDefenseStrength);
+        Assert.Equal(withoutWalls + 5, state.CityDefenseTotal(city));
     }
 
     [Fact]
@@ -187,7 +199,7 @@ public class CityCombatTests
 
         Assert.True(hurt.Fortified);
         Assert.True(hurt.SleepUntilHealed);
-        Assert.Equal(0, hurt.MovementRemaining);
+        Assert.Equal(hurt.Data.Movement, hurt.MovementRemaining); // standing order keeps movement
 
         Assert.True(full.Fortified);
         Assert.False(full.SleepUntilHealed); // nothing to heal → ordinary fortify

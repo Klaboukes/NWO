@@ -370,7 +370,7 @@ public partial class UIController : CanvasLayer
 
         int netFood = city.FoodYield - city.Population;
         string prod = city.ProductionItem != null
-            ? $"{ProductionDisplayName(catalog, city)} ({ProductionTurnsLeft(city, catalog)}) "
+            ? $"{ProductionDisplayName(catalog, city)} ({ProductionTurnsLeft(state, city)}) "
             : "Idle";
         int locked   = city.Workforce.Locked.Count;
         int assigned = city.Workforce.Assigned.Count;
@@ -452,10 +452,12 @@ public partial class UIController : CanvasLayer
         return catalog.ItemName(city.ProductionItem!);
     }
 
-    private static string ProductionTurnsLeft(City city, DataCatalog catalog)
+    // Uses the owner's effective cost (faction discounts included), matching what
+    // AdvanceProduction actually charges — not the catalog base cost.
+    private static string ProductionTurnsLeft(GameState state, City city)
     {
         if (city.ProductionItem == null || city.ProductionYield <= 0) return "∞";
-        int cost = catalog.ItemCost(city.ProductionItem);
+        int cost = state.EffectiveItemCost(city.Owner, city.ProductionItem);
         int left = Math.Max(0, cost - city.ProductionProgress);
         return $"{(int)Math.Ceiling(left / (float)city.ProductionYield)} turns";
     }

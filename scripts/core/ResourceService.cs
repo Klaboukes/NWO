@@ -10,51 +10,43 @@ namespace NWO.Core;
 // shape of CityWorkforceService / CivEconomyService.
 public static class ResourceService
 {
-    public static string ToId(ResourceType r) => r switch
+    // Single forward table; the reverse map is derived from it so the two
+    // directions can never drift apart (new resources are added in one place).
+    private static readonly Dictionary<ResourceType, string> Ids = new()
     {
-        ResourceType.Horses => "horses",
-        ResourceType.Iron   => "iron",
-        ResourceType.Wheat  => "wheat",
-        ResourceType.Fish   => "fish",
-        ResourceType.Cattle => "cattle",
-        ResourceType.Sheep  => "sheep",
-        ResourceType.Deer   => "deer",
-        ResourceType.Stone  => "stone",
-        ResourceType.Banana => "banana",
-        ResourceType.Gems    => "gems",
-        ResourceType.GoldOre => "gold_ore",
-        ResourceType.Silver  => "silver",
-        ResourceType.Silk    => "silk",
-        ResourceType.Spices  => "spices",
-        ResourceType.Dyes    => "dyes",
-        ResourceType.Cotton  => "cotton",
-        ResourceType.Incense => "incense",
-        ResourceType.Ivory   => "ivory",
-        _                   => "",
+        [ResourceType.Horses]  = "horses",
+        [ResourceType.Iron]    = "iron",
+        [ResourceType.Wheat]   = "wheat",
+        [ResourceType.Fish]    = "fish",
+        [ResourceType.Cattle]  = "cattle",
+        [ResourceType.Sheep]   = "sheep",
+        [ResourceType.Deer]    = "deer",
+        [ResourceType.Stone]   = "stone",
+        [ResourceType.Banana]  = "banana",
+        [ResourceType.Gems]    = "gems",
+        [ResourceType.GoldOre] = "gold_ore",
+        [ResourceType.Silver]  = "silver",
+        [ResourceType.Silk]    = "silk",
+        [ResourceType.Spices]  = "spices",
+        [ResourceType.Dyes]    = "dyes",
+        [ResourceType.Cotton]  = "cotton",
+        [ResourceType.Incense] = "incense",
+        [ResourceType.Ivory]   = "ivory",
     };
 
-    public static ResourceType FromId(string? id) => id switch
+    private static readonly Dictionary<string, ResourceType> ByIdLookup = BuildReverse();
+
+    private static Dictionary<string, ResourceType> BuildReverse()
     {
-        "horses" => ResourceType.Horses,
-        "iron"   => ResourceType.Iron,
-        "wheat"  => ResourceType.Wheat,
-        "fish"   => ResourceType.Fish,
-        "cattle" => ResourceType.Cattle,
-        "sheep"  => ResourceType.Sheep,
-        "deer"   => ResourceType.Deer,
-        "stone"  => ResourceType.Stone,
-        "banana" => ResourceType.Banana,
-        "gems"     => ResourceType.Gems,
-        "gold_ore" => ResourceType.GoldOre,
-        "silver"   => ResourceType.Silver,
-        "silk"     => ResourceType.Silk,
-        "spices"   => ResourceType.Spices,
-        "dyes"     => ResourceType.Dyes,
-        "cotton"   => ResourceType.Cotton,
-        "incense"  => ResourceType.Incense,
-        "ivory"    => ResourceType.Ivory,
-        _        => ResourceType.None,
-    };
+        var reverse = new Dictionary<string, ResourceType>(Ids.Count);
+        foreach (var (type, id) in Ids) reverse[id] = type;
+        return reverse;
+    }
+
+    public static string ToId(ResourceType r) => Ids.GetValueOrDefault(r, "");
+
+    public static ResourceType FromId(string? id)
+        => id != null && ByIdLookup.TryGetValue(id, out var r) ? r : ResourceType.None;
 
     // True once the civ has researched the tech that reveals this resource. A
     // resource no tech gates is always revealed; None is trivially revealed.

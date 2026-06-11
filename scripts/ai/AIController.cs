@@ -57,6 +57,7 @@ public class AIController
     public void TakeTurn(Player ai)
     {
         _turnLandmasses.Clear();
+        ReviewDiplomacy(ai);
         ChooseResearch(ai);
 
         // Snapshot the unit list — combat/founding can add or remove units.
@@ -75,6 +76,53 @@ public class AIController
         }
     }
 
+    // ── Diplomacy ──────────────────────────────────────────────────────────────
+
+    // Opportunistic war needs at least this strength advantage; stalemate peace
+    // needs both sides inside the inverse band. The bands don't overlap, so a
+    // freshly-made peace isn't re-declared the next turn (no flip-flopping).
+    private const double WarStrengthRatio   = 2.0;
+    private const double PeaceStrengthRatio = 1.33;
+
+    // Minimal stance logic until the diplomacy UI lands (Phase 10 follow-up):
+    //  - Declare war from Peace when overwhelmingly stronger (never breaks a
+    //    signed NonAggression/Alliance pact).
+    //  - Between two AIs, a stalemated war (forces roughly even) settles into
+    //    Peace. Wars with the human are never ended unilaterally — peace with
+    //    the player will be the player's call via the future diplomacy UI.
+    private void ReviewDiplomacy(Player ai)
+    {
+        double ownStrength = MilitaryStrength(ai);
+        foreach (var other in _state.Players)
+        {
+            if (other == ai) continue;
+            double theirs = MilitaryStrength(other);
+            switch (_state.Diplomacy.Between(ai.Id, other.Id))
+            {
+                case DiplomaticStance.Peace when ownStrength > 0
+                                                 && ownStrength >= WarStrengthRatio * theirs:
+                    _state.Diplomacy.Set(ai.Id, other.Id, DiplomaticStance.War);
+                    break;
+                case DiplomaticStance.War when !other.IsHuman
+                                               && ownStrength <= PeaceStrengthRatio * theirs
+                                               && theirs <= PeaceStrengthRatio * ownStrength:
+                    _state.Diplomacy.Set(ai.Id, other.Id, DiplomaticStance.Peace);
+                    break;
+            }
+        }
+    }
+
+    // HP-weighted combat strength of a player's army (effective stats, so
+    // faction passives and veterancy count). Deterministic.
+    private double MilitaryStrength(Player p)
+    {
+        double total = 0;
+        foreach (var u in _state.Units)
+            if (u.Owner == p && u.Data.Attack > 0)
+                total += (_state.EffectiveAttack(u) + _state.EffectiveDefense(u)) * (u.HP / 100.0);
+        return total;
+    }
+
     // ── Research ───────────────────────────────────────────────────────────────
 
     private void ChooseResearch(Player ai)
@@ -87,6 +135,16 @@ public class AIController
             if (civ.ResearchedTechs.Contains(id)) continue;
             // SetResearch validates prereqs/existence and assigns on success.
             if (CivEconomyService.SetResearch(_state, ai, id)
+                == CivEconomyService.SetResearchResult.Ok)
+                return;
+        }
+
+        // Preference list exhausted — research anything still available (e.g.
+        // Calendar, or future techs not in the list) so science is never wasted.
+        foreach (var tech in _state.Catalog.Techs)
+        {
+            if (civ.ResearchedTechs.Contains(tech.Id)) continue;
+            if (CivEconomyService.SetResearch(_state, ai, tech.Id)
                 == CivEconomyService.SetResearchResult.Ok)
                 return;
         }
@@ -127,7 +185,17 @@ public class AIController
         if (workers < cities && _state.Catalog.Unit("worker") != null)
             return "unit:worker";
 
-        // 5. Coastal cities build naval units when sailing/navigation is researched.
+        // 5. Safe and already fielding an army (a garrison plus a field unit per
+        //    city): round out the economy with the cheapest unowned yield
+        //    building, so the AI doesn't fall behind on food/science/gold.
+        int military = _state.Units.Count(u => u.Owner == ai && u.Data.Attack > 0);
+        if (!threatened && military >= cities * 2)
+        {
+            var building = CheapestEconomyBuilding(civ, city);
+            if (building != null) return building;
+        }
+
+        // 6. Coastal cities build naval units when sailing/navigation is researched.
         //    Always secure at least one transport for cross-continent projection before
         //    massing combat ships.
         if (IsCityCoastal(city))
@@ -143,9 +211,26 @@ public class AIController
             if (naval != null) return naval;
         }
 
-        // 6. Otherwise build offensive strength (fall back to a defender).
+        // 7. Otherwise build offensive strength (fall back to a defender).
         return BestBuildableUnit(ai, civ, AttackerPrefs)
             ?? BestBuildableUnit(ai, civ, DefenderPrefs);
+    }
+
+    // Cheapest tech-available building the city lacks that carries any yield
+    // (food/production/gold/science/culture). Pure-effect buildings (Walls,
+    // Barracks) are handled by their own steps, not this economic fallback.
+    private string? CheapestEconomyBuilding(Civilization civ, City city)
+    {
+        BuildingData? best = null;
+        foreach (var b in _state.Catalog.Buildings)
+        {
+            if (city.Buildings.Contains(b.Id))   continue;
+            if (!TechAllows(civ, b.RequiredTech)) continue;
+            var y = b.Yields;
+            if (y.Food + y.Production + y.Gold + y.Science + y.Culture <= 0) continue;
+            if (best == null || b.ProductionCost < best.ProductionCost) best = b;
+        }
+        return best == null ? null : $"building:{best.Id}";
     }
 
     // Set the city's work focus by need: grow small cities, otherwise pump the
@@ -191,7 +276,7 @@ public class AIController
 
     private bool EnemyMilitaryNear(Player ai, Vector2I pos, int radius)
         => _state.Units.Any(u =>
-            u.Owner != ai && u.Data.Attack > 0 && HexGrid.Distance(pos, u.Position) <= radius);
+            IsHostile(ai, u.Owner) && u.Data.Attack > 0 && HexGrid.Distance(pos, u.Position) <= radius);
 
     // ── Per-unit behaviour ───────────────────────────────────────────────────────
 
@@ -255,6 +340,7 @@ public class AIController
                 if (!_state.Map.Tiles.TryGetValue(n, out var nt))             continue;
                 if (TerrainYields.IsWater(nt) || nt == TerrainType.Mountain)  continue;
                 if (_state.Units.Any(u => u.Position == n))                   continue;
+                if (_state.Cities.Any(c => c.Position == n && c.Owner != ai)) continue; // UnloadUnit blocks enemy city tiles
                 if (!LandmassHasEnemy(ai, LandmassAt(n)))                     continue; // only enemy soil
                 int d = NearestEnemyDistance(ai, n);
                 if (d < bestEnemyDist) { bestEnemyDist = d; best = n; }
@@ -272,7 +358,7 @@ public class AIController
 
         foreach (var other in _state.Units)
         {
-            if (other.Owner == ai || !other.Data.IsNaval) continue;
+            if (!IsHostile(ai, other.Owner) || !other.Data.IsNaval) continue;
             int d = HexGrid.Distance(from, other.Position);
             if (d < bestDist) { best = other.Position; bestDist = d; }
         }
@@ -282,7 +368,7 @@ public class AIController
         // No enemy ships — advance to a coastal tile adjacent to the nearest enemy city.
         foreach (var city in _state.Cities)
         {
-            if (city.Owner == ai) continue;
+            if (!IsHostile(ai, city.Owner)) continue;
             foreach (var n in HexGrid.GetNeighbors(city.Position))
             {
                 if (!_state.Map.Tiles.TryGetValue(n, out var tt) || !TerrainYields.IsWater(tt)) continue;
@@ -362,12 +448,14 @@ public class AIController
 
     // Melee: don't attack if the reprisal would kill us, unless we kill them first;
     // otherwise attack when we'd kill them or win the damage trade. Ranged units
-    // take no reprisal, so they always fire.
-    private static bool WorthAttacking(Unit unit, Unit target)
+    // take no reprisal, so they always fire. Forecasts use the same effective
+    // (faction/veterancy-modified) strengths actual combat resolves with.
+    private bool WorthAttacking(Unit unit, Unit target)
     {
-        bool ranged = unit.Data.Range >= 2;
-        var  e      = CombatResolver.Expected(unit, target, ranged);
-        if (ranged) return true;
+        if (unit.Data.Range >= 2) return true; // ranged: no reprisal
+        var e = CombatResolver.Expected(
+            _state.EffectiveAttack(unit), unit.HP,
+            _state.EffectiveDefense(target), target.HP, isRanged: false);
         bool kill = e.DefenderDamage >= target.HP;
         if (e.AttackerDamage >= unit.HP) return false; // suicidal
         return kill || e.DefenderDamage >= e.AttackerDamage;
@@ -379,7 +467,7 @@ public class AIController
         if (ranged) return true;
         int defStrength = _state.CityDefenseTotal(city);
         var e = CombatResolver.Expected(
-            unit.Data.Attack, unit.HP, defStrength, city.HP, isRanged: false);
+            _state.EffectiveAttack(unit), unit.HP, defStrength, city.HP, isRanged: false);
         return e.AttackerDamage < unit.HP; // survive the reprisal
     }
 
@@ -467,7 +555,7 @@ public class AIController
         Vector2I? best     = null;
         int       bestDist = int.MaxValue;
         foreach (var city in _state.Cities.Where(c => c.Owner == ai))
-        foreach (var tile in HexGrid.GetRange(city.Position, CityWorkforceService.WorkRadius))
+        foreach (var tile in HexGrid.GetRange(city.Position, city.BorderRadius))
         {
             if (tile == city.Position)                                  continue;
             if (CityWorkforceService.ControllingCity(_state, tile)?.Owner != ai) continue;
@@ -542,6 +630,10 @@ public class AIController
         return best;
     }
 
+    // "Enemy" everywhere below means a player this AI may actually attack —
+    // peaceful/allied players are never marched on, threatened, or invaded.
+    private bool IsHostile(Player ai, Player other) => _state.Diplomacy.CanAttack(ai.Id, other.Id);
+
     private Vector2I? NearestEnemyOrCityPosition(Player ai, Vector2I from)
     {
         Vector2I? best     = null;
@@ -549,13 +641,13 @@ public class AIController
 
         foreach (var other in _state.Units)
         {
-            if (other.Owner == ai) continue;
+            if (!IsHostile(ai, other.Owner)) continue;
             int d = HexGrid.Distance(from, other.Position);
             if (d < bestDist) { best = other.Position; bestDist = d; }
         }
         foreach (var city in _state.Cities)
         {
-            if (city.Owner == ai) continue;
+            if (!IsHostile(ai, city.Owner)) continue;
             int d = HexGrid.Distance(from, city.Position);
             if (d < bestDist) { best = city.Position; bestDist = d; }
         }
@@ -578,9 +670,9 @@ public class AIController
     private bool LandmassHasEnemy(Player ai, HashSet<Vector2I> landmass)
     {
         foreach (var u in _state.Units)
-            if (u.Owner != ai && landmass.Contains(u.Position)) return true;
+            if (IsHostile(ai, u.Owner) && landmass.Contains(u.Position)) return true;
         foreach (var c in _state.Cities)
-            if (c.Owner != ai && landmass.Contains(c.Position)) return true;
+            if (IsHostile(ai, c.Owner) && landmass.Contains(c.Position)) return true;
         return false;
     }
 
@@ -588,9 +680,9 @@ public class AIController
     {
         int best = int.MaxValue;
         foreach (var u in _state.Units)
-            if (u.Owner != ai) best = System.Math.Min(best, HexGrid.Distance(tile, u.Position));
+            if (IsHostile(ai, u.Owner)) best = System.Math.Min(best, HexGrid.Distance(tile, u.Position));
         foreach (var c in _state.Cities)
-            if (c.Owner != ai) best = System.Math.Min(best, HexGrid.Distance(tile, c.Position));
+            if (IsHostile(ai, c.Owner)) best = System.Math.Min(best, HexGrid.Distance(tile, c.Position));
         return best;
     }
 
@@ -640,9 +732,9 @@ public class AIController
             if (lm.Count > 0 && !seen.Contains(lm)) seen.Add(lm);
         }
         foreach (var c in _state.Cities)
-            if (c.Owner != ai) Consider(c.Position);
+            if (IsHostile(ai, c.Owner)) Consider(c.Position);
         foreach (var u in _state.Units)
-            if (u.Owner != ai && !u.Data.IsNaval) Consider(u.Position);
+            if (IsHostile(ai, u.Owner) && !u.Data.IsNaval) Consider(u.Position);
         return seen;
     }
 

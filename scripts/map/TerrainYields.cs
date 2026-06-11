@@ -52,8 +52,10 @@ public static class TerrainYields
     public static bool IsWater(TerrainType t)
         => t == TerrainType.Ocean || t == TerrainType.Coast;
 
+    // Water is excluded explicitly (not just Ocean): settlers can't reach Coast
+    // today, but key-site placement and future mechanics call this too.
     public static bool CanFoundCityOn(TerrainType t)
-        => t != TerrainType.Ocean && t != TerrainType.Mountain;
+        => !IsWater(t) && t != TerrainType.Mountain;
 
     // City-center floor: Civ 5 rule — always at least 2 food / 1 production.
     public static (int Food, int Prod) CityCenter(TerrainType t)

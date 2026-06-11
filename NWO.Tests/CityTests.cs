@@ -28,11 +28,30 @@ public class CityTests
     }
 
     [Fact]
-    public void ProcessFood_StarvationClampsToZero()
+    public void ProcessFood_DeficitDrainsBasketBeforeStarving()
     {
         var c = MakeCity(pop: 5, foodYield: 1); // net = -4
-        c.ProcessFood();
+        c.FoodAccumulated = 10;                 // stocked basket absorbs the deficit
+        Assert.Equal(CityFoodResult.None, c.ProcessFood());
+        Assert.Equal(6f, c.FoodAccumulated);
+        Assert.Equal(5, c.Population);
+    }
+
+    [Fact]
+    public void ProcessFood_EmptyBasketDeficit_StarvesACitizen()
+    {
+        var c = MakeCity(pop: 5, foodYield: 1); // net = -4 on an empty basket
+        Assert.Equal(CityFoodResult.Starved, c.ProcessFood());
         Assert.Equal(0f, c.FoodAccumulated);
+        Assert.Equal(4, c.Population);
+    }
+
+    [Fact]
+    public void ProcessFood_SizeOneCity_NeverStarvesAway()
+    {
+        var c = MakeCity(pop: 1, foodYield: 0); // net = -1, but pop floor is 1
+        Assert.Equal(CityFoodResult.None, c.ProcessFood());
+        Assert.Equal(1, c.Population);
     }
 
     [Fact]
@@ -41,8 +60,7 @@ public class CityTests
         var c = MakeCity(pop: 1, foodYield: 22); // threshold for pop 1 = 21; net = 21 -> just hits
         // Threshold formula: 15 + 6*Population = 15 + 6 = 21
         Assert.Equal(21, c.GrowthThreshold);
-        bool grew = c.ProcessFood();
-        Assert.True(grew);
+        Assert.Equal(CityFoodResult.Grew, c.ProcessFood());
         Assert.Equal(2, c.Population);
     }
 
@@ -50,7 +68,7 @@ public class CityTests
     public void ProcessFood_DoesNotGrowBelowThreshold()
     {
         var c = MakeCity(pop: 1, foodYield: 5);
-        Assert.False(c.ProcessFood());
+        Assert.Equal(CityFoodResult.None, c.ProcessFood());
         Assert.Equal(1, c.Population);
     }
 

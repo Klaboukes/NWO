@@ -276,10 +276,11 @@ blocks its path just like an impassable tile.
 
 - A Settler unit can found a city on any non-Ocean, non-Mountain tile not within
   3 tiles of another city (`MinCityDistance = 3`)
-- Cities work tiles within a radius of **2** (`CityWorkforceService.WorkRadius`),
-  excluding the city center. There is no separate stored "territory" — a tile
-  belongs to the nearest city center within work radius (earlier-founded city
-  wins ties).
+- Cities start working tiles within a radius of **2** (`City.InitialBorderRadius`)
+  excluding the city center, and **culture expands** that ring to a maximum of
+  **3** (`City.MaxBorderRadius`) — see "Culture & Borders" below. There is no
+  separate stored "territory" — a tile belongs to the nearest city center whose
+  border radius reaches it (earlier-founded city wins ties).
 - Citizens are auto-assigned to the best workable tiles by the city's focus at
   founding; the player can lock/unlock specific tiles (see Phase 4 / §4 below).
 
@@ -302,8 +303,20 @@ blocks its path just like an impassable tile.
 - Growth threshold: `15 + (6 × population)`
 - When threshold reached: population +1, surplus carries over (threshold
   subtracted, not reset to 0)
-- **[planned]** Starvation: there is no pop loss when food is negative yet —
-  `FoodAccumulated` simply can't drop below 0.
+- **Starvation:** a food deficit first drains the basket; once the basket is
+  empty, each further deficit turn costs **−1 population** (Civ 5 style). A city
+  never starves below 1 citizen. (`City.ProcessFood` → `CityFoodResult.Starved`)
+
+### Culture & Borders
+
+- Every city radiates **1 base culture/turn** (`CivEconomyService.CityBaseCulture`)
+  plus its buildings' culture yields (Monument +2).
+- Culture banks **per city** toward a border expansion: at
+  `City.NextBorderCost` (30 × ring) the border radius grows by one ring, up to
+  `City.MaxBorderRadius` (3). Expansion re-runs tile-control for neighbours.
+- The same culture also accumulates **civ-wide** as a lifetime total
+  (`Civilization.CultureAccumulated`) worth **1 score per 5 culture**
+  (`ScoreService.CultureDivisor`). Social policies remain post-MVP backlog.
 
 ### Production Queue
 
@@ -315,18 +328,17 @@ blocks its path just like an impassable tile.
 
 | Building | Cost | Req. Tech | Effect | Implemented? |
 | --- | --- | --- | --- | --- |
-| Monument | 60 | — | +2 Culture | data only — no culture system |
+| Monument | 60 | Philosophy | +2 Culture | ✅ border growth + score |
 | Granary | 80 | Pottery | +2 Food | ✅ |
-| Barracks | 100 | — | New units +15 XP | data only — no XP system |
+| Barracks | 100 | — | New units +15 XP | ✅ |
 | Library | 90 | Writing | +2 Science | ✅ |
 | Market | 120 | — | +2 Gold | ✅ |
 | Walls | 130 | — | +5 City Defense | ✅ |
 
-Food / Science / Gold yields and the Walls city-defense bonus feed the
-simulation. Culture (Monument) and unit XP (Barracks) are declared in
-`data/buildings.json` but have **no gameplay effect yet [planned]**. The Monument
-requires **Philosophy** (its +2 Culture has no effect until a culture system
-exists).
+All building yields and effects feed the simulation. Numeric effects are
+**data-driven tags** parsed by `GameState.BuildingEffectSum` —
+`new_units_bonus_xp_<n>` (Barracks) and `city_defense_plus_<n>` (Walls) — so new
+buildings carrying these tags work without code changes.
 
 ---
 
@@ -522,7 +534,15 @@ hook is an unconditional multiply/add). See [FACTIONS.md](FACTIONS.md) for the r
 
 - `Diplomacy` holds symmetric pairwise stances (**War / Peace / NonAggression /
   Alliance**); the default is War (all-vs-all). Only players at War may attack each
-  other — enforced in `GameState` combat and respected by the AI's targeting.
+  other — enforced in `GameState` combat and respected by **all** AI targeting:
+  peaceful players are never attacked, marched on, counted as threats, or invaded
+  amphibiously (`AIController.IsHostile`).
+- **Minimal AI stance changes** (`AIController.ReviewDiplomacy`): from Peace the AI
+  declares war when its HP-weighted military strength is ≥ **2×** the target's;
+  an AI-vs-AI war whose forces are roughly even (within **1.33×** both ways)
+  settles into Peace. The AI never breaks a NonAggression/Alliance pact and never
+  ends a war with the human unilaterally — peace with the player is the player's
+  call once the diplomacy UI lands.
 - The **Syndicate** (the `can_hire_reavers` trait) may spend **60 gold**
   (`CivEconomyService.HireReaver`) to spawn a hired Mercenary — its gold-for-force
   signature play.

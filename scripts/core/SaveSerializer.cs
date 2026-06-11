@@ -30,6 +30,7 @@ public static class SaveSerializer
         public int              TurnNumber         { get; set; }
         public int              CurrentPlayerIndex { get; set; }
         public int              CombatSeed         { get; set; }
+        public int              CombatRngDraws     { get; set; } // absent in older saves → 0
         public int              NextCityName       { get; set; }
         public MapDto           Map                { get; set; } = new();
         public List<PlayerDto>  Players            { get; set; } = new();
@@ -94,6 +95,7 @@ public static class SaveSerializer
         public int          OwnerId            { get; set; }
         public int          Treasury           { get; set; }
         public int          ScienceAccumulated { get; set; }
+        public int          CultureAccumulated { get; set; } // absent in older saves → 0
         public string?      CurrentResearch    { get; set; }
         public List<string> ResearchedTechs    { get; set; } = new();
     }
@@ -137,6 +139,8 @@ public static class SaveSerializer
         public List<string>   Buildings          { get; set; } = new();
         public CityFocus       Focus             { get; set; }
         public List<Vector2I> Locked             { get; set; } = new();
+        public int            CultureAccumulated { get; set; } // absent in older saves → 0
+        public int            BorderRadius       { get; set; } // 0 (older saves) → initial radius
     }
 
     public sealed class FogDto
@@ -200,6 +204,7 @@ public static class SaveSerializer
             TurnNumber         = state.TurnManager.TurnNumber,
             CurrentPlayerIndex = state.CurrentPlayerIndex,
             CombatSeed         = state.CombatSeed,
+            CombatRngDraws     = state.CombatRngDraws,
             NextCityName       = state.NextCityNameIndex,
             Map = new MapDto
             {
@@ -229,6 +234,7 @@ public static class SaveSerializer
                     OwnerId            = p.Id,
                     Treasury           = civ.Treasury,
                     ScienceAccumulated = civ.ScienceAccumulated,
+                    CultureAccumulated = civ.CultureAccumulated,
                     CurrentResearch    = civ.CurrentResearch,
                     ResearchedTechs    = civ.ResearchedTechs.ToList(),
                 };
@@ -249,6 +255,8 @@ public static class SaveSerializer
                 Buildings          = c.Buildings.ToList(),
                 Focus              = c.Workforce.Focus,
                 Locked             = c.Workforce.Locked.ToList(),
+                CultureAccumulated = c.CultureAccumulated,
+                BorderRadius       = c.BorderRadius,
             }).ToList(),
             Fog = state.Players.Select(p => new FogDto
             {
@@ -262,8 +270,23 @@ public static class SaveSerializer
         return JsonSerializer.Serialize(dto, Options);
     }
 
+    // Reads just the header for the save browser without materialising the whole
+    // DTO graph. Header is serialized first, so this stops after a few tokens.
     public static SaveHeaderDto? ReadHeader(string json)
-        => JsonSerializer.Deserialize<SaveGameDto>(json, Options)?.Header;
+    {
+        var reader = new Utf8JsonReader(System.Text.Encoding.UTF8.GetBytes(json));
+        while (reader.Read())
+        {
+            if (reader.CurrentDepth == 1
+                && reader.TokenType == JsonTokenType.PropertyName
+                && reader.ValueTextEquals(nameof(SaveGameDto.Header)))
+            {
+                reader.Read(); // move onto the header object
+                return JsonSerializer.Deserialize<SaveHeaderDto>(ref reader, Options);
+            }
+        }
+        return null;
+    }
 
     // ── Deserialize ──────────────────────────────────────────────────────────
 
@@ -280,7 +303,7 @@ public static class SaveSerializer
         foreach (var e in dto.Map.Rivers)              map.Rivers.Add((e.Tile, e.Dir));
         foreach (var s in dto.Map.KeySites)            map.KeySites.Add(s);
 
-        var state    = new GameState(map, catalog, dto.CombatSeed);
+        var state    = new GameState(map, catalog, dto.CombatSeed, dto.CombatRngDraws);
         var byId      = new Dictionary<int, Player>();
         foreach (var pd in dto.Players)
         {
@@ -300,6 +323,7 @@ public static class SaveSerializer
             var civ = state.Civ(byId[cd.OwnerId]);
             civ.Treasury           = cd.Treasury;
             civ.ScienceAccumulated = cd.ScienceAccumulated;
+            civ.CultureAccumulated = cd.CultureAccumulated;
             civ.CurrentResearch    = cd.CurrentResearch;
             civ.ResearchedTechs.Clear();
             foreach (var tech in cd.ResearchedTechs) civ.ResearchedTechs.Add(tech);
@@ -329,6 +353,9 @@ public static class SaveSerializer
                 ProductionItem     = cd.ProductionItem,
                 HP                 = cd.HP,
                 AttackedSinceTurn  = cd.AttackedSinceTurn,
+                CultureAccumulated = cd.CultureAccumulated,
+                // Older saves carry no radius (0); they get the initial ring.
+                BorderRadius       = cd.BorderRadius > 0 ? cd.BorderRadius : City.InitialBorderRadius,
             };
             foreach (var b in cd.Buildings)  city.Buildings.Add(b);
             city.Workforce.Focus = cd.Focus;

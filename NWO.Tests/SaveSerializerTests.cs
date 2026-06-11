@@ -29,6 +29,7 @@ public class SaveSerializerTests
         var civ = state.Civ(human);
         civ.Treasury           = 123;
         civ.ScienceAccumulated = 17;
+        civ.CultureAccumulated = 9;
         civ.CurrentResearch    = "bronze_working";
         civ.ResearchedTechs.Add("mining");
         civ.ResearchedTechs.Add("pottery");
@@ -47,6 +48,7 @@ public class SaveSerializerTests
             IsCapital = true, Population = 4, FoodAccumulated = 8.5f,
             ProductionItem = "unit:warrior", ProductionProgress = 12,
             HP = 80, AttackedSinceTurn = true,
+            CultureAccumulated = 12, BorderRadius = 3,
         };
         city.Buildings.Add("granary");
         city.Workforce.Focus = CityFocus.Production;
@@ -104,6 +106,7 @@ public class SaveSerializerTests
         var civ         = loaded.Civ(loadedHuman);
         Assert.Equal(123, civ.Treasury);
         Assert.Equal(17,  civ.ScienceAccumulated);
+        Assert.Equal(9,   civ.CultureAccumulated);
         Assert.Equal("bronze_working", civ.CurrentResearch);
         Assert.Contains("mining",  civ.ResearchedTechs);
         Assert.Contains("pottery", civ.ResearchedTechs);
@@ -145,6 +148,67 @@ public class SaveSerializerTests
         Assert.Contains("granary", city.Buildings);
         Assert.Equal(CityFocus.Production, city.Workforce.Focus);
         Assert.Contains(new Vector2I(6, 7), city.Workforce.Locked);
+        Assert.Equal(12, city.CultureAccumulated);
+        Assert.Equal(3,  city.BorderRadius);
+    }
+
+    [Fact]
+    public void Load_LegacySaveWithoutBorderRadius_DefaultsToInitialRing()
+    {
+        var original = BuildState(out _, out _);
+        var json     = SaveSerializer.Serialize(original, "legacy");
+
+        // Simulate a pre-culture save: the field deserializes to 0.
+        json = json.Replace("\"BorderRadius\": 3", "\"BorderRadius\": 0");
+        var loaded = SaveSerializer.Deserialize(json, TestWorlds.StandardCatalog());
+
+        Assert.Equal(City.InitialBorderRadius, loaded.Cities.Single().BorderRadius);
+    }
+
+    // ── Combat RNG stream position ───────────────────────────────────────────
+
+    // A small duel world: one full-HP warrior per side, adjacent.
+    private static GameState DuelState()
+    {
+        var state = new GameState(TestWorlds.FlatMap(10, 10), TestWorlds.StandardCatalog(), 4242);
+        var h     = state.AddPlayer(new Player { Id = 0, Name = "H", IsHuman = true });
+        var a     = state.AddPlayer(new Player { Id = 1, Name = "A", IsHuman = false });
+        state.Units.Add(new Unit(TestWorlds.Warrior(), h, new Vector2I(5, 5)));
+        state.Units.Add(new Unit(TestWorlds.Warrior(), a, new Vector2I(6, 5)));
+        state.RestoreTurnPointer(turnNumber: 1, currentPlayerIndex: 0, nextCityName: 0);
+        return state;
+    }
+
+    // One round of the duel with both fighters topped up, so each call feeds the
+    // resolver identical inputs and the only variable is the RNG stream.
+    private static GameState.AttackResult Duel(GameState state)
+    {
+        var atk = state.Units.First(u => u.Owner.Id == 0);
+        var def = state.Units.First(u => u.Owner.Id == 1);
+        atk.HP = 100; def.HP = 100; atk.MovementRemaining = 1;
+        return state.TryAttack(atk, def);
+    }
+
+    [Fact]
+    public void RoundTrip_ContinuesCombatRngStream()
+    {
+        // Twin states with the same seed; one is saved+reloaded mid-stream. The
+        // post-reload fight must roll exactly what the uninterrupted twin rolls
+        // (before this fix a reload re-based the RNG at the seed: reload-scumming).
+        var control = DuelState();
+        var saved   = DuelState();
+        Duel(control);
+        Duel(saved);
+
+        var loaded = SaveSerializer.Deserialize(
+            SaveSerializer.Serialize(saved, "rng"), TestWorlds.StandardCatalog());
+        Assert.Equal(saved.CombatRngDraws, loaded.CombatRngDraws);
+        Assert.True(loaded.CombatRngDraws > 0);
+
+        var expected = Duel(control);
+        var actual   = Duel(loaded);
+        Assert.Equal(expected.AttackerDmg, actual.AttackerDmg);
+        Assert.Equal(expected.DefenderDmg, actual.DefenderDmg);
     }
 
     [Fact]

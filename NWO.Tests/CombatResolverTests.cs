@@ -19,7 +19,7 @@ public class CombatResolverTests
     [Fact]
     public void StrongerAttacker_DealsMoreDamageThanItTakes()
     {
-        var rng      = new Random(42);
+        var rng      = new CombatRng(42);
         var attacker = MakeUnit(attack: 15, defense: 5);
         var defender = MakeUnit(attack: 5,  defense: 5);
 
@@ -31,7 +31,7 @@ public class CombatResolverTests
     [Fact]
     public void RangedAttacker_TakesNoDamage()
     {
-        var rng      = new Random(1);
+        var rng      = new CombatRng(1);
         var attacker = MakeUnit(attack: 7, defense: 4, range: 2);
         var defender = MakeUnit(attack: 8, defense: 8);
 
@@ -44,15 +44,15 @@ public class CombatResolverTests
     [Fact]
     public void WoundedUnit_HitsSofter()
     {
-        var rng = new Random(7);
+        var rng = new CombatRng(7);
         var fullHpAttacker    = MakeUnit(attack: 10, defense: 5, hp: 100);
         var defender1         = MakeUnit(attack: 5,  defense: 5);
         var wounded           = MakeUnit(attack: 10, defense: 5, hp: 25);
         var defender2         = MakeUnit(attack: 5,  defense: 5);
 
         // Use a fresh RNG sequence per resolve so the jitter is comparable.
-        var r1 = CombatResolver.Resolve(fullHpAttacker, defender1, new Random(100), isRanged: false);
-        var r2 = CombatResolver.Resolve(wounded,        defender2, new Random(100), isRanged: false);
+        var r1 = CombatResolver.Resolve(fullHpAttacker, defender1, new CombatRng(100), isRanged: false);
+        var r2 = CombatResolver.Resolve(wounded,        defender2, new CombatRng(100), isRanged: false);
 
         Assert.True(r2.DefenderDamage < r1.DefenderDamage);
     }
@@ -60,7 +60,7 @@ public class CombatResolverTests
     [Fact]
     public void DamageIsNonNegative_StatisticallyOver1000Rolls()
     {
-        var rng      = new Random(2026);
+        var rng      = new CombatRng(2026);
         var attacker = MakeUnit(attack: 8, defense: 8);
         var defender = MakeUnit(attack: 8, defense: 8);
 
@@ -75,7 +75,7 @@ public class CombatResolverTests
     [Fact]
     public void EvenMatch_DealsRoughlyDamageScaleBothWays()
     {
-        var rng      = new Random(99);
+        var rng      = new CombatRng(99);
         var attacker = MakeUnit(attack: 10, defense: 10);
         var defender = MakeUnit(attack: 10, defense: 10);
 

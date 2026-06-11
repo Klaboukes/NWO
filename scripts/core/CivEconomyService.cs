@@ -30,8 +30,29 @@ public static class CivEconomyService
         civ.Treasury           += goldPerTurn;
         civ.ScienceAccumulated += sciencePerTurn;
 
+        AccumulateCulture(state, player, civ, notifications);
         AdvanceResearch(state, player, civ, notifications);
         EnforceTreasury(state, civ, notifications);
+    }
+
+    // Per-city culture banks toward border expansion; the same amount also
+    // accumulates on the civ (lifetime total, feeds civ score — ScoreService).
+    private static void AccumulateCulture(GameState state, Player player, Civilization civ, List<GameEvent> notifications)
+    {
+        foreach (var city in state.Cities)
+        {
+            if (city.Owner != player) continue;
+            int culture = CityCulturePerTurn(state, city);
+            civ.CultureAccumulated += culture;
+            if (!city.AddCulture(culture)) continue;
+
+            notifications.Add(new GameEvent($"{city.Name}'s borders expanded!", city.Position));
+            CityWorkforceService.Recompute(state, city);
+            // A wider ring can wrest tiles from a neighbour's overlap zone.
+            foreach (var other in state.Cities)
+                if (other != city && HexGrid.Distance(other.Position, city.Position) <= City.MaxBorderRadius * 2)
+                    CityWorkforceService.Recompute(state, other);
+        }
     }
 
     public static int SciencePerTurn(GameState state, Player player)
@@ -50,6 +71,32 @@ public static class CivEconomyService
         }
         // The Cognate reaches each tech tier sooner.
         return (int)System.Math.Round(science * state.Catalog.FactionOf(player).ScienceMult);
+    }
+
+    // Every city radiates a base 1 culture per turn (Civ 5's palace/city base),
+    // plus its buildings' culture yields (the Monument).
+    public const int CityBaseCulture = 1;
+
+    public static int CityCulturePerTurn(GameState state, City city)
+    {
+        int culture = CityBaseCulture;
+        foreach (var buildingId in city.Buildings)
+        {
+            var bdef = state.Catalog.Building(buildingId);
+            if (bdef != null) culture += bdef.Yields.Culture;
+        }
+        return culture;
+    }
+
+    // Civ-wide culture per turn: the sum over its cities. Drives border growth
+    // per city and the civ's lifetime total (score) — see AccumulateCulture.
+    public static int CulturePerTurn(GameState state, Player player)
+    {
+        int culture = 0;
+        foreach (var city in state.Cities)
+            if (city.Owner == player)
+                culture += CityCulturePerTurn(state, city);
+        return culture;
     }
 
     public static int GoldPerTurn(GameState state, Player player)

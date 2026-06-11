@@ -53,4 +53,18 @@ public class LandmassTests
 
         Assert.Equal(100, landmass.Count);
     }
+
+    [Fact]
+    public void FindWalkableTileNear_OnAllWaterMap_TerminatesAndReturnsOrigin()
+    {
+        // Degenerate map with no walkable tile at all: the BFS must stay on the
+        // map and terminate (it used to expand the infinite off-map hex plane).
+        var map = new MapData(8, 8);
+        for (int q = 0; q < 8; q++)
+        for (int r = 0; r < 8; r++)
+            map.Tiles[new Vector2I(q, r)] = TerrainType.Ocean;
+        var state = new GameState(map, TestWorlds.StandardCatalog());
+
+        Assert.Equal(new Vector2I(4, 4), state.FindWalkableTileNear(new Vector2I(4, 4)));
+    }
 }

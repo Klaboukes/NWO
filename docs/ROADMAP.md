@@ -317,6 +317,57 @@ pass** in `MapGenerator` after `Classify`, plus one appended `TerrainType.Lake`.
 
 ---
 
+## Code-review follow-ups (June 2026) ✅ COMPLETE
+
+A full-project review (2026-06-11) fixed eight gameplay bugs directly (fortify
+movement exploit, `TryMove` budget enforcement, effective-stat combat forecasts,
+disembark-onto-enemy-city, camera centre on non-Standard maps, Barracks XP +
+minimal culture-to-score, unbounded `FindWalkableTileNear` BFS, AI research
+fallback). The smaller findings and suggested additions below were then cleared
+in a follow-up pass (same date).
+
+### Smaller issues
+
+- [x] **Persist the combat RNG stream position.** `CombatRng` counts every draw;
+      `SaveSerializer` stores `CombatRngDraws` and the `GameState` constructor
+      fast-forwards the stream on load, so a reload continues the same roll
+      sequence (no reload-scumming). Older saves load at draw 0.
+- [x] **`ProductionTurnsLeft` uses base cost.** Now divides by
+      `state.EffectiveItemCost`, matching the build buttons and what
+      `AdvanceProduction` actually charges.
+- [x] **Cargo units heal against a stale position.** `GameState.HealUnit` takes
+      the effective position; cargo heals are judged at the transport's tile.
+- [x] **Drive `Walls` from its effect tag.** Generic
+      `GameState.BuildingEffectSum` parses `city_defense_plus_<n>` (and the
+      Barracks `new_units_bonus_xp_<n>`); `City.CityDefenseStrength` no longer
+      hardcodes the walls id — defensive buildings are data-only now.
+- [x] **Ocean Fish is unworkable.** Fish now scatters on `Coast` only (density
+      raised 0.10 → 0.12 to keep counts similar).
+- [x] **`CanFoundCityOn` permits Coast.** Excludes all water explicitly.
+- [x] **`SaveSerializer.ReadHeader` parses the whole save.** Now streams with
+      `Utf8JsonReader` and stops at the (first-serialized) header object.
+- [x] **Deduplicate `ResourceService.ToId`/`FromId`.** One forward dictionary;
+      the reverse map is derived from it.
+
+### Suggested additions
+
+- [x] **AI builds economy buildings.** `ChooseProduction` gained a "safe and
+      already fielding an army → cheapest unowned yield building" step.
+- [x] **AI respects diplomacy when marching.** All AI targeting (march, threat
+      assessment, naval patrol, amphibious landing) filters by
+      `Diplomacy.CanAttack`. Minimal stance logic (`ReviewDiplomacy`): declare
+      war from Peace at ≥2× military strength; AI-vs-AI stalemates settle into
+      Peace; pacts and human wars are never flipped unilaterally.
+- [x] **Starvation.** Empty basket + deficit → −1 population per turn (never
+      below 1); event-log notification; Civilopedia article.
+- [x] **Culture system (borders).** Cities radiate 1 base culture + building
+      culture per turn, banked per-city; at threshold the border ring expands
+      (radius 2 → 3 max), growing workable territory and resource control.
+      Persisted in saves; lifetime culture still feeds civ score. **Social
+      policies** remain post-MVP backlog (see "Culture and borders" below).
+
+---
+
 ## Post-MVP backlog (unscheduled)
 
 Beyond Phase 7 (visuals), Phase 9 (map generation & terrain features), Phase 10
@@ -329,7 +380,8 @@ objective victory now live in **Phase 10**, not here.
   the two trees held back from the Phase 10 roster (see [FACTIONS.md](FACTIONS.md)).
 - Full tech tree (50+ techs), extending the salvaged → colony → planetary regression arc
 - Deeper diplomacy (trade deals beyond the Phase 10 alliance/non-aggression basics)
-- Culture and borders; Religion (currently out of scope)
+- Culture and borders — border growth shipped with the June 2026 review
+  follow-ups; **social policies** (and Religion) remain out of scope
 - More unit types (siege, sci-fi late-tier units from the regression arc)
 - Map editor; Multiplayer (hot-seat → network); Mod support (data-driven JSON helps)
 - Possible later: **free camera rotation** (the world is already true 3D as of

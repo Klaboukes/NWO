@@ -39,16 +39,22 @@ public class GameState
 
     private readonly Dictionary<Player, FogOfWar>     _fog  = new();
     private readonly Dictionary<Player, Civilization> _civs = new();
-    private readonly Random                           _combatRng;
+    private readonly CombatRng                        _combatRng;
     private int                                       _nextCityName;
 
-    public GameState(MapData map, DataCatalog catalog, int? combatSeed = null)
+    // combatRngDraws restores the RNG stream position on load (see CombatRng);
+    // a fresh game starts at 0.
+    public GameState(MapData map, DataCatalog catalog, int? combatSeed = null, int combatRngDraws = 0)
     {
         Map        = map;
         Catalog    = catalog;
         CombatSeed = combatSeed ?? new Random().Next();
-        _combatRng = new Random(CombatSeed);
+        _combatRng = new CombatRng(CombatSeed, combatRngDraws);
     }
+
+    // How far the combat RNG stream has advanced — persisted in saves so a
+    // reload continues the same roll sequence instead of re-basing at the seed.
+    public int CombatRngDraws => _combatRng.Draws;
 
     // The rotating city-name counter, exposed for save/load round-tripping so a
     // reloaded game keeps naming cities where it left off.
@@ -109,9 +115,10 @@ public class GameState
         Cities.Add(city);
         SpawnNewCityDefender(city);
         CityWorkforceService.Recompute(this, city);
-        // Founding a new city can shift tile control near neighbours.
+        // Founding a new city can shift tile control near neighbours (border
+        // rings of two cities can overlap out to MaxBorderRadius each).
         foreach (var other in Cities)
-            if (other != city && HexGrid.Distance(other.Position, pos) <= CityWorkforceService.WorkRadius * 2)
+            if (other != city && HexGrid.Distance(other.Position, pos) <= City.MaxBorderRadius * 2)
                 CityWorkforceService.Recompute(this, other);
         return FoundCityResult.Success;
     }
@@ -235,20 +242,27 @@ public class GameState
     private double CombatStrengthFactor(Unit u)
         => Catalog.FactionOf(u.Owner).CombatStrengthMult * u.VeterancyMult;
 
-    private int EffectiveAttack(Unit u)  => Math.Max(1, (int)Math.Round(u.Data.Attack  * CombatStrengthFactor(u)));
-    private int EffectiveDefense(Unit u) => Math.Max(1, (int)Math.Round(u.Data.Defense * CombatStrengthFactor(u)));
+    // Public so the AI's attack scoring and the UI's odds preview forecast with
+    // the same faction/veterancy-modified strengths actual combat resolves with.
+    public int EffectiveAttack(Unit u)  => Math.Max(1, (int)Math.Round(u.Data.Attack  * CombatStrengthFactor(u)));
+    public int EffectiveDefense(Unit u) => Math.Max(1, (int)Math.Round(u.Data.Defense * CombatStrengthFactor(u)));
 
     private void GrantCombatXp(Unit u)
         => u.Experience += Math.Max(1, (int)Math.Round(CombatXpPerFight * Catalog.FactionOf(u.Owner).XpGainMult));
 
-    // Effective defensive strength of a city under assault: intrinsic + garrison +
-    // the owner faction's fortress-capital bonus (capital only). Single source of
-    // truth for both TryAttackCity and the AI's city-attack scoring.
+    // Effective defensive strength of a city under assault: intrinsic + defensive
+    // buildings + garrison + the owner faction's fortress-capital bonus (capital
+    // only). Single source of truth for both TryAttackCity and the AI's
+    // city-attack scoring.
     public int CityDefenseTotal(City city)
     {
         int bonus = city.IsCapital ? Catalog.FactionOf(city.Owner).CityDefenseBonus : 0;
-        return city.CityDefenseStrength + GarrisonDefense(city) + bonus;
+        return city.CityDefenseStrength + CityBuildingDefense(city) + GarrisonDefense(city) + bonus;
     }
+
+    // Defense from building effect tags "city_defense_plus_<n>" (Walls). Data-only:
+    // any new defensive building works by carrying the tag in data/buildings.json.
+    public int CityBuildingDefense(City city) => BuildingEffectSum(city, "city_defense_plus_");
 
     // Transfer a city to the captor's player. Captor's own movement bookkeeping
     // (zeroing remaining moves) is done by the caller's normal move flow.
@@ -300,6 +314,9 @@ public class GameState
         if (!Map.Tiles.TryGetValue(destTile, out var dt)) return false;
         if (TerrainYields.IsWater(dt) || dt == TerrainType.Mountain) return false;
         if (Units.Exists(u => u.Position == destTile)) return false; // block friendly stacking too
+        // No landing on enemy city tiles: capture is the move-in flow (TryMove +
+        // ResolveCapture), never a disembark — even when the city is conquerable.
+        if (Cities.Exists(c => c.Position == destTile && c.Owner != cargoUnit.Owner)) return false;
 
         transport.Cargo.Remove(cargoUnit);
         cargoUnit.Position          = destTile;
@@ -331,10 +348,16 @@ public class GameState
             // turn may have blockaded a worked tile.
             CityWorkforceService.Recompute(this, city);
 
-            if (city.ProcessFood())
+            switch (city.ProcessFood())
             {
-                notifications.Add(new GameEvent($"{city.Name} grew to population {city.Population}!", city.Position, GameEventKind.CityGrew));
-                CityWorkforceService.Recompute(this, city);
+                case CityFoodResult.Grew:
+                    notifications.Add(new GameEvent($"{city.Name} grew to population {city.Population}!", city.Position, GameEventKind.CityGrew));
+                    CityWorkforceService.Recompute(this, city);
+                    break;
+                case CityFoodResult.Starved:
+                    notifications.Add(new GameEvent($"{city.Name} is starving — population fell to {city.Population}!", city.Position));
+                    CityWorkforceService.Recompute(this, city);
+                    break;
             }
 
             if (city.ProductionItem != null)
@@ -357,17 +380,19 @@ public class GameState
         {
             if (unit.Owner != player) continue;
             AdvanceImprovementTask(unit, notifications);
-            HealUnit(unit, player);
+            HealUnit(unit, player, unit.Position);
             unit.ResetForNewTurn();
         }
 
-        // Cargo units are not in state.Units while in transit; heal and reset them separately.
+        // Cargo units are not in state.Units while in transit; heal and reset them
+        // separately. Their own Position is stale (where they boarded), so the
+        // near-city heal bonus is judged at the transport's tile.
         foreach (var unit in Units)
         {
             if (unit.Owner != player) continue;
             foreach (var cargo in unit.Cargo)
             {
-                HealUnit(cargo, player);
+                HealUnit(cargo, player, unit.Position);
                 cargo.ResetForNewTurn();
             }
         }
@@ -384,7 +409,9 @@ public class GameState
 
     // Units that didn't move or attack this turn recover HP, more when resting on
     // or next to a friendly city. Called before ResetForNewTurn clears ActedThisTurn.
-    private void HealUnit(Unit unit, Player player)
+    // `position` is where the unit effectively is — its own tile, or the carrying
+    // transport's tile for cargo (whose Position field is stale while embarked).
+    private void HealUnit(Unit unit, Player player, Vector2I position)
     {
         // Iron Pact's "heal in enemy land": its units recover even after fighting
         // this turn, so an offensive keeps its strength up mid-campaign. Other
@@ -392,7 +419,7 @@ public class GameState
         bool healsAfterActing = Catalog.FactionOf(player).HealInEnemyLand;
         if ((unit.ActedThisTurn && !healsAfterActing) || unit.HP >= Unit.MaxHP) return;
         int heal = UnitHealPerTurn;
-        if (Cities.Exists(c => c.Owner == player && HexGrid.Distance(c.Position, unit.Position) <= 1))
+        if (Cities.Exists(c => c.Owner == player && HexGrid.Distance(c.Position, position) <= 1))
             heal += UnitHealNearCityBonus;
         unit.HP = Math.Min(Unit.MaxHP, unit.HP + heal);
 
@@ -423,7 +450,7 @@ public class GameState
         unit.CurrentTask = null;
         notifications.Add(new GameEvent($"Worker built {task.Type}.", task.Tile));
         foreach (var c in Cities)
-            if (HexGrid.Distance(c.Position, task.Tile) <= CityWorkforceService.WorkRadius)
+            if (HexGrid.Distance(c.Position, task.Tile) <= c.BorderRadius)
                 CityWorkforceService.Recompute(this, c);
     }
 
@@ -450,7 +477,11 @@ public class GameState
                 // Unique-unit swap: the owner faction may field a variant of the
                 // queued base unit (UI/AI keep speaking in base ids).
                 var udef = Catalog.Unit(Catalog.ResolveUnitForFaction(id, city.Owner));
-                if (udef != null) Units.Add(new Unit(udef, city.Owner, city.Position));
+                if (udef != null)
+                    Units.Add(new Unit(udef, city.Owner, city.Position)
+                    {
+                        Experience = NewUnitBonusXp(city),
+                    });
                 break;
             case "building":
                 var bdef = Catalog.Building(id);
@@ -459,6 +490,26 @@ public class GameState
                 CityWorkforceService.Recompute(this, city);
                 break;
         }
+    }
+
+    // Bonus starting XP for units trained in this city, from building effect tags
+    // of the form "new_units_bonus_xp_<n>" (the Barracks).
+    private int NewUnitBonusXp(City city) => BuildingEffectSum(city, "new_units_bonus_xp_");
+
+    // Sums "<prefix><n>" effect tags across a city's buildings. The generic
+    // parser behind every numeric building effect (Barracks XP, Walls defense);
+    // stacks when several buildings carry the same tag.
+    private int BuildingEffectSum(City city, string prefix)
+    {
+        int sum = 0;
+        foreach (var buildingId in city.Buildings)
+        {
+            var effect = Catalog.Building(buildingId)?.Effect;
+            if (effect != null && effect.StartsWith(prefix, StringComparison.Ordinal)
+                && int.TryParse(effect.AsSpan(prefix.Length), out int n))
+                sum += n;
+        }
+        return sum;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -520,12 +571,13 @@ public class GameState
             var current = queue.Dequeue();
             foreach (var n in HexGrid.GetNeighbors(current))
             {
-                if (!visited.Add(n)) continue;
+                if (!visited.Add(n))           continue;
+                if (!Map.Tiles.ContainsKey(n)) continue; // stay on the map — guarantees termination
                 if (MovementCost(n) != int.MaxValue) return n;
                 queue.Enqueue(n);
             }
         }
-        return origin;
+        return origin; // no walkable tile anywhere on the map
     }
 
     // All tiles reachable from `origin` by walking over land — i.e. the

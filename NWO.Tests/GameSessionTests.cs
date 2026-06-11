@@ -160,7 +160,7 @@ public class GameSessionTests
     }
 
     [Fact]
-    public void Fortify_ZeroesMovementAndFlagsUnit()
+    public void Fortify_FlagsUnitAndKeepsRemainingMovement()
     {
         var session = TestWorlds.StandardSession(out var human, out _);
         var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5));
@@ -169,7 +169,9 @@ public class GameSessionTests
         session.Fortify(unit);
 
         Assert.True(unit.Fortified);
-        Assert.Equal(0, unit.MovementRemaining);
+        // Fortify is a standing order, not a movement spend: waking the unit the
+        // same turn lets it use only what it had left when it fortified.
+        Assert.Equal(unit.Data.Movement, unit.MovementRemaining);
     }
 
     [Fact]
@@ -184,5 +186,88 @@ public class GameSessionTests
 
         Assert.True(result.Success);
         Assert.False(unit.Fortified);
+    }
+
+    [Fact]
+    public void FortifyThenWake_DoesNotRefundSpentMovement()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5));
+        session.State.Units.Add(unit);
+
+        // Spend the whole movement allowance, then fortify and try to move again.
+        Assert.True(session.TryMove(unit, new Vector2I(7, 5)).Success); // 2 tiles = full budget
+        Assert.Equal(0, unit.MovementRemaining);
+        session.Fortify(unit);
+
+        var second = session.TryMove(unit, new Vector2I(8, 5));
+
+        Assert.False(second.Success); // waking must not grant movement (was an infinite-move exploit)
+        Assert.Equal(new Vector2I(7, 5), unit.Position);
+    }
+
+    [Fact]
+    public void FortifiedUnit_RegainsMovementAtTurnReset()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5));
+        session.State.Units.Add(unit);
+
+        Assert.True(session.TryMove(unit, new Vector2I(7, 5)).Success);
+        session.Fortify(unit);
+        session.EndTurn();
+
+        Assert.True(unit.Fortified);                                  // standing order persists
+        Assert.Equal(unit.Data.Movement, unit.MovementRemaining);     // fresh budget for the new turn
+    }
+
+    [Fact]
+    public void TryMove_StopsAtMovementBudget()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5)); // movement 2
+        session.State.Units.Add(unit);
+
+        // Order a 5-tile march: the unit advances only as far as this turn's budget.
+        var result = session.TryMove(unit, new Vector2I(10, 5));
+
+        Assert.True(result.Success);
+        Assert.Equal(new Vector2I(7, 5), unit.Position);
+        Assert.Equal(0, unit.MovementRemaining);
+        Assert.Equal(3, result.Path.Count); // origin + the two affordable steps
+    }
+
+    [Fact]
+    public void TryMove_WithNoMovementRemaining_Fails()
+    {
+        var session = TestWorlds.StandardSession(out var human, out _);
+        var unit    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5)) { MovementRemaining = 0 };
+        session.State.Units.Add(unit);
+
+        var result = session.TryMove(unit, new Vector2I(6, 5));
+
+        Assert.False(result.Success);
+        Assert.Equal(new Vector2I(5, 5), unit.Position);
+    }
+
+    [Fact]
+    public void TryMove_DoesNotStopOnFriendlyUnit()
+    {
+        var session  = TestWorlds.StandardSession(out var human, out _);
+        var mover    = new Unit(TestWorlds.Warrior(), human, new Vector2I(5, 5));
+        var blocker  = new Unit(TestWorlds.Warrior(), human, new Vector2I(6, 5));
+        session.State.Units.Add(mover);
+        session.State.Units.Add(blocker);
+
+        // Passing through a friendly tile is allowed; stopping on it is not, so a
+        // move that can only afford the occupied tile fails outright.
+        var throughMove = session.TryMove(mover, new Vector2I(7, 5));
+        Assert.True(throughMove.Success);
+        Assert.Equal(new Vector2I(7, 5), mover.Position);
+
+        mover.MovementRemaining = 1;
+        var ontoFriendly = session.TryMove(mover, new Vector2I(6, 5));
+        Assert.False(ontoFriendly.Success);
+        Assert.Equal(new Vector2I(7, 5), mover.Position);
     }
 }

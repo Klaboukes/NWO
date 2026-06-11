@@ -83,7 +83,9 @@ public partial class WorldMap : Node3D
         _renderer.Initialize(_state, _animator, _viewerPlayer);
         _overlay.Initialize(_state, _selection, _animator, _viewerPlayer, _camera3D);
         _ui.InitializeMinimap(_state, _viewerPlayer, _camera3D, RecenterCameraWorld);
-        _cameraController.Position = HexProjection.AxialToWorld(GameFactory.MapCenterAxial());
+        // Centre on the actual map (Small/Large differ from the 60×40 defaults).
+        _cameraController.Position = HexProjection.AxialToWorld(
+            GameFactory.MapCenterAxial(_state.Map.Width, _state.Map.Height));
         RecomputeFog();
         _ui.SetTurn(_state.TurnManager.TurnNumber);
         _ui.SetCivStatus(_state, _viewerPlayer);
@@ -289,13 +291,14 @@ public partial class WorldMap : Node3D
         }
         if (_selection.Unit == null) return;
 
-        var attacker    = _selection.Unit;
-        var target      = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
-        int effectiveMP = attacker.Fortified ? attacker.Data.Movement : attacker.MovementRemaining;
+        var attacker = _selection.Unit;
+        var target   = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
 
+        // Fortified or not, a unit acts with its remaining movement only (waking
+        // never refunds movement — see GameSession.WakeIfFortified).
         bool inRange = attacker.Data.Attack > 0
             && HexGrid.Distance(attacker.Position, axial) <= attacker.Data.Range
-            && effectiveMP > 0;
+            && attacker.MovementRemaining > 0;
 
         if (target != null && inRange)
         {
@@ -379,10 +382,14 @@ public partial class WorldMap : Node3D
 
         bool isRanged = attacker.Data.Range >= 2;
 
+        // Forecast with effective (faction/veterancy-modified) strengths so the
+        // preview matches what GameState.TryAttack/TryAttackCity will resolve.
         var enemyUnit = _state.Units.Find(u => u.Position == axial && u.Owner != _viewerPlayer);
         if (enemyUnit != null)
         {
-            var e = CombatResolver.Expected(attacker, enemyUnit, isRanged);
+            var e = CombatResolver.Expected(
+                _state.EffectiveAttack(attacker), attacker.HP,
+                _state.EffectiveDefense(enemyUnit), enemyUnit.HP, isRanged);
             _ui.ShowCombatForecast($"Attack {enemyUnit.Data.Name}: deal ~{e.DefenderDamage}, take ~{e.AttackerDamage}");
             return;
         }
@@ -390,8 +397,8 @@ public partial class WorldMap : Node3D
         var enemyCity = _state.Cities.Find(c => c.Position == axial && c.Owner != _viewerPlayer && c.HP > 0);
         if (enemyCity != null)
         {
-            int def = enemyCity.CityDefenseStrength + _state.GarrisonDefense(enemyCity);
-            var e   = CombatResolver.Expected(attacker.Data.Attack, attacker.HP, def, enemyCity.HP, isRanged);
+            int def = _state.CityDefenseTotal(enemyCity); // includes garrison + capital bonus
+            var e   = CombatResolver.Expected(_state.EffectiveAttack(attacker), attacker.HP, def, enemyCity.HP, isRanged);
             _ui.ShowCombatForecast(
                 $"Assault {enemyCity.Name} (def {def}, {enemyCity.HP} HP): deal ~{e.DefenderDamage}, take ~{e.AttackerDamage}");
             return;
@@ -478,9 +485,7 @@ public partial class WorldMap : Node3D
     private void SelectUnit(Unit unit)
     {
         int Cost(Vector2I tile) => _session.MoveCostFor(unit, tile);
-        // Fortified units preview their full move range so right-click orders are validated as if awake.
-        int effectiveMP = unit.Fortified ? unit.Data.Movement : unit.MovementRemaining;
-        var reachable   = HexGrid.GetReachableTiles(unit.Position, effectiveMP, Cost).ToHashSet();
+        var reachable = HexGrid.GetReachableTiles(unit.Position, unit.MovementRemaining, Cost).ToHashSet();
         _selection.SelectUnit(unit, reachable);
         _ui.SetFoundCityVisible(unit.Data.Special == "found_city");
         _ui.HideCityPanel();

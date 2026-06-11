@@ -134,6 +134,18 @@
       "body": "Cities are founded by Settlers and grow by banking surplus food. Their citizens work surrounding tiles for food, production, gold, and science, and a focus setting lets you bias toward growth or output. Production turns into units and buildings over time, or can be rush-bought with gold. New cities must respect a minimum spacing from existing ones — though some factions bend that rule."
     },
     {
+      "id": "mech:culture-borders",
+      "category": "mechanics",
+      "title": "Culture & Borders",
+      "body": "Every city radiates a little culture each turn, and Monuments add more. Culture banks per city toward a border expansion: when the threshold is met, the city's territory grows by one ring, claiming new tiles for its citizens to work and new resources to control. Borders also decide tile ownership where two cities' reach overlaps — the nearer city wins. Lifetime culture additionally counts toward your civilization's score."
+    },
+    {
+      "id": "mech:starvation",
+      "category": "mechanics",
+      "title": "Starvation",
+      "body": "A city that cannot feed its citizens first drains its food basket; once the basket is empty, each further turn of deficit costs one population. Blockading an enemy's worked tiles, pillaging farms, or simply outgrowing the land all bite. A city never starves below one citizen, but a shrinking city works fewer tiles — a spiral worth breaking early."
+    },
+    {
       "id": "mech:economy",
       "category": "mechanics",
       "title": "Gold & Economy",

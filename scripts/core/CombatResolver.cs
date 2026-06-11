@@ -24,11 +24,11 @@ public static class CombatResolver
 
     // ── Resolved (random) combat ───────────────────────────────────────────────
 
-    public static CombatResult Resolve(Unit attacker, Unit defender, Random rng, bool isRanged)
+    public static CombatResult Resolve(Unit attacker, Unit defender, CombatRng rng, bool isRanged)
         => Resolve(attacker.Data.Attack, attacker.HP, defender.Data.Defense, defender.HP, rng, isRanged);
 
     public static CombatResult Resolve(
-        int atkStrength, int atkHp, int defStrength, int defHp, Random rng, bool isRanged)
+        int atkStrength, int atkHp, int defStrength, int defHp, CombatRng rng, bool isRanged)
     {
         double aRoll = Roll(atkStrength, atkHp, Jitter(rng));
         double dRoll = Roll(defStrength, defHp, Jitter(rng));
@@ -37,9 +37,8 @@ public static class CombatResolver
 
     // ── Expected (deterministic) outcome — for the combat-odds preview ──────────
     // Jitter averages 1.0, so the expected rolls drop the random term.
-
-    public static CombatResult Expected(Unit attacker, Unit defender, bool isRanged)
-        => Expected(attacker.Data.Attack, attacker.HP, defender.Data.Defense, defender.HP, isRanged);
+    // Callers must pass effective (faction/veterancy-modified) strengths — see
+    // GameState.EffectiveAttack/EffectiveDefense — so forecasts match resolution.
 
     public static CombatResult Expected(
         int atkStrength, int atkHp, int defStrength, int defHp, bool isRanged)
@@ -64,5 +63,5 @@ public static class CombatResolver
         return new CombatResult(dmgToAttacker, dmgToDefender);
     }
 
-    private static double Jitter(Random rng) => 0.85 + rng.NextDouble() * 0.30;
+    private static double Jitter(CombatRng rng) => 0.85 + rng.NextDouble() * 0.30;
 }

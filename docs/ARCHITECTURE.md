@@ -249,10 +249,11 @@ The whole loop lives in `GameSession.EndTurn()` → `GameState.EndPlayerTurn()`:
 GameSession.EndTurn()
   → GameState.EndPlayerTurn(viewer)
       → for each of the player's cities:
-          recompute workforce/yields → ProcessFood (growth)
+          recompute workforce/yields → ProcessFood (growth/starvation)
           → AdvanceProduction (completion) → RegenIfUnharassed (city HP)
       → heal idle units, then reset the player's units' MovementRemaining
-      → CivEconomyService.ProcessEndOfTurn  (gold, science, research, disband)
+      → CivEconomyService.ProcessEndOfTurn  (gold, science, culture/borders,
+        research, disband)
       → advance CurrentPlayerIndex; wrap → TurnManager.AdvanceTurn()
   → while CurrentPlayer is not human:
       AIController.TakeTurn(aiPlayer)

@@ -12,7 +12,10 @@ namespace NWO.Core;
 // only summed terrain in a static radius-1 ring.
 public static class CityWorkforceService
 {
-    public const int WorkRadius = 2;
+    // Base control/work ring a new city starts with. Culture expands a city's
+    // actual reach per-city up to City.MaxBorderRadius (see City.BorderRadius);
+    // this constant remains for prospective-site scoring (AI) and docs.
+    public const int WorkRadius = City.InitialBorderRadius;
 
     // Recompute Assigned tiles + FoodYield/ProductionYield for one city.
     public static void Recompute(GameState state, City city)
@@ -74,11 +77,11 @@ public static class CityWorkforceService
         city.ProductionYield = prod;
     }
 
-    // Tiles in the city's work radius (excluding center) that this city may
+    // Tiles inside the city's culture borders (excluding center) that it may
     // currently work: passable land, controlled by this city, not enemy-occupied.
     public static IEnumerable<Vector2I> Workable(GameState state, City city)
     {
-        foreach (var tile in HexGrid.GetRange(city.Position, WorkRadius))
+        foreach (var tile in HexGrid.GetRange(city.Position, city.BorderRadius))
         {
             if (tile == city.Position)                                  continue;
             if (!state.Map.Tiles.TryGetValue(tile, out var terrain))    continue;
@@ -90,9 +93,9 @@ public static class CityWorkforceService
         }
     }
 
-    // Nearest city center within WorkRadius owns the tile. Ties resolved by
-    // city order in GameState.Cities (earlier-founded wins) for deterministic
-    // saves/replays.
+    // Nearest city center whose culture borders reach the tile owns it. Ties
+    // resolved by city order in GameState.Cities (earlier-founded wins) for
+    // deterministic saves/replays.
     public static City? ControllingCity(GameState state, Vector2I tile)
     {
         City? best     = null;
@@ -100,7 +103,7 @@ public static class CityWorkforceService
         foreach (var c in state.Cities)
         {
             int d = HexGrid.Distance(c.Position, tile);
-            if (d > WorkRadius) continue;
+            if (d > c.BorderRadius) continue;
             if (d < bestDist)
             {
                 best     = c;

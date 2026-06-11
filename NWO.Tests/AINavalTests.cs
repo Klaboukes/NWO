@@ -100,6 +100,24 @@ public class AINavalTests
     }
 
     [Fact]
+    public void UnloadUnit_OntoEnemyCityTile_IsBlocked()
+    {
+        var state = TwoContinentState(out var human, out var ai);
+
+        var transport = new Unit(TransportData(), ai, new Vector2I(5, 2));
+        var cargo     = new Unit(WarriorData(),   ai, new Vector2I(5, 2));
+        transport.Cargo.Add(cargo);
+        state.Units.Add(transport);
+        // Enemy city on the adjacent shore — even battered to 0 HP it can't be
+        // entered by disembarking; capture is the move-in flow (TryMove).
+        state.Cities.Add(new City("Enemyburg", human, new Vector2I(6, 2)) { HP = 0 });
+
+        Assert.False(state.UnloadUnit(transport, cargo, new Vector2I(6, 2)));
+        Assert.Contains(cargo, transport.Cargo);   // still aboard
+        Assert.DoesNotContain(cargo, state.Units); // not on the map
+    }
+
+    [Fact]
     public void Transport_DoesNotLandOnAFriendlyOrEmptyShore()
     {
         var state = TwoContinentState(out _, out var ai);

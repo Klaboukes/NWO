@@ -3,16 +3,17 @@ using NWO.Entities;
 namespace NWO.Core;
 
 // Computes a single comparable "civ score" for a player, used to rank players
-// for the turn-500 score victory (see VictoryService) and to show on the result
-// screen. The weights are deliberately simple and live here as named constants
-// so the formula is easy to find and retune.
+// for the turn-cap score victory (VictoryService.ScoreVictoryTurn) and to show
+// on the result screen. The weights are deliberately simple and live here as
+// named constants so the formula is easy to find and retune.
 public static class ScoreService
 {
-    public const int PerCity       = 10;
-    public const int PerPopulation = 3;
-    public const int PerTech       = 5;
-    public const int PerKeySite    = 25; // objective sites are worth fighting over
-    public const int GoldDivisor   = 10; // treasury contributes 1 point per 10 gold
+    public const int PerCity        = 10;
+    public const int PerPopulation  = 3;
+    public const int PerTech        = 5;
+    public const int PerKeySite     = 25; // objective sites are worth fighting over
+    public const int GoldDivisor    = 10; // treasury contributes 1 point per 10 gold
+    public const int CultureDivisor = 5;  // lifetime culture: 1 point per 5 culture
 
     public static int Score(GameState state, Player player)
     {
@@ -33,6 +34,7 @@ public static class ScoreService
              + population * PerPopulation
              + techs * PerTech
              + KeySiteService.ControlledCount(state, player) * PerKeySite
-             + gold / GoldDivisor;
+             + gold / GoldDivisor
+             + civ.CultureAccumulated / CultureDivisor;
     }
 }

@@ -129,7 +129,8 @@ public static class MapGenerator
         Frequency = frequency,
     };
 
-    // Traces 3–5 rivers downhill from highland (Mountain/Hills) sources. A river runs
+    // Traces rivers downhill from highland (Mountain/Hills) sources — the count
+    // scales with available sources (see TraceRivers' clamp). A river runs
     // ALONG hex edges (not across them): we walk a path of hex corners (vertices)
     // strictly downhill, and each step traverses one shared edge. Consecutive edges
     // meet at a vertex, so the recorded edge-set renders as a continuous channel.
@@ -408,8 +409,10 @@ public static class MapGenerator
         TerrainType.Tundra   => new[] { (ResourceType.Deer, 0.08) },
         TerrainType.Jungle   => new[] { (ResourceType.Banana, 0.12) },
         TerrainType.Desert   => new[] { (ResourceType.Stone, 0.05) },
-        TerrainType.Coast    => new[] { (ResourceType.Fish, 0.10) },
-        TerrainType.Ocean    => new[] { (ResourceType.Fish, 0.06) },
+        // Fish stays off Ocean: cities can't work Ocean tiles (CityWorkforceService
+        // .Workable), so Ocean Fish would be decorative. Coast density is raised a
+        // notch to keep overall fish counts similar.
+        TerrainType.Coast    => new[] { (ResourceType.Fish, 0.12) },
         _                    => System.Array.Empty<(ResourceType, double)>(),
     };
 

@@ -44,6 +44,95 @@ public class AIControllerTests
     }
 
     [Fact]
+    public void AI_ResearchFallback_PicksTechOutsidePrefsList()
+    {
+        // Catalog holds only a tech that is NOT in AIController.ResearchPrefs —
+        // the fallback must still pick it so science is never wasted.
+        var techs   = new List<TechData> { new() { Id = "calendar", Name = "Calendar", ScienceCost = 55 } };
+        var catalog = new DataCatalog(Units(), new List<BuildingData>(), techs);
+        var state   = new GameState(TestWorlds.FlatMap(10, 10), catalog);
+        var ai      = state.AddPlayer(new Player { Id = 0, Name = "AI", IsHuman = false });
+
+        new AIController(state).TakeTurn(ai);
+
+        Assert.Equal("calendar", state.Civ(ai).CurrentResearch);
+    }
+
+    [Fact]
+    public void AI_BuildsEconomyBuildingWhenSafeAndArmed()
+    {
+        // Catalog with no settler/worker so production falls through to the
+        // economy step; the AI is garrisoned, unthreatened, and fielding an army.
+        var catalog = new DataCatalog(
+            new List<UnitData> { WarriorData() },
+            new List<BuildingData>
+            {
+                new() { Id = "granary", Name = "Granary", ProductionCost = 80,
+                        Yields = new BuildingYields { Food = 2 } },
+            },
+            Techs());
+        var state = new GameState(TestWorlds.FlatMap(10, 10), catalog);
+        var ai    = state.AddPlayer(new Player { Id = 0, Name = "AI", IsHuman = false });
+        var city  = new City("Rome", ai, new Vector2I(5, 5));
+        state.Cities.Add(city);
+        state.Units.Add(new Unit(WarriorData(), ai, new Vector2I(5, 5))); // garrison
+        state.Units.Add(new Unit(WarriorData(), ai, new Vector2I(7, 5))); // field army
+
+        new AIController(state).TakeTurn(ai);
+
+        Assert.Equal("building:granary", city.ProductionItem);
+    }
+
+    [Fact]
+    public void AI_DeclaresWarWhenOverwhelminglyStronger()
+    {
+        var state = MakeState(out var human, out var ai);
+        state.Diplomacy.Set(human.Id, ai.Id, DiplomaticStance.Peace);
+        state.Units.Add(new Unit(WarriorData(), ai, new Vector2I(0, 0)));
+        state.Units.Add(new Unit(WarriorData(), ai, new Vector2I(2, 0)));
+        // The human is disarmed — an irresistible target.
+
+        new AIController(state).TakeTurn(ai);
+
+        Assert.Equal(DiplomaticStance.War, state.Diplomacy.Between(ai.Id, human.Id));
+    }
+
+    [Fact]
+    public void AI_DoesNotBreakNonAggressionPactOrMarchOnItsPartner()
+    {
+        var state = MakeState(out var human, out var ai);
+        state.Diplomacy.Set(human.Id, ai.Id, DiplomaticStance.NonAggression);
+        var aiUnit = new Unit(WarriorData(), ai, new Vector2I(0, 0));
+        state.Units.Add(aiUnit);
+        state.Units.Add(new Unit(WarriorData(), human, new Vector2I(5, 0)));
+
+        new AIController(state).TakeTurn(ai);
+
+        // Signed pacts hold even against a weaker partner, and a peaceful
+        // player's units are not a march target.
+        Assert.Equal(DiplomaticStance.NonAggression, state.Diplomacy.Between(ai.Id, human.Id));
+        Assert.Equal(new Vector2I(0, 0), aiUnit.Position);
+    }
+
+    [Fact]
+    public void AI_MakesStalematePeaceWithAnotherAIButNeverWithTheHuman()
+    {
+        var state = MakeState(out var human, out var ai);
+        var ai2   = state.AddPlayer(new Player { Id = 2, Name = "P2", IsHuman = false });
+        // Evenly matched forces all around (one warrior each).
+        state.Units.Add(new Unit(WarriorData(), human, new Vector2I(0, 9)));
+        state.Units.Add(new Unit(WarriorData(), ai,    new Vector2I(0, 0)));
+        state.Units.Add(new Unit(WarriorData(), ai2,   new Vector2I(9, 9)));
+
+        new AIController(state).TakeTurn(ai);
+
+        // AI-AI stalemate settles into peace; the war with the human is never
+        // ended unilaterally (that's the player's call via the diplomacy UI).
+        Assert.Equal(DiplomaticStance.Peace, state.Diplomacy.Between(ai.Id, ai2.Id));
+        Assert.Equal(DiplomaticStance.War,   state.Diplomacy.Between(ai.Id, human.Id));
+    }
+
+    [Fact]
     public void AI_WithEnemyInRange_Attacks()
     {
         var state = MakeState(out var human, out var ai);

@@ -42,8 +42,10 @@ public class GameSession
         City?          CapturedOnArrival);
 
     // Mirrors WorldMap.HandleRightPress's move branch. Computes a path treating
-    // enemy units as blockers, deducts movement cost, applies the final
-    // position, and identifies an enemy city the unit landed on. The capture
+    // enemy units as blockers, then walks it within this turn's movement budget
+    // (mirroring AIController.StepToward): the unit stops at the last affordable
+    // tile it may occupy — passing through friendly units is allowed, ending on
+    // one is not. Identifies an enemy city the unit landed on; the capture
     // itself is applied via ResolveCapture so the live scene can defer it to
     // animation-complete; tests can use MoveAndResolve to fold both into one
     // call.
@@ -51,6 +53,7 @@ public class GameSession
     {
         if (unit.Owner != Viewer)               return Failed();
         if (!State.Map.Tiles.ContainsKey(dest)) return Failed();
+        if (unit.MovementRemaining <= 0)        return Failed();
 
         WakeIfFortified(unit);
         unit.CurrentTask = null; // moving cancels an in-progress build
@@ -58,19 +61,33 @@ public class GameSession
         var path = HexGrid.FindPath(unit.Position, dest, t => MoveCostFor(unit, t));
         if (path.Count < 2) return Failed();
 
-        int cost = 0;
+        int budget    = unit.MovementRemaining;
+        int spent     = 0;
+        int stopIndex = 0; // last tile along the path the unit can afford AND occupy
+        int stopSpent = 0;
         for (int i = 1; i < path.Count; i++)
-            cost += State.MovementCost(path[i], unit);
+        {
+            int cost = MoveCostFor(unit, path[i]);
+            if (cost == int.MaxValue || spent + cost > budget) break;
+            spent += cost;
+            if (!State.Units.Any(u => u != unit && u.Position == path[i]))
+            {
+                stopIndex = i;
+                stopSpent = spent;
+            }
+        }
+        if (stopIndex == 0) return Failed();
 
-        unit.MovementRemaining = Mathf.Max(0, unit.MovementRemaining - cost);
-        unit.Position          = path[^1];
-        unit.ActedThisTurn     = true;
+        var final = path[stopIndex];
+        unit.MovementRemaining -= stopSpent;
+        unit.Position           = final;
+        unit.ActedThisTurn      = true;
         State.RecomputeFog(Viewer);
 
         // Only a conquerable (HP-depleted) enemy city is captured on arrival.
         var pendingCapture = State.Cities.Find(
-            c => c.Position == dest && c.Owner != Viewer && c.IsConquerable);
-        return new MoveResult(true, path, pendingCapture);
+            c => c.Position == final && c.Owner != Viewer && c.IsConquerable);
+        return new MoveResult(true, path.GetRange(0, stopIndex + 1), pendingCapture);
 
         static MoveResult Failed() => new(false, new List<Vector2I>(), null);
     }
@@ -144,11 +161,13 @@ public class GameSession
         return r;
     }
 
+    // Fortify is a standing order, not a movement spend: the unit keeps whatever
+    // movement it has left, so waking it the same turn lets it use only that
+    // remainder. (Zeroing here and refunding on wake was an infinite-move exploit.)
     public void Fortify(Unit unit)
     {
         if (unit.Owner != Viewer) return;
-        unit.Fortified         = true;
-        unit.MovementRemaining = 0;
+        unit.Fortified = true;
     }
 
     // [H] order: fortify and keep sleeping until HP is full, then auto-wake (see
@@ -156,9 +175,8 @@ public class GameSession
     public void FortifyUntilHealed(Unit unit)
     {
         if (unit.Owner != Viewer) return;
-        unit.Fortified         = true;
-        unit.MovementRemaining = 0;
-        unit.SleepUntilHealed  = unit.HP < Unit.MaxHP;
+        unit.Fortified        = true;
+        unit.SleepUntilHealed = unit.HP < Unit.MaxHP;
     }
 
     // Order a Worker to build an improvement on its current tile. Validates the
@@ -246,11 +264,13 @@ public class GameSession
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
+    // Waking clears the standing order but never grants movement — the unit acts
+    // with whatever it had left when it fortified (full movement if it fortified
+    // on an earlier turn, since ResetForNewTurn refreshes fortified units too).
     private static void WakeIfFortified(Unit unit)
     {
         if (!unit.Fortified) return;
-        unit.Fortified         = false;
-        unit.SleepUntilHealed  = false; // a manual order overrides "sleep until healed"
-        unit.MovementRemaining = unit.Data.Movement;
+        unit.Fortified        = false;
+        unit.SleepUntilHealed = false; // a manual order overrides "sleep until healed"
     }
 }

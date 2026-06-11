@@ -68,8 +68,10 @@ public class Unit : IEndTurnItem
     {
         ActedThisTurn   = false;
         SkippedThisTurn = false; // a one-turn pass; standing orders (Fortify/Sleep) persist
-        if (!Fortified)
-            MovementRemaining = Data.Movement;
+        // Fortified units get their movement back too: waking mid-turn must never
+        // grant movement (that was an infinite-move exploit), so the turn reset is
+        // the single place movement is ever restored.
+        MovementRemaining = Data.Movement;
     }
 
     // ── IEndTurnItem ─────────────────────────────────────────────────────────
