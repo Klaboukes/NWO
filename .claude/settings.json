@@ -4,7 +4,9 @@
       "Skill(*)",
       "Edit(.claude/skills/**)",
       "Bash(git commit *)",
-      "Bash(rm .git/COMMIT_MSG_TMP.txt)"
+      "Bash(rm .git/COMMIT_MSG_TMP.txt)",
+      "PowerShell(& .claude/skills/finish-phase/status.ps1)",
+      "PowerShell(git push origin main)"
     ]
   },
   "hooks": {
