@@ -25,11 +25,12 @@ public partial class WorldRenderer : Node3D
     private readonly Dictionary<Vector2I, MeshInstance3D> _tiles   = new();
     private readonly Dictionary<Unit, Sprite3D>           _units   = new();
     private readonly Dictionary<City, Sprite3D>           _cities  = new();
-    // Owner-colour banners, shown only beside full-colour (real-art) sprites.
+    // Owner-colour banners: every unit/city sprite is full-colour (painterly v2),
+    // so the banner — not a body tint — always carries the owner colour.
     private readonly Dictionary<Unit, Sprite3D>           _uBanner = new();
     private readonly Dictionary<City, Sprite3D>           _cBanner = new();
 
-    // World width of a unit/city sprite (texture is 128px square).
+    // World width of a unit/city sprite (any square texture size renders at this).
     private const float UnitSizeWorld   = HexSizeRef * 0.80f;
     private const float CitySizeWorld   = HexSizeRef * 1.05f;
     private const float BannerSizeWorld = HexSizeRef * 0.60f;
@@ -89,13 +90,11 @@ public partial class WorldRenderer : Node3D
         foreach (var unit in _state.Units)
         {
             bool visible = fog.IsVisible(unit.Position);
-            bool realArt = UnitTextureRegistry.IsRealArt(unit.Data.Id);
             var sprite = Ensure(_units, unit, UnitTextureRegistry.For(unit.Data.Id), UnitSizeWorld);
             sprite.Visible  = visible;
 
-            // Banner only accompanies full-colour art; placeholders are tinted whole.
-            var banner = realArt ? EnsureBanner(_uBanner, unit) : null;
-            if (banner != null) banner.Visible = visible;
+            var banner = EnsureBanner(_uBanner, unit);
+            banner.Visible = visible;
             if (!visible) continue;
 
             var top = TileTop(unit == _animator.AnimatingUnit
@@ -113,13 +112,10 @@ public partial class WorldRenderer : Node3D
                 baseXZ = top;
             }
             sprite.Position = baseXZ + new Vector3(0f, UnitSizeWorld * 0.5f, 0f);
-            // Real art keeps its own colours; the banner carries the owner tint.
-            sprite.Modulate = realArt ? Colors.White : unit.Owner.Color;
-            if (banner != null)
-            {
-                banner.Position = baseXZ + BannerOffset;
-                banner.Modulate = unit.Owner.Color;
-            }
+            // The art keeps its own colours; the banner carries the owner tint.
+            sprite.Modulate = Colors.White;
+            banner.Position = baseXZ + BannerOffset;
+            banner.Modulate = unit.Owner.Color;
         }
     }
 
@@ -131,27 +127,22 @@ public partial class WorldRenderer : Node3D
         foreach (var city in _state.Cities)
         {
             bool discovered = fog.IsDiscovered(city.Position);
-            bool realArt = CityTextureRegistry.HasRealArt(city.IsCapital);
             var sprite = Ensure(_cities, city, CityTextureRegistry.For(city.IsCapital), CitySizeWorld);
             sprite.Visible = discovered;
 
-            var banner = realArt ? EnsureBanner(_cBanner, city) : null;
-            if (banner != null) banner.Visible = discovered;
+            var banner = EnsureBanner(_cBanner, city);
+            banner.Visible = discovered;
             if (!discovered) continue;
 
             bool seen = fog.IsVisible(city.Position);
             var top = TileTop(city.Position);
             sprite.Position = top + new Vector3(0f, CitySizeWorld * 0.5f, 0f);
             var col = city.Owner.Color;
-            // Real art keeps its colours (dimmed when out of sight); banner carries owner tint.
-            sprite.Modulate = realArt
-                ? (seen ? Colors.White : Colors.White.Darkened(0.45f))
-                : (seen ? col : col.Darkened(0.45f));
-            if (banner != null)
-            {
-                banner.Position = top + BannerOffset;
-                banner.Modulate = seen ? col : col.Darkened(0.45f);
-            }
+            // The art keeps its colours (dimmed when out of sight); the banner
+            // carries the owner tint.
+            sprite.Modulate = seen ? Colors.White : Colors.White.Darkened(0.45f);
+            banner.Position = top + BannerOffset;
+            banner.Modulate = seen ? col : col.Darkened(0.45f);
         }
     }
 
@@ -174,8 +165,10 @@ public partial class WorldRenderer : Node3D
             Texture       = tex,
             Billboard     = BaseMaterial3D.BillboardModeEnum.Enabled,
             Shaded        = false,
-            PixelSize     = worldSize / 128f, // sprites are 128px square
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+            // Derive from the texture so any square art size renders at worldSize
+            // (procedural v2 is 256px; drop-in PNGs can be anything).
+            PixelSize     = worldSize / tex.GetWidth(),
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear,
             RenderPriority = 1,
         };
         AddChild(s);
@@ -188,13 +181,14 @@ public partial class WorldRenderer : Node3D
     private Sprite3D EnsureBanner<T>(Dictionary<T, Sprite3D> map, T key) where T : notnull
     {
         if (map.TryGetValue(key, out var s)) return s;
+        var bannerTex = BannerTextureRegistry.Banner();
         s = new Sprite3D
         {
-            Texture        = BannerTextureRegistry.Banner(),
+            Texture        = bannerTex,
             Billboard      = BaseMaterial3D.BillboardModeEnum.Enabled,
             Shaded         = false,
-            PixelSize      = BannerSizeWorld / 128f,
-            TextureFilter  = BaseMaterial3D.TextureFilterEnum.Nearest,
+            PixelSize      = BannerSizeWorld / bannerTex.GetWidth(),
+            TextureFilter  = BaseMaterial3D.TextureFilterEnum.Linear,
             RenderPriority = 2,
         };
         AddChild(s);

@@ -1,28 +1,33 @@
 # Art Asset Production Kit
 
-How to replace NWO's procedurally-generated placeholder art with proper,
-hand-authored or AI-generated **painterly / illustrated** assets. This is the
-production reference: every filename a registry expects, its target spec, a tuned
-generation prompt, and the one code change required (team-color banners).
+How to replace NWO's procedurally-generated **painterly v2** art (Phase 7 V7.5)
+with hand-authored or AI-generated assets. This is the production reference:
+every filename a registry expects, its target spec, and a tuned generation
+prompt. The current committed art is itself baked from the v2 generators (the
+`generate-terrain-art` skill), so every asset already exists on disk — replacing
+one is overwriting a PNG.
 
 > The render pipeline is **drop-in by design.** Each texture registry prefers a
-> real PNG at the path below over its synthesized placeholder, with **no code
-> change** — except unit/city player-colouring (see
-> [Team colours](#the-one-code-change--team-colour-banners)). Pipeline contract:
-> the `add-art-asset` skill and [ROADMAP.md](ROADMAP.md) Phase 7.
+> real PNG at the path below over its synthesized fallback, with **no code
+> change**. Unit/city bodies are never owner-tinted — the owner colour rides a
+> separate banner sprite — so full-colour art of any palette just works, and
+> `WorldRenderer` derives sprite scale from the texture so **any square size**
+> renders correctly. Pipeline contract: the `add-art-asset` skill and
+> [ROADMAP.md](ROADMAP.md) Phase 7.
 
 ## Target style
 
 **Painterly / illustrated** — Civ 5-style hand-painted look: rich, textured
-terrain and detailed unit illustrations, not flat pixels.
+terrain and detailed unit illustrations, not flat pixels. The procedural v2 art
+sets the baseline: one sun from the upper-left, hue-shifted shadows (cool/
+saturated) and highlights (warm/desaturated), soft dark rims on sprites.
 
 - Lock a **style bible first**: generate and approve *one* hero terrain tile and
   *one* hero unit in the final style **before** batch-producing the rest. Every
   other asset references these (a style-reference image, an IP-Adapter, or a trained
   LoRA). Cross-asset consistency — not single-image quality — is the hard part.
-- Filtering stays **Nearest-neighbour** in-engine (a rendering invariant). For a
-  painterly look, author at the *native* target resolution rather than scaling a
-  huge image down hard — or accept a crisp, slightly-posterized result.
+- Filtering is **Linear** in-engine (painterly v2); author at or above the target
+  resolution and let the importer downscale.
 
 ### Free toolchain (no paid account; tuned for a 4 GB GPU)
 
@@ -58,35 +63,26 @@ The three levers, per tool:
 | Property | Terrain tiles | Units & cities | Resource icons |
 | --- | --- | --- | --- |
 | Path | `assets/art/tiles/` | `assets/art/units/`, `assets/art/cities/` | `assets/art/resources/` |
-| Size | 128×128 (512 then downscale OK) | 128×128 | 32×32 (or clean 64/128 multiple) |
-| Format | RGBA8 PNG | RGBA8 PNG | RGBA8 PNG |
+| Size | 256×256 (512 then downscale OK) | 256×256 (any square works) | 64×64 (or clean multiple) |
+| Format | RGB8/RGBA8 PNG | RGBA8 PNG | RGBA8 PNG |
 | Background | Opaque, **seamlessly tileable**, top-down | **Transparent** | **Transparent** |
 | View angle | Flat/top-down (the 3D prism does the 45° tilt) | Front-facing billboard (slight low-angle) | Front-facing icon |
-| Outline | none needed | dark rim so it reads on any terrain | dark rim, reads on any terrain |
+| Outline | none needed | soft dark rim so it reads on any terrain | dark rim, reads on any terrain |
 
 Naming is **exactly** the lowercase enum/id name: terrain = `TerrainType` lower
 (`grassland.png`), units = the `data/units.json` id (`palace_guard.png`), resources
 = `ResourceType` lower (`goldore.png`), cities = `city.png` / `capital.png`.
 
-## The one code change — team-colour banners
+## Team colours — banners (landed in V7.5)
 
-Today unit/city sprites are white-fill + dark-outline so the renderer does
-`Sprite3D.Modulate = owner.Color` to recolour the **whole** sprite. Painterly
-full-colour art would be multiply-tinted into mud by that. The Civ 5 fix:
+Unit/city bodies are **never owner-tinted**. Every unit and city always shows a
+separate banner sprite (`assets/art/ui/banner.png`, via `BannerTextureRegistry` /
+`WorldRenderer.EnsureBanner`) that gets `Modulate = owner.Color`. The banner
+cloth is authored in whites/greys so the modulate dyes it cleanly.
 
-- Author units/cities in **full colour** with player colour carried by a **small
-  banner/region**, not the whole body.
-- Implementation options (contained to `UnitTextureRegistry` /
-  `CityTextureRegistry` / `WorldRenderer` / `WorldOverlay`):
-  1. **Banner overlay (simplest):** stop modulating the body sprite; draw a small
-     separate `banner.png` quad/2D overlay under each unit, *that* gets
-     `Modulate = owner.Color`. Art stays a plain RGBA sprite.
-  2. **Mask channel:** reserve a flat **magenta key** (`#FF00FF`) region in each
-     sprite; a shader replaces only keyed pixels with `owner.Color`. More work,
-     fully integrated team colour.
-- Until this lands, dropping full-colour unit PNGs will look tinted in-game. Either
-  do the code change first, or stage unit art last. Terrain and resource icons are
-  unaffected (never owner-tinted).
+Consequence for art production: author units/cities in **full colour**, any
+palette — they render exactly as painted. Terrain and resource icons were never
+owner-tinted.
 
 ## Generation workflow
 
@@ -115,7 +111,7 @@ no UI, no border frame
 
 ## Manifest — terrain tiles (12)
 
-Top-down, **seamlessly tileable**, opaque, 128×128 (or 512 → downscale). The 3D
+Top-down, **seamlessly tileable**, opaque, 256×256 (or 512 → downscale). The 3D
 camera supplies the 45° tilt, so do **not** paint perspective into these.
 
 | File | Prompt fragment |
@@ -173,7 +169,7 @@ Transparent background, billboard, dark rim, full-colour (banner-tinted).
 
 ## Manifest — resource icons (24)
 
-32×32 (author 128 → downscale), transparent background, clean readable icon,
+64×64 (author 128 → downscale), transparent background, clean readable icon,
 dark rim so it reads on any terrain. Single consistent icon family.
 
 | File | Resource | Prompt fragment |

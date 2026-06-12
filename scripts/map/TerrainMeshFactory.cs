@@ -30,7 +30,7 @@ public sealed class TerrainMeshFactory
         VertexColorUseAsAlbedo = true,
         Roughness              = 0.95f,
         Metallic               = 0f,
-        TextureFilter          = BaseMaterial3D.TextureFilterEnum.Nearest, // crisp pixel-art
+        TextureFilter          = BaseMaterial3D.TextureFilterEnum.Linear, // painterly v2: smooth shading
     };
 
     // Features shape the prism: Hills/canopy raise it (geometry), vegetation swaps

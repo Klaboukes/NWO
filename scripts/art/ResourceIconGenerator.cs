@@ -1,360 +1,337 @@
+using System;
 using Godot;
+using NWO.Art.Icons;
+using NWO.Art.Painterly;
 using NWO.Map;
 
 namespace NWO.Art;
 
-// Procedural pixel-art generator for map resource icons (Phase 9). Same family as
-// HudIconGenerator / UnitArtGenerator: a transparent RGBA8 sprite with a dark 1-px
-// outline, authored at 32px with chunky features so it stays crisp under
-// nearest-neighbour filtering.
+// Procedural painterly generator for map resource icons (Phase 9 / V7.5): 64px
+// glossy full-colour motifs — shaded volumes, speculars, and the shared soft
+// dark rim (IconFx) so they read on any terrain. One icon family, one hand.
 //
-// Each resource draws a recognisable motif (fish, cow, sheep, wheat sheaf, gem, …)
-// from the shared primitive toolkit below. A real
-// res://assets/art/resources/<resource>.png drops in to override it with no code
-// change (see ResourceIconRegistry / the add-art-asset skill).
+// Each resource keeps its v1 motif (fish, cow head, wheat sheaf, gem, …). A real
+// res://assets/art/resources/<resource>.png drops in to override with no code
+// change (ResourceIconRegistry / the add-art-asset skill).
 //
 // DETERMINISM  Generate(resource) is pure — same resource → same Image bytes.
 public static class ResourceIconGenerator
 {
-    public const int IconSize = 32;
+    public const int IconSize = 64;
 
-    private static readonly Color Transp  = new(0f, 0f, 0f, 0f);
-    private static readonly Color Outline = new(0.10f, 0.10f, 0.12f);
-    private static readonly Color Black   = new(0.14f, 0.13f, 0.16f);
-    private static readonly Color White   = new(0.98f, 0.98f, 0.98f);
+    private static readonly Vector2 C = new(32f, 32f);
 
     public static Image Generate(ResourceType r)
     {
-        var img = Image.CreateEmpty(IconSize, IconSize, false, Image.Format.Rgba8);
-        img.Fill(Transp);
+        var canvas  = new Canvas(IconSize);
+        var painter = new Painter(canvas);
 
         switch (r)
         {
-            case ResourceType.Fish:    Fish(img);    break;
-            case ResourceType.Cattle:  Cattle(img);  break;
-            case ResourceType.Sheep:   Sheep(img);   break;
-            case ResourceType.Deer:    Deer(img);    break;
-            case ResourceType.Wheat:   Wheat(img);   break;
-            case ResourceType.Stone:   Stone(img);   break;
-            case ResourceType.Banana:  Banana(img);  break;
-            case ResourceType.Horses:  Horseshoe(img); break;
-            case ResourceType.Iron:    Ore(img, new Color(0.38f, 0.43f, 0.55f)); break;
-            case ResourceType.Gems:    Gem(img, new Color(0.22f, 0.80f, 0.72f)); break;
-            case ResourceType.GoldOre: Nuggets(img, new Color(0.93f, 0.76f, 0.26f)); break;
-            case ResourceType.Silver:  Nuggets(img, new Color(0.82f, 0.84f, 0.88f)); break;
-            case ResourceType.Silk:    Spool(img, new Color(0.80f, 0.62f, 0.88f)); break;
-            case ResourceType.Spices:  SpiceBowl(img); break;
-            case ResourceType.Dyes:    DyePot(img, new Color(0.78f, 0.25f, 0.55f)); break;
-            case ResourceType.Cotton:  Cotton(img);  break;
-            case ResourceType.Incense: Incense(img); break;
-            case ResourceType.Ivory:   Tusk(img);    break;
-            case ResourceType.None:    return img;
+            case ResourceType.Fish:    Fish(painter);    break;
+            case ResourceType.Cattle:  Cattle(painter);  break;
+            case ResourceType.Sheep:   Sheep(painter);   break;
+            case ResourceType.Deer:    Deer(painter);    break;
+            case ResourceType.Wheat:   Wheat(painter);   break;
+            case ResourceType.Stone:   Stone(painter);   break;
+            case ResourceType.Banana:  Banana(painter);  break;
+            case ResourceType.Horses:  Horseshoe(painter); break;
+            case ResourceType.Iron:    Ore(painter, new Color(0.38f, 0.43f, 0.55f)); break;
+            case ResourceType.Gems:    Gem(painter, new Color(0.20f, 0.78f, 0.72f)); break;
+            case ResourceType.GoldOre: Nuggets(painter, new Color(0.93f, 0.76f, 0.26f)); break;
+            case ResourceType.Silver:  Nuggets(painter, new Color(0.80f, 0.83f, 0.88f)); break;
+            case ResourceType.Silk:    Spool(painter);   break;
+            case ResourceType.Spices:  Spices(painter);  break;
+            case ResourceType.Dyes:    DyePot(painter);  break;
+            case ResourceType.Cotton:  Cotton(painter);  break;
+            case ResourceType.Incense: Incense(painter); break;
+            case ResourceType.Ivory:   Tusks(painter);   break;
+            case ResourceType.None:    return canvas.ToImage();
         }
 
-        ApplyOutline(img);
-        return img;
+        IconFx.Finish(canvas);
+        return canvas.ToImage();
     }
 
-    // ── Bonus motifs ─────────────────────────────────────────────────────────────
+    private static Rect2 Full => new(2f, 2f, 60f, 60f);
 
-    private static void Fish(Image img)
+    private static void Shaded(Painter p, Func<Vector2, float> sdf, Color baseCol,
+                               float inflate, float spec = 0.2f)
+        => p.FillShaded(sdf, Full, ColorRamp.Painterly(baseCol), inflate, specular: spec);
+
+    // ── Bonus motifs ────────────────────────────────────────────────────────────
+
+    private static void Fish(Painter p)
     {
-        Color b = new(0.32f, 0.56f, 0.86f), belly = b.Lightened(0.30f), fin = b.Darkened(0.28f);
-        Tri(img, 20, 16, 29, 9, 29, 23, b);              // tail fan
-        Ellipse(img, 14, 16, 9, 6, b);                   // body
-        Ellipse(img, 13, 18, 7, 3, belly);              // belly
-        Tri(img, 9, 11, 17, 11, 13, 6, fin);             // dorsal fin
-        Tri(img, 10, 21, 16, 21, 13, 25, fin);           // ventral fin
-        Line(img, 9, 11, 9, 21, fin);                    // gill
-        Disc(img, 8, 15, 2, White); Plot(img, 8, 15, Black); // eye
+        var body = C + new Vector2(-3f, 2f);
+        Shaded(p, q => Sdf.Ellipse(q, body, new Vector2(17f, 9.5f)),
+               new Color(0.36f, 0.58f, 0.66f), 8f, 0.45f);
+        // Tail fin.
+        Shaded(p, q => Sdf.Triangle(q, body + new Vector2(13f, 0f),
+                                    body + new Vector2(25f, -9f), body + new Vector2(25f, 9f)),
+               new Color(0.30f, 0.50f, 0.58f), 4f, 0.3f);
+        // Eye.
+        p.FillSdf(q => Sdf.Circle(q, body + new Vector2(-10f, -2.5f), 2.6f), Full, Colors.White);
+        p.FillSdf(q => Sdf.Circle(q, body + new Vector2(-10f, -2.5f), 1.3f), Full,
+                  new Color(0.12f, 0.12f, 0.14f));
     }
 
-    private static void Cattle(Image img)
+    private static void Cattle(Painter p)
     {
-        Color hide = new(0.62f, 0.45f, 0.30f), cream = new(0.92f, 0.88f, 0.78f);
-        Tri(img, 6, 13, 11, 13, 5, 6, cream);            // left horn
-        Tri(img, 21, 13, 26, 13, 27, 6, cream);          // right horn
-        Ellipse(img, 7, 17, 3, 2, hide);                 // ears
-        Ellipse(img, 25, 17, 3, 2, hide);
-        Ellipse(img, 16, 18, 8, 7, hide);                // head
-        Ellipse(img, 16, 11, 5, 3, hide.Darkened(0.18f)); // forelock
-        Ellipse(img, 16, 24, 6, 4, cream);               // snout
-        Plot(img, 14, 25, Black); Plot(img, 18, 25, Black); // nostrils
-        Disc(img, 12, 17, 1, Black); Disc(img, 20, 17, 1, Black); // eyes
+        // Horns behind the head.
+        var horn = new Color(0.90f, 0.86f, 0.74f);
+        Shaded(p, q => Sdf.Capsule(q, C + new Vector2(-9f, -8f), C + new Vector2(-19f, -16f), 3.2f), horn, 3f, 0.3f);
+        Shaded(p, q => Sdf.Capsule(q, C + new Vector2(9f, -8f), C + new Vector2(19f, -16f), 3.2f), horn, 3f, 0.3f);
+        // Head + muzzle.
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, -2f), new Vector2(13f, 12f)),
+               new Color(0.48f, 0.31f, 0.20f), 9f);
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, 9f), new Vector2(9f, 6f)),
+               new Color(0.78f, 0.62f, 0.50f), 5f);
+        // Nostrils + eyes.
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-3.4f, 9f), 1.2f), Full, new Color(0.16f, 0.10f, 0.08f));
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(3.4f, 9f), 1.2f), Full, new Color(0.16f, 0.10f, 0.08f));
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-5.5f, -5f), 1.5f), Full, new Color(0.12f, 0.10f, 0.10f));
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(5.5f, -5f), 1.5f), Full, new Color(0.12f, 0.10f, 0.10f));
     }
 
-    private static void Sheep(Image img)
+    private static void Sheep(Painter p)
     {
-        Color wool = new(0.93f, 0.92f, 0.88f), face = new(0.32f, 0.31f, 0.35f);
-        Disc(img, 13, 11, 4, wool); Disc(img, 19, 11, 4, wool);
-        Disc(img, 10, 16, 5, wool); Disc(img, 22, 16, 5, wool);
-        Disc(img, 16, 14, 7, wool);                      // wool body
-        VLine(img, 13, 25, 29, face); VLine(img, 19, 25, 29, face); // legs
-        Ellipse(img, 11, 20, 2, 3, face); Ellipse(img, 21, 20, 2, 3, face); // ears
-        Ellipse(img, 16, 21, 4, 4, face);                // face
-        Plot(img, 14, 21, White); Plot(img, 18, 21, White); // eyes
-    }
-
-    private static void Deer(Image img)
-    {
-        Color hide = new(0.64f, 0.42f, 0.25f), horn = new(0.38f, 0.26f, 0.14f);
-        // Antlers (branched).
-        Line(img, 12, 14, 9, 4, horn); Line(img, 10, 9, 6, 6, horn); Line(img, 10, 6, 7, 3, horn);
-        Line(img, 20, 14, 23, 4, horn); Line(img, 22, 9, 26, 6, horn); Line(img, 22, 6, 25, 3, horn);
-        Ellipse(img, 9, 16, 2, 3, hide); Ellipse(img, 23, 16, 2, 3, hide); // ears
-        Ellipse(img, 16, 20, 5, 7, hide);                // face
-        Disc(img, 16, 26, 2, horn);                      // nose
-        Disc(img, 13, 19, 1, Black); Disc(img, 19, 19, 1, Black); // eyes
-    }
-
-    private static void Wheat(Image img)
-    {
-        Color g = new(0.86f, 0.70f, 0.24f), gd = g.Darkened(0.30f);
-        foreach (int x in new[] { 11, 16, 21 })
+        // Wool: smooth-unioned puffs.
+        Func<Vector2, float> wool = q =>
         {
-            VLine(img, x, 12, 27, g);                    // stalk
-            Ellipse(img, x, 9, 2, 5, g);                 // grain head
-            for (int k = 0; k < 5; k++)
+            float d = Sdf.Circle(q, C + new Vector2(0f, -1f), 12f);
+            d = Sdf.SmoothUnion(d, Sdf.Circle(q, C + new Vector2(-10f, 2f), 8f), 6f);
+            d = Sdf.SmoothUnion(d, Sdf.Circle(q, C + new Vector2(10f, 2f), 8f), 6f);
+            d = Sdf.SmoothUnion(d, Sdf.Circle(q, C + new Vector2(0f, -10f), 7f), 6f);
+            return d;
+        };
+        Shaded(p, wool, new Color(0.92f, 0.90f, 0.84f), 9f, 0.1f);
+        // Dark head poking out the left, with an ear.
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(-14f, -6f), new Vector2(6.5f, 5.5f)),
+               new Color(0.22f, 0.18f, 0.16f), 4f);
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-16f, -7.5f), 1.2f), Full, Colors.White);
+    }
+
+    private static void Deer(Painter p)
+    {
+        // Antlers: branching capsules.
+        var antler = new Color(0.82f, 0.74f, 0.58f);
+        foreach (float s in new[] { -1f, 1f })
+        {
+            var root = C + new Vector2(s * 5f, -8f);
+            var mid  = root + new Vector2(s * 7f, -10f);
+            Shaded(p, q => Sdf.Capsule(q, root, mid, 2f), antler, 2f, 0.2f);
+            Shaded(p, q => Sdf.Capsule(q, mid, mid + new Vector2(s * 6f, -4f), 1.7f), antler, 2f, 0.2f);
+            Shaded(p, q => Sdf.Capsule(q, root + (mid - root) * 0.45f,
+                                       root + (mid - root) * 0.45f + new Vector2(s * 2f, -7f), 1.7f),
+                   antler, 2f, 0.2f);
+        }
+        // Head.
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, 4f), new Vector2(9f, 12f)),
+               new Color(0.62f, 0.44f, 0.28f), 7f);
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, 13f), new Vector2(5f, 4f)),
+               new Color(0.45f, 0.30f, 0.20f), 3f);
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-4f, 1f), 1.4f), Full, new Color(0.12f, 0.10f, 0.10f));
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(4f, 1f), 1.4f), Full, new Color(0.12f, 0.10f, 0.10f));
+    }
+
+    private static void Wheat(Painter p)
+    {
+        var stalkCol = new Color(0.80f, 0.62f, 0.22f);
+        var grainCol = new Color(0.94f, 0.78f, 0.34f);
+        foreach (var (dx, lean) in new[] { (-9f, -0.18f), (0f, 0f), (9f, 0.18f) })
+        {
+            var baseP = C + new Vector2(dx, 22f);
+            var top   = C + new Vector2(dx + lean * 30f, -16f);
+            Shaded(p, q => Sdf.Capsule(q, baseP, top, 1.6f), stalkCol, 1.6f);
+            // Grains: paired ellipses up the head.
+            for (int g = 0; g < 4; g++)
             {
-                Line(img, x, 6 + 2 * k, x - 3, 7 + 2 * k, gd); // seeds
-                Line(img, x, 6 + 2 * k, x + 3, 7 + 2 * k, gd);
+                var gp = top.Lerp(baseP, g * 0.09f);
+                Shaded(p, q => Sdf.Ellipse(q, gp + new Vector2(-3f, g * 1.2f), new Vector2(3.2f, 2.2f)), grainCol, 2.4f, 0.3f);
+                Shaded(p, q => Sdf.Ellipse(q, gp + new Vector2(3f, g * 1.2f), new Vector2(3.2f, 2.2f)), grainCol, 2.4f, 0.3f);
             }
         }
-        HLine(img, 9, 23, 23, gd); HLine(img, 9, 23, 24, gd); // tie band
     }
 
-    private static void Stone(Image img)
+    private static void Stone(Painter p)
     {
-        Color s = new(0.60f, 0.60f, 0.58f);
-        Disc(img, 11, 20, 6, s); Disc(img, 21, 21, 6, s); Disc(img, 16, 15, 5, s);
-        Disc(img, 9, 18, 2, s.Lightened(0.30f));         // highlights
-        Disc(img, 19, 19, 2, s.Lightened(0.30f));
-        Disc(img, 15, 13, 2, s.Lightened(0.30f));
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(0f, 8f), new Vector2(16f, 8f), 2f),
+               new Color(0.58f, 0.56f, 0.52f), 6f, 0.25f);
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(-5f, -7f), new Vector2(10f, 7f), 2f),
+               new Color(0.64f, 0.62f, 0.58f), 5f, 0.25f);
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(11f, -5f), new Vector2(6f, 5f), 1.5f),
+               new Color(0.52f, 0.50f, 0.47f), 4f, 0.25f);
     }
 
-    private static void Banana(Image img)
+    private static void Banana(Painter p)
     {
-        Color y = new(0.93f, 0.81f, 0.24f), yd = y.Darkened(0.30f);
-        // Two crescents (fill a disc, carve an offset disc away).
-        Disc(img, 13, 17, 10, y);  ClearDisc(img, 8, 24, 11);
-        Disc(img, 17, 14, 8, y);   ClearDisc(img, 13, 20, 9);
-        VLine(img, 21, 6, 9, yd);                        // stem
-        Plot(img, 5, 14, yd); Plot(img, 24, 10, yd);     // tips
+        // A slim diagonal crescent — stem high-left, tip low-right, belly bowed
+        // out to the lower-left.
+        var a = C + new Vector2(-6f, -17f);
+        var b = C + new Vector2(15f, 9f);
+        var ctrl = C + new Vector2(-18f, 14f);
+        Shaded(p, q => Sdf.QuadBezier(q, a, ctrl, b) - 4.2f,
+               new Color(0.95f, 0.82f, 0.25f), 4.2f, 0.35f);
+        // Stem + tip.
+        p.FillSdf(q => Sdf.Circle(q, a, 2.2f), Full, new Color(0.42f, 0.30f, 0.14f));
+        p.FillSdf(q => Sdf.Circle(q, b, 1.8f), Full, new Color(0.36f, 0.26f, 0.12f));
     }
 
-    // ── Strategic motifs ─────────────────────────────────────────────────────────
+    // ── Strategic motifs ────────────────────────────────────────────────────────
 
-    private static void Horseshoe(Image img)
+    private static void Horseshoe(Painter p)
     {
-        Color m = new(0.62f, 0.64f, 0.68f);
-        Disc(img, 16, 16, 9, m);
-        ClearDisc(img, 16, 16, 5);                       // ring
-        Rect(img, 11, 3, 21, 15, Transp);                // open the top → U
-        foreach (var (x, yy) in new[] { (16, 24), (10, 21), (22, 21), (8, 16), (24, 16) })
-            Plot(img, x, yy, Black);                     // nail holes
-    }
-
-    private static void Ore(Image img, Color c)
-    {
-        Disc(img, 12, 19, 6, c); Disc(img, 21, 18, 6, c); Disc(img, 16, 13, 5, c);
-        foreach (var (x, yy) in new[] { (12, 17), (20, 17), (16, 12), (14, 21), (23, 20) })
-            Plot(img, x, yy, c.Lightened(0.40f));        // metallic specks
-        Disc(img, 11, 21, 2, c.Darkened(0.30f));
-    }
-
-    // ── Luxury motifs ──────────────────────────────────────────────────────────-─
-
-    private static void Gem(Image img, Color c)
-    {
-        Color lit = c.Lightened(0.30f), dark = c.Darkened(0.28f);
-        for (int y = 9; y <= 14; y++)                    // crown (table → girdle)
-            HLine(img, 12 - (y - 9), 20 + (y - 9), y, y % 2 == 0 ? c : lit);
-        Tri(img, 6, 14, 26, 14, 16, 27, c);              // pavilion
-        Tri(img, 6, 14, 16, 14, 16, 27, lit);            // lit left facet
-        Line(img, 12, 9, 16, 27, dark); Line(img, 20, 9, 16, 27, dark); // facet seams
-        Plot(img, 13, 11, White); Plot(img, 14, 11, White); // sparkle
-    }
-
-    private static void Nuggets(Image img, Color c)
-    {
-        Disc(img, 12, 19, 6, c); Disc(img, 21, 19, 6, c); Disc(img, 16, 13, 5, c);
-        foreach (var (x, yy) in new[] { (12, 18), (20, 18), (16, 12) })
-            Star(img, x, yy, White);                     // sparkles
-        Disc(img, 10, 21, 2, c.Lightened(0.30f));
-    }
-
-    private static void Spool(Image img, Color c)
-    {
-        Rect(img, 11, 9, 21, 23, c);                     // body
-        for (int y = 11; y <= 21; y += 3) HLine(img, 11, 21, y, c.Lightened(0.30f)); // thread
-        Ellipse(img, 16, 9, 7, 2, c.Darkened(0.22f));    // flanges
-        Ellipse(img, 16, 23, 7, 2, c.Darkened(0.22f));
-        Line(img, 21, 14, 26, 18, c.Lightened(0.25f));   // loose thread
-        Line(img, 26, 18, 24, 22, c.Lightened(0.25f));
-    }
-
-    private static void SpiceBowl(Image img)
-    {
-        Color bowl = new(0.55f, 0.40f, 0.28f), spice = new(0.86f, 0.46f, 0.18f);
-        Disc(img, 16, 18, 7, spice); Rect(img, 6, 20, 26, 27, Transp); // mound (top half)
-        for (int y = 19; y <= 25; y++)                   // bowl (lower ellipse)
-            for (int x = 7; x <= 25; x++)
-                if (Inside(x, y, 16, 19, 9, 6)) Plot(img, x, y, bowl);
-        Ellipse(img, 16, 19, 9, 2, bowl.Lightened(0.20f)); // rim
-        foreach (var (x, yy) in new[] { (13, 15), (18, 14), (16, 17), (20, 16) })
-            Plot(img, x, yy, spice.Darkened(0.30f));     // specks
-    }
-
-    private static void DyePot(Image img, Color c)
-    {
-        Rect(img, 10, 14, 22, 25, c);                    // pot
-        Ellipse(img, 16, 14, 7, 2, c.Darkened(0.25f));   // rim
-        VLine(img, 13, 16, 24, c.Lightened(0.30f));      // highlight
-        Disc(img, 25, 21, 2, c); Disc(img, 26, 26, 2, c); // drip + drop
-    }
-
-    private static void Cotton(Image img)
-    {
-        Color w = new(0.96f, 0.96f, 0.93f), bract = new(0.45f, 0.32f, 0.18f);
-        VLine(img, 16, 22, 29, bract);                   // stem
-        Tri(img, 11, 21, 21, 21, 16, 27, bract);         // bracts (calyx)
-        Disc(img, 11, 16, 4, w); Disc(img, 21, 16, 4, w); Disc(img, 16, 17, 5, w);
-        Disc(img, 16, 12, 6, w);                         // bolls
-        Plot(img, 14, 11, w.Darkened(0.10f));
-    }
-
-    private static void Incense(Image img)
-    {
-        Color pot = new(0.70f, 0.50f, 0.28f), smoke = new(0.82f, 0.84f, 0.88f);
-        for (int y = 6; y <= 20; y++)                    // rising smoke
+        var steel = new Color(0.62f, 0.66f, 0.72f);
+        // U: ring minus inner disc, opened at the top.
+        Func<Vector2, float> shoe = q =>
         {
-            int x = 16 + Mathf.RoundToInt(3f * Mathf.Sin(y * 0.6f));
-            Plot(img, x, y, smoke); Plot(img, x + 1, y, smoke);
-        }
-        Disc(img, 16, 22, 3, new Color(0.95f, 0.55f, 0.20f)); // ember
-        Ellipse(img, 16, 25, 7, 3, pot);                 // bowl
-        Ellipse(img, 16, 23, 7, 2, pot.Lightened(0.20f)); // rim
-    }
-
-    private static void Tusk(Image img)
-    {
-        Color iv = new(0.93f, 0.90f, 0.78f);
-        Disc(img, 20, 20, 10, iv);
-        ClearDisc(img, 26, 12, 12);                      // carve into a curved tusk
-        Disc(img, 12, 26, 2, iv.Darkened(0.18f));        // thick base
-    }
-
-    // ── Primitive toolkit ────────────────────────────────────────────────────────
-
-    private static bool Inside(int x, int y, int cx, int cy, float rx, float ry)
-    {
-        float nx = (x - cx) / rx, ny = (y - cy) / ry;
-        return nx * nx + ny * ny <= 1f;
-    }
-
-    private static void Plot(Image img, int x, int y, Color c)
-    {
-        if (x >= 0 && x < IconSize && y >= 0 && y < IconSize) img.SetPixel(x, y, c);
-    }
-
-    private static void Disc(Image img, int cx, int cy, int r, Color c)
-    {
-        for (int dy = -r; dy <= r; dy++)
-        for (int dx = -r; dx <= r; dx++)
-            if (dx * dx + dy * dy <= r * r) Plot(img, cx + dx, cy + dy, c);
-    }
-
-    private static void ClearDisc(Image img, int cx, int cy, int r)
-    {
-        for (int dy = -r; dy <= r; dy++)
-        for (int dx = -r; dx <= r; dx++)
-            if (dx * dx + dy * dy <= r * r) Plot(img, cx + dx, cy + dy, Transp);
-    }
-
-    private static void Ellipse(Image img, int cx, int cy, int rx, int ry, Color c)
-    {
-        for (int dy = -ry; dy <= ry; dy++)
-        for (int dx = -rx; dx <= rx; dx++)
-            if (Inside(cx + dx, cy + dy, cx, cy, rx, ry)) Plot(img, cx + dx, cy + dy, c);
-    }
-
-    private static void Rect(Image img, int x0, int y0, int x1, int y1, Color c)
-    {
-        for (int y = y0; y <= y1; y++)
-        for (int x = x0; x <= x1; x++)
-            Plot(img, x, y, c);
-    }
-
-    private static void HLine(Image img, int x0, int x1, int y, Color c)
-    {
-        for (int x = x0; x <= x1; x++) Plot(img, x, y, c);
-    }
-
-    private static void VLine(Image img, int x, int y0, int y1, Color c)
-    {
-        for (int y = y0; y <= y1; y++) Plot(img, x, y, c);
-    }
-
-    private static void Line(Image img, int x0, int y0, int x1, int y1, Color c)
-    {
-        int dx = Mathf.Abs(x1 - x0), dy = -Mathf.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy;
-        while (true)
+            float ring = Sdf.Subtract(Sdf.Circle(q, C, 16f), Sdf.Circle(q, C, 9f));
+            return Sdf.Subtract(ring, Sdf.Box(q, C + new Vector2(0f, -14f), new Vector2(7f, 8f)));
+        };
+        Shaded(p, shoe, steel, 4f, 0.55f);
+        // Nail studs.
+        foreach (float a in new[] { 2.6f, 2.0f, 1.2f, 0.5f, -0.1f })
         {
-            Plot(img, x0, y0, c);
-            if (x0 == x1 && y0 == y1) break;
-            int e2 = 2 * err;
-            if (e2 >= dy) { err += dy; x0 += sx; }
-            if (e2 <= dx) { err += dx; y0 += sy; }
+            var sp = C + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 12.5f;
+            p.FillSdf(q => Sdf.Circle(q, sp, 1.3f), Full, new Color(0.30f, 0.32f, 0.36f));
         }
     }
 
-    private static void Tri(Image img, int ax, int ay, int bx, int by, int cx, int cy, Color col)
+    private static void Ore(Painter p, Color col)
     {
-        int minX = Mathf.Min(ax, Mathf.Min(bx, cx)), maxX = Mathf.Max(ax, Mathf.Max(bx, cx));
-        int minY = Mathf.Min(ay, Mathf.Min(by, cy)), maxY = Mathf.Max(ay, Mathf.Max(by, cy));
-        for (int y = minY; y <= maxY; y++)
-        for (int x = minX; x <= maxX; x++)
+        var pts = new[]
         {
-            int d1 = (x - bx) * (ay - by) - (ax - bx) * (y - by);
-            int d2 = (x - cx) * (by - cy) - (bx - cx) * (y - cy);
-            int d3 = (x - ax) * (cy - ay) - (cx - ax) * (y - ay);
-            bool neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
-            if (!(neg && pos)) Plot(img, x, y, col);
-        }
+            C + new Vector2(-15f, 6f), C + new Vector2(-7f, -12f), C + new Vector2(6f, -14f),
+            C + new Vector2(16f, -2f), C + new Vector2(11f, 12f), C + new Vector2(-4f, 14f),
+        };
+        Shaded(p, q => Sdf.Polygon(q, pts), col, 8f, 0.5f);
+        // Glinting facet.
+        Shaded(p, q => Sdf.Triangle(q, C + new Vector2(-6f, -10f), C + new Vector2(4f, -12f),
+                                    C + new Vector2(-1f, -2f)),
+               ColorRamp.ShiftHsv(col, 0f, -0.05f, +0.45f), 3f, 0.7f);
     }
 
-    private static void Star(Image img, int cx, int cy, Color c)
-    {
-        Plot(img, cx, cy, c);
-        Plot(img, cx - 1, cy, c); Plot(img, cx + 1, cy, c);
-        Plot(img, cx, cy - 1, c); Plot(img, cx, cy + 1, c);
-    }
+    // ── Luxury motifs ───────────────────────────────────────────────────────────
 
-    // ── Outline pass (mirrors HudIconGenerator) ─────────────────────────────────-─
-
-    private static void ApplyOutline(Image img)
+    private static void Gem(Painter p, Color col)
     {
-        var pts = new System.Collections.Generic.List<(int x, int y)>();
-        for (int y = 0; y < IconSize; y++)
-        for (int x = 0; x < IconSize; x++)
+        var crown = new[]
         {
-            if (img.GetPixel(x, y).A > 0.5f) continue;
-            if (HasFilledNeighbour(img, x, y)) pts.Add((x, y));
-        }
-        foreach (var (x, y) in pts) img.SetPixel(x, y, Outline);
+            C + new Vector2(-16f, -4f), C + new Vector2(-8f, -13f),
+            C + new Vector2(8f, -13f),  C + new Vector2(16f, -4f),
+            C + new Vector2(0f, 17f),
+        };
+        Shaded(p, q => Sdf.Polygon(q, crown), col, 7f, 0.8f);
+        // Table facet, brighter.
+        Shaded(p, q => Sdf.Polygon(q, new[]
+               {
+                   C + new Vector2(-8f, -13f), C + new Vector2(8f, -13f),
+                   C + new Vector2(5f, -5f),   C + new Vector2(-5f, -5f),
+               }),
+               ColorRamp.ShiftHsv(col, 0f, -0.18f, +0.55f), 3f, 0.9f);
+        // Sparkle.
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-6f, -9f), 1.6f), Full, Colors.White);
     }
 
-    private static bool HasFilledNeighbour(Image img, int x, int y)
+    private static void Nuggets(Painter p, Color col)
     {
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            if (dx == 0 && dy == 0) continue;
-            int nx = x + dx, ny = y + dy;
-            if (nx < 0 || nx >= IconSize || ny < 0 || ny >= IconSize) continue;
-            if (img.GetPixel(nx, ny).A > 0.5f) return true;
-        }
-        return false;
+        Shaded(p, q => Sdf.Circle(q, C + new Vector2(-8f, 7f), 9f), col, 7f, 0.65f);
+        Shaded(p, q => Sdf.Circle(q, C + new Vector2(9f, 9f), 7f), col, 5f, 0.65f);
+        Shaded(p, q => Sdf.Circle(q, C + new Vector2(2f, -7f), 8f),
+               ColorRamp.ShiftHsv(col, 0f, 0f, +0.12f), 6f, 0.65f);
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-1f, -10f), 1.7f), Full, Colors.White);
     }
+
+    private static void Spool(Painter p)
+    {
+        var silk = new Color(0.74f, 0.55f, 0.86f);
+        // Thread body.
+        Shaded(p, q => Sdf.Box(q, C, new Vector2(11f, 12f), 4f), silk, 8f, 0.5f);
+        // Thread wraps.
+        for (int i = -2; i <= 2; i++)
+        {
+            float yy = C.Y + i * 4.6f;
+            p.FillSdf(q => Sdf.Capsule(q, new Vector2(C.X - 10f, yy + 1.5f),
+                                       new Vector2(C.X + 10f, yy - 1.5f), 0.9f),
+                      Full, ColorRamp.ShiftHsv(silk, 0f, +0.08f, -0.22f));
+        }
+        // Spool ends.
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(0f, -14f), new Vector2(14f, 3f), 2f), MaterialWood(), 3f);
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(0f, 14f), new Vector2(14f, 3f), 2f), MaterialWood(), 3f);
+    }
+
+    private static void Spices(Painter p)
+    {
+        // Bowl.
+        Shaded(p, q => Sdf.Intersect(Sdf.Circle(q, C + new Vector2(0f, 4f), 15f), q.Y - (C.Y + 4f)),
+               new Color(0.46f, 0.32f, 0.22f), 6f);
+        // Heaped spice mound.
+        Shaded(p, q => Sdf.Intersect(Sdf.Circle(q, C + new Vector2(0f, 6f), 12.5f), (C.Y + 5f) - q.Y),
+               new Color(0.82f, 0.38f, 0.12f), 7f, 0.15f);
+        // Scattered grains.
+        foreach (var (gx, gy) in new[] { (-6f, -4f), (1f, -7f), (7f, -3f), (-2f, -1f) })
+            p.FillSdf(q => Sdf.Circle(q, C + new Vector2(gx, gy), 1.4f), Full,
+                      new Color(0.95f, 0.62f, 0.20f));
+    }
+
+    private static void DyePot(Painter p)
+    {
+        var dye = new Color(0.66f, 0.20f, 0.52f);
+        // Pot body.
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, 6f), new Vector2(13f, 11f)),
+               new Color(0.55f, 0.42f, 0.32f), 9f, 0.25f);
+        // Dye pooling at the rim + a drip down the side.
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(0f, -4f), new Vector2(10.5f, 4.5f)), dye, 4f, 0.55f);
+        Shaded(p, q => Sdf.Capsule(q, C + new Vector2(7f, -3f), C + new Vector2(9f, 7f), 2f), dye, 2f, 0.4f);
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(-4f, -5f), 1.5f), Full,
+                  new Color(0.92f, 0.70f, 0.92f));
+    }
+
+    private static void Cotton(Painter p)
+    {
+        // Stem + leaf first.
+        Shaded(p, q => Sdf.Capsule(q, C + new Vector2(0f, 6f), C + new Vector2(2f, 22f), 1.6f),
+               new Color(0.36f, 0.44f, 0.24f), 1.6f);
+        Shaded(p, q => Sdf.Ellipse(q, C + new Vector2(-6f, 16f), new Vector2(6f, 3f)),
+               new Color(0.40f, 0.50f, 0.28f), 2.5f);
+        // Fluffy boll.
+        Func<Vector2, float> boll = q =>
+        {
+            float d = Sdf.Circle(q, C + new Vector2(0f, -6f), 9f);
+            d = Sdf.SmoothUnion(d, Sdf.Circle(q, C + new Vector2(-9f, -2f), 7f), 5f);
+            d = Sdf.SmoothUnion(d, Sdf.Circle(q, C + new Vector2(9f, -2f), 7f), 5f);
+            return d;
+        };
+        Shaded(p, boll, new Color(0.96f, 0.95f, 0.92f), 7f, 0.1f);
+    }
+
+    private static void Incense(Painter p)
+    {
+        // Smoke wisp.
+        var smoke = new Color(0.80f, 0.82f, 0.88f, 0.7f);
+        p.FillSdf(q => Sdf.QuadBezier(q, C + new Vector2(2f, -22f), C + new Vector2(-8f, -12f),
+                                      C + new Vector2(2f, -2f)) - 1.8f, Full, smoke);
+        // Burner: dome + base with cut vents.
+        Shaded(p, q => Sdf.Intersect(Sdf.Circle(q, C + new Vector2(0f, 8f), 13f), q.Y - (C.Y - 2f)),
+               MaterialGold(), 8f, 0.6f);
+        Shaded(p, q => Sdf.Intersect(Sdf.Circle(q, C + new Vector2(0f, 4f), 11f), (C.Y + 2f) - q.Y),
+               MaterialGold(), 6f, 0.6f);
+        Shaded(p, q => Sdf.Box(q, C + new Vector2(0f, 20f), new Vector2(9f, 2.5f), 2f),
+               new Color(0.55f, 0.40f, 0.18f), 2.5f, 0.4f);
+        p.FillSdf(q => Sdf.Circle(q, C + new Vector2(0f, 0f), 1.6f), Full, new Color(0.30f, 0.18f, 0.10f));
+    }
+
+    private static void Tusks(Painter p)
+    {
+        var ivory = new Color(0.94f, 0.90f, 0.80f);
+        Shaded(p, q => Sdf.QuadBezier(q, C + new Vector2(-14f, 16f), C + new Vector2(-16f, -8f),
+                                      C + new Vector2(2f, -16f)) - 3.6f, ivory, 3.6f, 0.35f);
+        Shaded(p, q => Sdf.QuadBezier(q, C + new Vector2(14f, 16f), C + new Vector2(16f, -8f),
+                                      C + new Vector2(-2f, -16f)) - 3.6f,
+               ColorRamp.ShiftHsv(ivory, 0f, 0f, -0.08f), 3.6f, 0.35f);
+    }
+
+    private static Color MaterialWood() => new(0.45f, 0.30f, 0.17f);
+    private static Color MaterialGold() => new(0.86f, 0.66f, 0.24f);
 }

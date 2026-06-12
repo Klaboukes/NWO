@@ -37,7 +37,7 @@ public partial class WorldOverlay : Node2D
         _animator  = animator;
         _viewer    = viewer;
         _camera    = camera;
-        TextureFilter = TextureFilterEnum.Nearest; // crisp pixel-art icons (resources)
+        TextureFilter = TextureFilterEnum.Linear; // painterly v2: smooth icons (resources)
     }
 
     public void FlashCombat(Vector2I attacker, Vector2I defender)

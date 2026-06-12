@@ -96,6 +96,16 @@ public partial class UIController : CanvasLayer
         _scienceLabel    = GetNode<Label>(_scienceLabelPath);
         _scienceIcon     = GetNode<TextureRect>(_scienceIconPath);
 
+        // Painterly v2 icons are 64px but display smaller: scale them into the
+        // existing layout slot (don't let the texture size inflate the top bar)
+        // and filter Linear per-node — the project-wide canvas default stays
+        // Nearest for the pixel font.
+        foreach (var icon in new[] { _goldIcon, _scienceIcon })
+        {
+            icon.ExpandMode    = TextureRect.ExpandModeEnum.IgnoreSize;
+            icon.StretchMode   = TextureRect.StretchModeEnum.KeepAspectCentered;
+            icon.TextureFilter = CanvasItem.TextureFilterEnum.Linear;
+        }
         _goldIcon.Texture    = HudIconRegistry.For("gold");
         _scienceIcon.Texture = HudIconRegistry.For("science");
         _notifLabel      = GetNode<Label>(_notifLabelPath);

@@ -38,28 +38,34 @@ into `assets/art/` to override it with **minimal/no code change**. See Phase 7 i
 - Add a new `TerrainType` or `Feature` enum value only if introducing genuinely new
   terrain (legality lives in `FeatureRules`; see `tune-map-generation`).
 
-## Unit & city sprites (V7.3)
+## Unit & city sprites (V7.3 / V7.5)
 
-Units and cities are `Sprite3D` billboards (128 px, RGBA8, white fill + dark outline
-so `Sprite3D.Modulate = owner.Color` tints the whole sprite). Textures are resolved
-by `UnitTextureRegistry` / `CityTextureRegistry` in the same placeholder-first pattern:
+Units and cities are `Sprite3D` billboards in **full colour** (painterly v2,
+256 px RGBA8). The body is never owner-tinted: every unit/city always shows a
+separate owner-coloured **banner** sprite (`BannerTextureRegistry`,
+`WorldRenderer.EnsureBanner`), so drop-in art of any palette just works.
+`WorldRenderer` derives `PixelSize` from the texture, so **any square PNG size**
+renders at the correct world size. Textures resolve placeholder-first:
 
 - **Unit sprites**: `res://assets/art/units/<unitId>.png` (e.g. `warrior.png`).
-  Resolved by `UnitTextureRegistry.For(unitId)`. Falls back to `UnitArtGenerator.Generate(unitId)`
-  which synthesises a distinctive 128 px silhouette per unit type.
+  Resolved by `UnitTextureRegistry.For(unitId)`. The committed PNGs are baked
+  from `UnitArtGenerator.Generate(unitId)` (see `generate-terrain-art`).
 - **City sprites**: `res://assets/art/cities/city.png` and `assets/art/cities/capital.png`.
-  Resolved by `CityTextureRegistry.For(isCapital)`. Falls back to `CityArtGenerator.Generate(isCapital)`.
+  Resolved by `CityTextureRegistry.For(isCapital)`; baked from `CityArtGenerator`.
 
 Adding new hand-drawn unit art:
 
-1. Drop `assets/art/units/<unitId>.png` (128 px, RGBA8, white/light fill + dark outline).
+1. Drop `assets/art/units/<unitId>.png` (any square size, RGBA8, transparent
+   background, full colour, soft dark rim so it reads on any terrain).
 2. The registry picks it up automatically — no code change.
 3. Run **`run-checks`**.
 
-Adding a new unit type that needs its own synthesised silhouette:
+Adding a new unit type that needs its own synthesised sprite:
 
-1. Add a `case "<newId>":` branch in `UnitArtGenerator.Generate()` that draws the shape.
-2. Optionally bake it to a PNG and commit under `assets/art/units/<newId>.png`.
+1. Add a `case "<newId>":` recipe in `scripts/art/units/UnitCatalog.cs` (dress the
+   shared `HumanoidPainter` figure or use the ship/vehicle painters). Unknown ids
+   fall back to a shaded disc token, so the game renders either way.
+2. Re-bake (`generate-terrain-art` skill) and commit `assets/art/units/<newId>.png`.
 3. Run **`run-checks`**. The `add-content` skill reminds you of this step.
 
 Keep the selection / fortify / HP overlays (in `WorldOverlay`) intact — they draw over
@@ -74,34 +80,39 @@ baking — synthesized at runtime, real PNG overrides):
 
 - **Resource icons**: `res://assets/art/resources/<resource>.png` (lowercase
   `ResourceType` name, e.g. `wheat.png`, `goldore.png`, `horses.png`).
-  Resolved by `ResourceIconRegistry.For(resourceType)`. Falls back to
-  `ResourceIconGenerator.Generate(resourceType)`, a 32 px RGBA icon whose **shape
-  encodes the tier** (bonus = round token, strategic = ingot bar, luxury = faceted
-  gem) and **colour is per-resource**.
+  Resolved by `ResourceIconRegistry.For(resourceType)`. The committed PNGs are
+  baked from `ResourceIconGenerator.Generate(resourceType)` — a 64 px glossy
+  painterly motif per resource (fish, cow head, wheat sheaf, faceted gem, …)
+  with the shared `IconFx` dark-rim finish.
 - These icons are drawn in 2D screen space (not billboards) at the tile's resource
-  anchor, scaled with zoom; `WorldOverlay` is set to **Nearest** texture filtering so
-  they stay crisp. They are sized for legibility (~half a hex) and unaffected by
-  owner tint.
+  anchor, scaled with zoom; `WorldOverlay` uses **Linear** filtering (painterly
+  v2). They are sized for legibility (~half a hex) and unaffected by owner tint.
 
 Adding new hand-drawn resource art:
 
-1. Drop `assets/art/resources/<resource>.png` (32 px or a clean multiple, RGBA8,
-   transparent background, dark outline so it reads on any terrain).
+1. Drop `assets/art/resources/<resource>.png` (64 px or a clean multiple, RGBA8,
+   transparent background, dark rim so it reads on any terrain).
 2. The registry picks it up automatically — no code change.
 3. Run **`run-checks`**.
 
 Adding a new resource that needs its own synthesised icon:
 
-1. Add the enum value (see `add-content` / the resource pipeline) and give it a colour
-   in `ResourceIconGenerator.BaseColor()`; the tier shape is automatic via
-   `ResourceYields.Tier`.
-2. Optionally drop a real PNG to override the placeholder.
+1. Add the enum value (see `add-content` / the resource pipeline) and a motif
+   case in `ResourceIconGenerator.Generate()` (compose SDF shapes via the
+   painterly library; see neighbouring motifs).
+2. Re-bake (`generate-terrain-art` skill) and commit the PNG.
 3. Run **`run-checks`**.
 
 ## Rendering invariants (don't break these)
 
-- **Nearest-neighbour** filtering everywhere (pixel art must stay crisp — set it on
-  materials/sprites/overlays, no bilinear blur).
+- **Linear** filtering on world art (terrain materials, unit/city sprites, map
+  icons) — painterly v2 is smooth, not pixel-crisp. The exception: the
+  project-wide canvas default in `project.godot` stays **Nearest** for the pixel
+  font; UI icon nodes opt into Linear per-node.
+- Transparent sprites must be **alpha-bled** (RGB dilated into transparent
+  pixels) or Linear filtering shows dark halos — `Canvas.ToImage()` does this
+  automatically for procedural art; hand PNGs should use Godot's
+  `fix_alpha_border` import option.
 - The projection must stay **invertible**: picking (ray → ground plane) and movement
   animation rely on `HexProjection.AxialToWorld` / `WorldToAxial` round-tripping.
   `HexProjection` holds the math; `ProjectionTests` pins the round-trip and the

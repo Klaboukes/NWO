@@ -18,8 +18,8 @@ namespace NWO.Map;
 // File stem: lowercase terrain name, plus "_<feature>" for a vegetation overlay —
 // grassland.png, grassland_forest.png, desert_oasis.png (see the add-art-asset
 // skill). Hills is geometry (a taller prism), not a texture, so it never appears in
-// a stem. All textures use Nearest filtering so pixel art stays crisp under the
-// Civ5-style oblique telephoto camera.
+// a stem. All textures use Linear filtering — the painterly v2 tiles are smooth
+// full-colour art, not pixel art — under the Civ5-style oblique telephoto camera.
 public sealed class TerrainTextureRegistry
 {
     private readonly Dictionary<(TerrainType, Feature), Texture2D>          _textures  = new();
@@ -39,7 +39,7 @@ public sealed class TerrainTextureRegistry
             VertexColorUseAsAlbedo = true,
             Roughness              = 0.95f,
             Metallic               = 0f,
-            TextureFilter          = BaseMaterial3D.TextureFilterEnum.Nearest, // crisp pixel-art
+            TextureFilter          = BaseMaterial3D.TextureFilterEnum.Linear, // painterly v2: smooth, not pixel-crisp
         };
         _materials[(terrain, veg)] = mat;
         return mat;

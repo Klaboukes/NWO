@@ -1,142 +1,92 @@
+using System;
 using Godot;
+using NWO.Art.Icons;
+using NWO.Art.Painterly;
 
 namespace NWO.Art;
 
-// Procedural pixel-art generator for small HUD status icons (Phase 7 V7.4).
+// Procedural painterly generator for HUD status icons (Phase 7 V7.4 / V7.5):
+// 64px glossy full-colour icons in the same family as the resource set (shared
+// IconFx finish). Not Modulate-tinted — they carry their own ramps: a gold coin
+// for the treasury, a cyan flask for science.
 //
-// STYLE  Same family as UnitArtGenerator (dark 1-px outline, transparent RGBA8
-// background) but these icons are *not* Modulate-tinted, so they carry their own
-// full-colour ramps: a gold coin for the treasury and a cyan flask for science.
-// Authored at the display size (32px) with 1-2px features so they stay crisp under
-// nearest-neighbour filtering.
-//
-// DETERMINISM  Generate(iconId) is pure — same id → same Image bytes. Unknown ids
-// fall back to a neutral gold disc so new HUD icons never crash the UI.
+// DETERMINISM  Generate(iconId) is pure — same id → same Image bytes. Unknown
+// ids fall back to a neutral gold disc so new HUD icons never crash the UI.
 public static class HudIconGenerator
 {
-    public const int IconSize = 32;
+    public const int IconSize = 64;
 
-    private static readonly Color Transp  = new(0f, 0f, 0f, 0f);
-    private static readonly Color Outline = new(0.10f, 0.10f, 0.12f);
-
-    // Treasury gold ramp.
-    private static readonly Color GoldDark  = new(0.62f, 0.45f, 0.10f);
-    private static readonly Color GoldMid   = new(0.92f, 0.74f, 0.22f);
-    private static readonly Color GoldLight = new(1.00f, 0.93f, 0.58f);
-
-    // Science cyan ramp (glass + fluid).
-    private static readonly Color Glass      = new(0.78f, 0.90f, 1.00f);
-    private static readonly Color FluidMid   = new(0.28f, 0.66f, 0.94f);
-    private static readonly Color FluidLight = new(0.55f, 0.85f, 1.00f);
-    private static readonly Color Cork       = new(0.55f, 0.40f, 0.26f);
+    private static readonly Vector2 C = new(32f, 32f);
+    private static readonly Rect2 Full = new(2f, 2f, 60f, 60f);
 
     public static Image Generate(string iconId)
     {
-        var img = Image.CreateEmpty(IconSize, IconSize, false, Image.Format.Rgba8);
-        img.Fill(Transp);
+        var canvas  = new Canvas(IconSize);
+        var painter = new Painter(canvas);
 
         switch (iconId)
         {
-            case "gold":    DrawCoin(img);  break;
-            case "science": DrawFlask(img); break;
-            default:        FilledDisc(img, 16, 16, 12, GoldMid); break;
+            case "gold":    Coin(painter);  break;
+            case "science": Flask(painter); break;
+            default:
+                painter.FillShaded(q => Sdf.Circle(q, C, 24f), Full,
+                                   ColorRamp.Painterly(new Color(0.92f, 0.74f, 0.22f)), 16f,
+                                   specular: 0.6f);
+                break;
         }
 
-        ApplyOutline(img);
-        return img;
+        IconFx.Finish(canvas);
+        return canvas.ToImage();
     }
 
-    // Gold coin: filled disc, dark rim + inner ring, upper-left sheen, centre pip.
-    private static void DrawCoin(Image img)
+    // Gold coin: domed disc with a stamped inner ring + diamond pip, hot sheen.
+    private static void Coin(Painter p)
     {
-        const int cx = 16, cy = 16, r = 13;
-        FilledDisc(img, cx, cy, r, GoldMid);
-        Ring(img, cx, cy, r, GoldDark);          // outer rim
-        Ring(img, cx, cy, r - 4, GoldDark);      // inner ring (coin face edge)
-        // Upper-left sheen.
-        FilledDisc(img, cx - 4, cy - 4, 4, GoldLight);
-        // Centre pip (small diamond stamp).
-        for (int dy = -3; dy <= 3; dy++)
-        for (int dx = -3; dx <= 3; dx++)
-            if (Mathf.Abs(dx) + Mathf.Abs(dy) <= 3) Plot(img, cx + dx, cy + dy, GoldDark);
+        var gold = new Color(0.92f, 0.74f, 0.22f);
+        p.FillShaded(q => Sdf.Circle(q, C, 26f), Full, ColorRamp.Painterly(gold, contrast: 1.2f),
+                     16f, specular: 0.7f);
+        // Stamped face: inner ring + diamond pip.
+        p.StrokeSdf(q => Sdf.Circle(q, C, 19f), Full,
+                    new Color(0.55f, 0.40f, 0.10f, 0.85f), 2.2f);
+        Func<Vector2, float> pip = q => Sdf.Box(q, C, new Vector2(7.4f, 7.4f), 1.5f);
+        p.FillShaded(q => pip(new Vector2(C.X + (q.X - C.X) * 0.7071f + (q.Y - C.Y) * 0.7071f,
+                                          C.Y - (q.X - C.X) * 0.7071f + (q.Y - C.Y) * 0.7071f)),
+                     Full, ColorRamp.Painterly(new Color(0.70f, 0.52f, 0.14f)), 4f, specular: 0.5f);
+        // Sheen arc upper-left.
+        p.FillSdf(q => Sdf.Subtract(Sdf.Circle(q, C + new Vector2(-7f, -7f), 14f),
+                                    Sdf.Circle(q, C + new Vector2(-3f, -3f), 13f)),
+                  Full, new Color(1f, 0.96f, 0.75f, 0.75f));
     }
 
-    // Erlenmeyer flask: narrow neck widening to a triangular body, lower ~half
-    // filled with cyan fluid (bright surface line), small cork at the top.
-    private static void DrawFlask(Image img)
+    // Erlenmeyer flask: pale glass silhouette, cyan fluid in the body, cork,
+    // rising bubbles, and a vertical glass glint.
+    private static void Flask(Painter p)
     {
-        const int cx = 16;
-        // Silhouette (glass) — neck then flared body.
-        for (int y = 6; y <= 27; y++)
+        var glassPts = new[]
         {
-            int hw = y <= 13
-                ? 3                                   // neck
-                : 3 + (y - 13) * 9 / 14;              // body flare → ~12 at base
-            for (int dx = -hw; dx <= hw; dx++) Plot(img, cx + dx, y, Glass);
-        }
-
-        // Fluid fills the lower body.
-        for (int y = 19; y <= 27; y++)
-        {
-            int hw = 3 + (y - 13) * 9 / 14;
-            for (int dx = -hw; dx <= hw; dx++) Plot(img, cx + dx, y, FluidMid);
-        }
-        // Bright fluid surface line.
-        for (int dx = -6; dx <= 6; dx++) Plot(img, cx + dx, 19, FluidLight);
-
-        // Cork at the top of the neck.
-        for (int y = 4; y <= 6; y++)
-        for (int dx = -3; dx <= 3; dx++) Plot(img, cx + dx, y, Cork);
-    }
-
-    // ── Outline pass (mirrors UnitArtGenerator) ─────────────────────────────────
-
-    private static void ApplyOutline(Image img)
-    {
-        var pts = new System.Collections.Generic.List<(int x, int y)>();
-        for (int y = 0; y < IconSize; y++)
-        for (int x = 0; x < IconSize; x++)
-        {
-            if (img.GetPixel(x, y).A > 0.5f) continue;
-            if (HasFilledNeighbour(img, x, y)) pts.Add((x, y));
-        }
-        foreach (var (x, y) in pts) img.SetPixel(x, y, Outline);
-    }
-
-    private static bool HasFilledNeighbour(Image img, int x, int y)
-    {
-        for (int dy = -1; dy <= 1; dy++)
-        for (int dx = -1; dx <= 1; dx++)
-        {
-            if (dx == 0 && dy == 0) continue;
-            int nx = x + dx, ny = y + dy;
-            if (nx < 0 || nx >= IconSize || ny < 0 || ny >= IconSize) continue;
-            if (img.GetPixel(nx, ny).A > 0.5f) return true;
-        }
-        return false;
-    }
-
-    // ── Drawing helpers ─────────────────────────────────────────────────────────
-
-    private static void Plot(Image img, int x, int y, Color c)
-    {
-        if (x >= 0 && x < IconSize && y >= 0 && y < IconSize) img.SetPixel(x, y, c);
-    }
-
-    private static void FilledDisc(Image img, int cx, int cy, int r, Color c)
-    {
-        for (int dy = -r; dy <= r; dy++)
-        for (int dx = -r; dx <= r; dx++)
-            if (dx * dx + dy * dy <= r * r) Plot(img, cx + dx, cy + dy, c);
-    }
-
-    private static void Ring(Image img, int cx, int cy, int r, Color c)
-    {
-        for (int dy = -r; dy <= r; dy++)
-        for (int dx = -r; dx <= r; dx++)
-        {
-            int d2 = dx * dx + dy * dy;
-            if (d2 <= r * r && d2 > (r - 1) * (r - 1)) Plot(img, cx + dx, cy + dy, c);
-        }
+            C + new Vector2(-5f, -24f), C + new Vector2(5f, -24f),
+            C + new Vector2(5f, -6f),   C + new Vector2(17f, 22f),
+            C + new Vector2(-17f, 22f), C + new Vector2(-5f, -6f),
+        };
+        Func<Vector2, float> glass = q => Sdf.Polygon(q, glassPts);
+        p.FillShaded(glass, Full, ColorRamp.Painterly(new Color(0.80f, 0.90f, 0.97f), contrast: 0.6f),
+                     8f, specular: 0.5f);
+        // Fluid: glass ∩ lower half-plane (inside below the surface line).
+        float fluidY = C.Y + 6f;
+        p.FillShaded(q => Sdf.Intersect(glass(q) + 2f, fluidY - q.Y),
+                     Full, ColorRamp.Painterly(new Color(0.24f, 0.62f, 0.92f)), 6f, specular: 0.4f);
+        // Bright surface line.
+        p.FillSdf(q => Sdf.Capsule(q, new Vector2(C.X - 10f, fluidY), new Vector2(C.X + 10f, fluidY), 1.1f),
+                  Full, new Color(0.62f, 0.88f, 1f, 0.9f));
+        // Bubbles.
+        foreach (var (bx, by, br) in new[] { (-4f, 12f, 1.6f), (3f, 9f, 1.2f), (-1f, 16f, 1.1f) })
+            p.FillSdf(q => Sdf.Circle(q, C + new Vector2(bx, by), br), Full,
+                      new Color(0.78f, 0.94f, 1f, 0.85f));
+        // Cork.
+        p.FillShaded(q => Sdf.Box(q, C + new Vector2(0f, -26f), new Vector2(6f, 4f), 1.5f),
+                     Full, ColorRamp.Painterly(new Color(0.55f, 0.40f, 0.26f)), 3.5f);
+        // Glass glint.
+        p.FillSdf(q => Sdf.Capsule(q, C + new Vector2(-8f, 0f), C + new Vector2(-11f, 16f), 1.3f),
+                  Full, new Color(1f, 1f, 1f, 0.55f));
     }
 }

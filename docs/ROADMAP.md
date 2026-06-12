@@ -86,6 +86,21 @@ placeholders first (mirrors the `AudioManager` pattern).
 - [x] **V7.4 — HUD / UI polish.** A Godot `Theme` (pixel font, restyled
       panels/buttons/bars), framed minimap. Independent of the renderer. *Done
       when:* the HUD reads as a cohesive styled UI.
+- [x] **V7.5 — Procedural art v2 (painterly).** Full-colour, 3D-shaded art across
+      all five categories, replacing the pixel-art generators. A shared painting
+      library (`scripts/art/painterly/`: AA SDF shapes, height-field relief
+      lighting from one upper-left sun, hue-shifted ramps, sprite post-FX;
+      headless-tested) drives: 256px terrain tiles (lit dunes/waves/massifs,
+      shaded canopies), 256px full-colour unit sprites (all 19 ids: parametric
+      figure + ships/vehicles/mount), depth-layered city/capital sprites, and
+      64px glossy resource/HUD icons. Team colour moved off the body onto an
+      always-shown banner (`WorldRenderer` never tints sprites; `PixelSize`
+      derives from texture size so any square PNG drops in). Nearest → Linear
+      filtering on world art (pixel-font canvas default untouched); transparent
+      sprites alpha-bled for halo-free Linear sampling. All ~61 assets baked
+      deterministically by `BakeAllArt` (retired `BakeTerrainTiles`); see the
+      `generate-terrain-art` skill. *Done:* all checks green; in-game look needs
+      a human F5 pass.
 
 ---
 
